@@ -1,6 +1,6 @@
 # Simple HTTP Provider
 
-This extension bundles a real `simple` provider definition with a hosted configuration UI.
+This extension bundles a `simple` provider definition with a hosted configuration UI.
 
 It depends on the project extension `anthori.agent.foundation`, which contributes the shared hidden text-provider base that this package specializes.
 

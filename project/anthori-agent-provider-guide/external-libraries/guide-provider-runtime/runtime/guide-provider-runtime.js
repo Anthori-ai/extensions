@@ -212,7 +212,7 @@ rule(
   function (text, ctx) {
     if (ctx.turnCount === 0) {
       return pick([
-        "Hello! I'm Guide, a built-in helper for this app. I'm not an AI model \u2014 think of me more like a friendly handbook. I can help you get started, explain how things work, or walk you through setting up a real model provider. What would you like to know?",
+        "Hello! I'm Guide, a built-in helper for this app. I'm not an AI model \u2014 think of me more like a friendly handbook. I can help you get started, explain how things work, or walk you through setting up a model provider. What would you like to know?",
         "Hey there! I'm Guide. I'm a simple pattern-matching bot, not a language model, but I know quite a bit about this app. I can help you set up providers like OpenAI, Anthropic, or LM Studio. What's on your mind?",
         "Hi! I'm Guide \u2014 a scripted assistant in the tradition of the classic chatbots. No neural networks here, just pattern matching and a knowledge base. I can walk you through getting set up. Where would you like to start?"
       ]);
@@ -229,14 +229,14 @@ rule(
 
 rule(
   function (text) {
-    return hasAny(text, ["who are you", "what are you", "are you ai", "are you real", "are you a bot",
+    return hasAny(text, ["who are you", "what are you", "are you ai", "are you a bot",
       "are you an ai", "are you a human", "are you a language model", "are you claude", "what model"]);
   },
   function () {
     return pick([
-      "I'm Guide \u2014 a rule-based chatbot built into this app. No language model, no neural network, no API calls. Just pattern matching and hand-written responses, very much in the spirit of ELIZA (1966). My purpose is to help you get oriented and set up a real model provider when you're ready.",
+      "I'm Guide \u2014 a rule-based chatbot built into this app. No language model, no neural network, no API calls. Just pattern matching and hand-written responses, very much in the spirit of ELIZA (1966). My purpose is to help you get oriented and set up a model provider when you're ready.",
       "I'm a scripted assistant, not a language model. Think ELIZA meets a user manual. I can't reason or generate novel text, but I know the ins and outs of this app and can walk you through setting things up.",
-      "Not an AI in the modern sense! I'm a pattern-matching bot \u2014 more like A.L.I.C.E. (1995) than a modern assistant. I'm here to help you get started. Once you set up a real provider, you'll have a proper language model to talk to."
+      "Not an AI in the modern sense! I'm a pattern-matching bot \u2014 more like A.L.I.C.E. (1995) than a modern assistant. I'm here to help you get started. Once you set up a model provider, you'll have a proper language model to talk to."
     ]);
   }
 );
@@ -255,7 +255,7 @@ rule(
       "\u2022 **Setting up providers** \u2014 connecting OpenAI, Anthropic, LM Studio, Ollama, or a custom endpoint\n" +
       "\u2022 **Explaining concepts** \u2014 agents, tools, projects, graphs, extensions\n" +
       "\u2022 **Pointing you in the right direction** \u2014 where to find settings, workspace, etc.\n\n" +
-      "I'm not a language model, so I can't write code, analyze data, or have open-ended conversations. For that, you'll want to set up a real provider. Want me to walk you through it?";
+      "I'm not a language model, so I can't write code, analyze data, or have open-ended conversations. For that, you'll want to set up a model provider. Want me to walk you through it?";
   }
 );
 
@@ -271,7 +271,7 @@ rule(
     return "Here's the short version:\n\n" +
       "1. **Set up a provider** \u2014 this connects the app to a language model (OpenAI, Anthropic, LM Studio, Ollama, etc.)\n" +
       "2. **Create or open a project** \u2014 projects contain graphs, which are visual workflows\n" +
-      "3. **Use the assistant** \u2014 once a provider is connected, the chat panel and assistant cursor can talk to real models\n\n" +
+      "3. **Use the assistant** \u2014 once a provider is connected, the chat panel and assistant cursor can talk to language models\n\n" +
       "The most important first step is setting up a provider. Would you like help with that? Just tell me which service you'd like to use \u2014 or say \"providers\" to see all the options.";
   }
 );
@@ -569,8 +569,8 @@ rule(
   },
   function () {
     return pick([
-      "I understand the frustration. I'm just a simple pattern matcher \u2014 I have real limits. If you set up a provider like OpenAI or Anthropic, you'll get a much more capable conversational partner.",
-      "Fair enough \u2014 I'm a very simple bot. I can't do what a real language model can. Want me to help you set one up? That's genuinely the thing I'm best at.",
+      "I understand the frustration. I'm just a simple pattern matcher \u2014 I have clear limits. If you set up a provider like OpenAI or Anthropic, you'll get a much more capable conversational partner.",
+      "Fair enough \u2014 I'm a very simple bot. I can't do what a language model can. Want me to help you set one up? That's genuinely the thing I'm best at.",
       "I hear you. I'm about as sophisticated as a 1966 chatbot, which is to say: not very. But I can point you toward setting up something much better. Shall I?"
     ]);
   }
@@ -589,7 +589,7 @@ rule(
         "Why do you feel " + reflect(after) + "?",
         "What makes you feel " + reflect(after) + "?",
         "Tell me more about feeling " + reflect(after) + "."
-      ]) + "\n\n(Though I should mention \u2014 I'm a setup guide, not a therapist. For real conversations, you'll want a proper model provider!)";
+      ]) + "\n\n(Though I should mention \u2014 I'm a setup guide, not a therapist. For open-ended conversations, you'll want a proper model provider!)";
     }
     return "I'm more of a technical guide than a conversationalist. But I'm happy to listen! What's on your mind?";
   }
@@ -605,7 +605,7 @@ rule(
       return "Great \u2014 I can help with that! Which provider interests you: OpenAI, Anthropic, LM Studio, Ollama, or Simple HTTP?";
     }
     if (after) {
-      return "You want " + reflect(after) + "? I might be able to help if it's related to setting up the app. Otherwise, a real model provider would be much better at this kind of conversation.";
+      return "You want " + reflect(after) + "? I might be able to help if it's related to setting up the app. Otherwise, a model provider would be much better at this kind of conversation.";
     }
     return "What do you need? I'm best at helping with app setup and provider configuration.";
   }
@@ -635,9 +635,9 @@ rule(
   },
   function () {
     return pick([
-      "That's a deeper question than my pattern matching can handle! A real language model could give you a much more thoughtful answer. Want me to help you set up a provider?",
+      "That's a deeper question than my pattern matching can handle! A language model could give you a much more thoughtful answer. Want me to help you set up a provider?",
       "Good question. Unfortunately I work with keyword matching, not reasoning. To get answers to 'why' questions, you'll want a proper model. I can help you connect one!",
-      "I wish I could reason about that, but I'm a scripted bot \u2014 ELIZA's grandchild. For real answers, let's get you set up with an AI model. Which provider interests you?"
+      "I wish I could reason about that, but I'm a scripted bot \u2014 ELIZA's grandchild. For better answers, let's get you set up with an AI model. Which provider interests you?"
     ]);
   }
 );
@@ -649,7 +649,7 @@ rule(
   },
   function () {
     return pick([
-      "I'm best at answering 'how' questions about app setup and providers. For general how-to questions, a real model would serve you much better. Want me to help you connect one?",
+      "I'm best at answering 'how' questions about app setup and providers. For general how-to questions, a model would serve you much better. Want me to help you connect one?",
       "That's outside my scripted knowledge base. I'm purpose-built for helping with app setup. For broader questions, you'll want a language model \u2014 shall I walk you through setting up a provider?"
     ]);
   }
@@ -664,7 +664,7 @@ rule(
   function () {
     return pick([
       "42, obviously. But for more philosophical depth, you'll want a model with actual reasoning capabilities. I'm just a pattern matcher with a sense of humor.",
-      "A question for the ages! And definitely not for a rule-based chatbot. Set up a real provider and ask Claude or GPT \u2014 they'll have much more to say about it."
+      "A question for the ages! And definitely not for a rule-based chatbot. Set up a provider and ask Claude or GPT \u2014 they'll have much more to say about it."
     ]);
   }
 );
@@ -711,8 +711,8 @@ rule(
 
     if (isQuestion && reflected !== normalize(text)) {
       return pick([
-        "You're asking about " + reflected + "? That's beyond what I can help with \u2014 I'm a scripted guide, not a thinker. But I'm great at helping you set up a provider so you can ask a real model!",
-        "Interesting question. My pattern matching doesn't cover that, but a real language model would have a lot to say. Want me to help you get one connected?"
+        "You're asking about " + reflected + "? That's beyond what I can help with \u2014 I'm a scripted guide, not a thinker. But I'm great at helping you set up a provider so you can ask a model!",
+        "Interesting question. My pattern matching doesn't cover that, but a language model would have a lot to say. Want me to help you get one connected?"
       ]);
     }
 

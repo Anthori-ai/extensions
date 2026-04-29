@@ -1,6 +1,6 @@
 # LM Studio Provider
 
-This extension bundles a real `lmstudio` provider definition with hosted configuration UI.
+This extension bundles an `lmstudio` provider definition with hosted configuration UI.
 
 It depends on the project extension `anthori.agent.foundation`, which contributes the shared hidden text-provider base that this package specializes.
 

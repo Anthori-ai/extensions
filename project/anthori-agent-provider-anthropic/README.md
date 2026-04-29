@@ -1,6 +1,6 @@
 # Anthropic Provider
 
-This extension bundles a real `anthropic-provider` definition with a hosted configuration UI.
+This extension bundles an `anthropic-provider` definition with a hosted configuration UI.
 
 It depends on the project extension `anthori.agent.foundation`, which contributes the shared hidden text-provider base that this package specializes.
 

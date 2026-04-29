@@ -1,6 +1,6 @@
 # OpenAI Provider
 
-This package bundles a real `openai-provider` definition with a hosted configuration UI and bundled runtime library.
+This package bundles an `openai-provider` definition with a hosted configuration UI and bundled runtime library.
 
 It is intentionally API-key-only for public distribution.
 

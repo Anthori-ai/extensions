@@ -1,6 +1,6 @@
 # Ollama Provider
 
-This extension bundles a real `ollama-provider` provider definition with hosted configuration UI.
+This extension bundles an `ollama-provider` provider definition with hosted configuration UI.
 
 It depends on `anthori.agent.foundation` for the shared text-provider base and `anthori.agent.provider.openai-compatible-runtime` for the runtime library.
 

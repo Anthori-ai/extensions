@@ -59,6 +59,6 @@ control:
         - title: NOTES
           kind: text
           text: |
-            Passthrough adds one real control boundary in front of connected Controls.
+            Passthrough adds one concrete control boundary in front of connected Controls.
 
             Hosts that expose connected controls from controlTarget[] bindings can flatten those connected controls so callers see them as if they were attached directly, while runtime still invokes through Passthrough first.

@@ -421,7 +421,7 @@ function selectorControl(payload, host) {
   const invoked = invokeGraphControl(host, targetID, inputValue(payload), detailsRequested(payload), metadataRequested(payload));
   if (!invoked || invoked.ok === false) {
     // Selector is a transparent pass-through; propagate selected-control failures as
-    // real control errors so wrapper output validation does not misreport them
+    // underlying control errors so wrapper output validation does not misreport them
     // as selector output-contract mismatches.
     throw new Error(invokedErrorMessage(invoked, "selected control invoke failed"));
   }
