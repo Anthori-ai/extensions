@@ -41,4 +41,3 @@ Bundled provider runtime library ID: `anthropic-provider-runtime`
 ## Notes
 
 - This extension externalizes the provider definition, hosted UI, and Anthropic text dispatch path.
-- There is no separate Anthropic OAuth/device-auth host flow here; Anthropic still uses API-key configuration.

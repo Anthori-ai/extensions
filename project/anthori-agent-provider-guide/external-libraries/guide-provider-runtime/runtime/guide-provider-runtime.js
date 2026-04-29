@@ -230,13 +230,13 @@ rule(
 rule(
   function (text) {
     return hasAny(text, ["who are you", "what are you", "are you ai", "are you real", "are you a bot",
-      "are you an ai", "are you a human", "are you chatgpt", "are you claude", "what model"]);
+      "are you an ai", "are you a human", "are you a language model", "are you claude", "what model"]);
   },
   function () {
     return pick([
       "I'm Guide \u2014 a rule-based chatbot built into this app. No language model, no neural network, no API calls. Just pattern matching and hand-written responses, very much in the spirit of ELIZA (1966). My purpose is to help you get oriented and set up a real model provider when you're ready.",
       "I'm a scripted assistant, not a language model. Think ELIZA meets a user manual. I can't reason or generate novel text, but I know the ins and outs of this app and can walk you through setting things up.",
-      "Not an AI in the modern sense! I'm a pattern-matching bot \u2014 more like A.L.I.C.E. (1995) than ChatGPT. I'm here to help you get started. Once you set up a real provider, you'll have a proper language model to talk to."
+      "Not an AI in the modern sense! I'm a pattern-matching bot \u2014 more like A.L.I.C.E. (1995) than a modern assistant. I'm here to help you get started. Once you set up a real provider, you'll have a proper language model to talk to."
     ]);
   }
 );
@@ -284,7 +284,7 @@ rule(
   },
   function () {
     return "The app supports several model providers:\n\n" +
-      "\u2022 **OpenAI** \u2014 GPT models, most popular option, requires an API key or ChatGPT account\n" +
+      "\u2022 **OpenAI** \u2014 GPT models, most popular option, requires an API key\n" +
       "\u2022 **Anthropic** \u2014 Claude models, strong reasoning and coding, requires an API key\n" +
       "\u2022 **LM Studio** \u2014 run models locally on your machine, free, no API key needed\n" +
       "\u2022 **Ollama** \u2014 run pulled local models through the Ollama server, no API key needed\n" +
@@ -303,14 +303,12 @@ rule(
         "1. Open **Settings** (gear icon or the app menu)\n" +
         "2. Go to the **Providers** section\n" +
         "3. Click **Add Provider** and select **OpenAI**\n" +
-        "4. Choose your authentication method:\n" +
-        "   \u2022 **API Key** \u2014 paste a key from platform.openai.com/api-keys\n" +
-        "   \u2022 **ChatGPT Account** \u2014 sign in with your existing ChatGPT account\n" +
+        "4. Paste an API key from platform.openai.com/api-keys\n" +
         "5. Save, and you're connected!\n\n" +
         "The provider will then be available in any project's agent configuration.";
     }
     return pick([
-      "OpenAI gives you access to the GPT model family. You'll need either an API key from platform.openai.com or a ChatGPT account. Want me to walk you through the setup steps?",
+      "OpenAI gives you access to the GPT model family. You'll need an API key from platform.openai.com. Want me to walk you through the setup steps?",
       "Good choice \u2014 OpenAI is the most widely used option. They offer models ranging from fast and cheap to very capable. Shall I explain how to connect it?"
     ]);
   }
