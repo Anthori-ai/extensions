@@ -1,8 +1,8 @@
 # OpenAI Provider
 
-This production variant bundles a real `openai-provider` definition with a hosted configuration UI and bundled runtime library.
+This package bundles a real `openai-provider` definition with a hosted configuration UI and bundled runtime library.
 
-It is intentionally API-key-only. The sibling `.debug` variant keeps the ChatGPT OAuth flow for debug builds, but production builds do not ship the embedded OAuth client id.
+It is intentionally API-key-only for public distribution.
 
 It depends on the project extension `anthori.agent.foundation`, which contributes the shared hidden text-provider base that this package specializes.
 
