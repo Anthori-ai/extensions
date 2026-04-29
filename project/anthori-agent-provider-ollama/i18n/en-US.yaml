@@ -1,0 +1,36 @@
+bundle:
+  namespace: anthori.agent.provider.ollama
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.ollama.config.baseUrl.help
+    kind: field_tip
+    target: providers.ollama.config.baseUrl
+    format: text
+    text: Ollama server root URL. Do not include /v1 or any path suffix.
+  - key: provider.ollama.config.model.help
+    kind: field_tip
+    target: providers.ollama.config.model
+    format: text
+    text: Optional default model id for controls and assistant requests that do not override it.
+  - key: provider.ollama.config.reasoning.help
+    kind: field_tip
+    target: providers.ollama.config.reasoning
+    format: text
+    text: Default reasoning hint for Ollama requests from this provider config.
+  - key: provider.ollama.ui.baseUrl.help
+    kind: field_tip
+    target: providers.ollama.ui.baseUrl
+    format: text
+    text: Base URL for the Ollama local server API.
+  - key: provider.ollama.ui.model.help
+    kind: field_tip
+    target: providers.ollama.ui.model
+    format: text
+    text: Optional default model to use when a control does not set one.
+  - key: provider.ollama.ui.reasoning.help
+    kind: field_tip
+    target: providers.ollama.ui.reasoning
+    format: text
+    text: Default reasoning hint for Ollama requests from this provider config.

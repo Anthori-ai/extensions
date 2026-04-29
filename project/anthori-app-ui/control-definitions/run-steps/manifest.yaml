@@ -1,0 +1,39 @@
+format: 1
+id: run-steps
+name: Run Steps
+description: Execute a short validated UI step sequence with interruption checks.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Run Steps
+        description: Execute a short validated UI step sequence with interruption checks.
+        input:
+          type: object
+          description: UI step run request.
+          properties:
+            steps:
+              type: array
+              description: Ordered list of UI steps to execute.
+            options:
+              type: object
+              description: Optional runner settings such as pauseBetweenSteps and pauseMs.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: runSteps
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 30

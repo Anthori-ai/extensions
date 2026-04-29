@@ -1,0 +1,20 @@
+format: 1
+id: anthori-project-runtime
+name: Project Runtime
+version: 1.0.0
+entry: runtime/anthori-project-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: create
+  - id: copy
+  - id: delete
+  - id: export
+  - id: import
+  - id: list
+  - id: rename
+  - id: workspace
+  - id: settings

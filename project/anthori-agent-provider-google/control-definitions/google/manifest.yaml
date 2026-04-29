@@ -1,0 +1,32 @@
+format: 1
+id: google
+name: Google
+description: Google text provider control for Gemini models.
+baseControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+control:
+  configSchema:
+    providerDefinitionId:
+      type: string
+      default: google-provider
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.agent-text.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        supportsPin: true
+        helpKey: core.textProvider.providerRef.help
+        dataSource:
+          filters:
+            interface: anthori.agent-text.v1
+            definitionId: google-provider
+      - key: llmModel
+        label: Model
+        type: select
+        supportsPin: true
+        helpKey: core.textProvider.llmModel.help
+        dataSource:
+          kind: providerModels
+          emptyLabel: Inherit provider model

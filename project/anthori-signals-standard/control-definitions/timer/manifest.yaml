@@ -1,0 +1,82 @@
+format: 1
+id: timer
+name: Timer
+description: Recurring time signal that becomes ready at a configured interval while a Control waits on it.
+baseControlRef: controls/1/extensions/anthori.signals.standard/definitions/signal-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Timer
+        description: Checks whether this timer is ready right now.
+        input:
+          anyOf:
+            - type: void
+              description: Check this signal with no input.
+            - type: object
+              description: Check this signal with an empty object input.
+              additionalProperties: false
+        output:
+          anyOf:
+            - enum:
+                - false
+              description: No timer event is ready.
+            - type: object
+              description: Timer event.
+              required:
+                - kind
+                - type
+                - intervalMs
+                - sequence
+                - scheduledFor
+                - firedAt
+              properties:
+                kind:
+                  enum:
+                    - timer
+                  description: Signal kind.
+                type:
+                  enum:
+                    - timer
+                  description: Event type.
+                intervalMs:
+                  type: number
+                  description: Configured interval in milliseconds.
+                sequence:
+                  type: number
+                  description: Timer event number for this execution.
+                scheduledFor:
+                  type: string
+                  description: Scheduled UTC time for this event.
+                firedAt:
+                  type: string
+                  description: UTC time when this event was checked.
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: timer-control
+    intervalMs:
+      type: number
+      default: 1
+      minimum: 1
+      description: Required interval in milliseconds between timer events. Must be at least 1.
+    immediate:
+      type: boolean
+      description: When true, the first timer event is ready immediately when the current execution first probes the signal.
+  ui:
+    fields:
+      - key: intervalMs
+        label: Interval
+        type: number
+        supportsPort: true
+        supportsPin: true
+        helpKey: core.signals.timer.intervalMs.help
+      - key: immediate
+        label: Immediate
+        type: checkbox
+        supportsPort: true
+        supportsPin: true
+        helpKey: core.signals.timer.immediate.help

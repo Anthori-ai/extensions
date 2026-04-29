@@ -1,0 +1,50 @@
+format: 1
+id: shutdown
+name: Shutdown
+description: Execution-lifecycle signal that becomes ready when graceful shutdown is requested.
+baseControlRef: controls/1/extensions/anthori.signals.standard/definitions/signal-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Shutdown
+        description: Checks whether graceful shutdown has been requested.
+        input:
+          anyOf:
+            - type: void
+              description: Check this signal with no input.
+            - type: object
+              description: Check this signal with an empty object input.
+              additionalProperties: false
+        output:
+          anyOf:
+            - enum:
+                - false
+              description: No shutdown event is ready.
+            - type: object
+              description: Shutdown event.
+              required:
+                - kind
+              properties:
+                kind:
+                  enum:
+                    - shutdown
+                  description: Signal kind.
+                reason:
+                  type: string
+                  description: Optional shutdown reason.
+                deadline:
+                  type: string
+                  description: Shutdown deadline in UTC.
+                remainingSeconds:
+                  type: number
+                  description: Seconds remaining until the deadline.
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shutdown-control
+  ui:
+    fields: []

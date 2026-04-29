@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.storage.provider.sqlite"
+  owner: "Anthori"
+  locale: "ko-KR"
+  version: 1
+entries:
+  - key: "provider.sqlite.config.path.help"
+    kind: "field_tip"
+    target: "provider.sqlite.config.path"
+    format: "text"
+    text: "절대 경로로 SQLite 파일 경로를 입력해야 합니다. 파일 위치를 선택하기 위해 피커를 사용하세요."

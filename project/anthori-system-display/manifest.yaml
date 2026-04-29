@@ -1,0 +1,28 @@
+format: 1
+id: anthori.system.display
+name: Display
+scope: project
+version: 1.0.0
+description: First-party display and input controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - System
+  - Display
+supportedOs:
+  - mac
+  - windows
+externalLibraries:
+  - external-libraries/anthori-display-runtime
+controlDefinitions:
+  - control-definitions/display-base
+  - control-definitions/list
+  - control-definitions/screenshot
+  - control-definitions/type
+  - control-definitions/keycodes
+  - control-definitions/key-down
+  - control-definitions/key-up
+  - control-definitions/key-chord
+  - control-definitions/mouse-move
+  - control-definitions/mouse-click
+  - control-definitions/mouse-drag
+  - control-definitions/mouse-scroll

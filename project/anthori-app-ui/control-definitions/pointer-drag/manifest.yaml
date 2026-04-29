@@ -1,0 +1,62 @@
+format: 1
+id: pointer-drag
+name: Pointer Drag
+description: Drag the UI pointer between two Anthori points or targets.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pointer Drag
+        description: Drag the UI pointer between two Anthori points or targets.
+        input:
+          type: object
+          description: Pointer drag request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id.
+            fromTargetId:
+              type: string
+              description: Optional AI target id for the drag start.
+            toTargetId:
+              type: string
+              description: Optional AI target id for the drag end.
+            fromX:
+              type: number
+              description: Viewport X coordinate for the drag start.
+            fromY:
+              type: number
+              description: Viewport Y coordinate for the drag start.
+            toX:
+              type: number
+              description: Viewport X coordinate for the drag end.
+            toY:
+              type: number
+              description: Viewport Y coordinate for the drag end.
+            button:
+              type: string
+              description: "Mouse button: left, middle, or right."
+            steps:
+              type: number
+              description: Number of intermediate drag move steps.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before dragging.
+            modifiers:
+              type: object
+              description: Optional modifier state with ctrl, shift, alt, and meta booleans.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pointerDrag

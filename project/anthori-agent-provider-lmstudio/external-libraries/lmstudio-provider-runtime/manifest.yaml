@@ -1,0 +1,16 @@
+format: 1
+id: lmstudio-provider-runtime
+name: LM Studio Provider Runtime
+description: Runtime library for LM Studio text generation and model listing.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/lmstudio-provider-runtime.js
+actions:
+  - id: respond-text
+    name: Respond Text
+    description: Send a generic text request to the configured LM Studio server.
+  - id: list-models
+    name: List Models
+    description: Query the configured LM Studio server for available models.

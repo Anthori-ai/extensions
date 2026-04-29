@@ -1,0 +1,8 @@
+id: anthori-agent-standard-runtime
+name: Anthori Agent Standard Runtime
+description: Runtime helpers for visible first-party agent controls such as Agent Storage.
+entry: runtime/anthori-agent-standard-runtime.js
+timeoutSeconds: 10
+actions:
+  - id: agent-storage-control
+    name: Agent Storage Control

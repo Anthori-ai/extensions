@@ -1,0 +1,19 @@
+format: 1
+id: anthori.composition.standard
+name: Composition
+scope: project
+version: 1.0.2
+description: First-party generic composition controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - Composition
+  - Standard
+externalLibraries:
+  - external-libraries/anthori-composition-runtime
+controlDefinitions:
+  - control-definitions/bundle-base
+  - control-definitions/bundle
+  - control-definitions/passthrough-base
+  - control-definitions/passthrough
+  - control-definitions/selector-base
+  - control-definitions/selector

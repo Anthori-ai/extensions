@@ -1,0 +1,44 @@
+format: 1
+id: eval
+name: Eval
+description: Execute JavaScript in the page context.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Eval
+        description: Execute JavaScript in the page context.
+        input:
+          type: object
+          description: Page JavaScript request.
+          required:
+            - windowId
+            - script
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            script:
+              type: string
+              description: JavaScript source to execute.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: eval

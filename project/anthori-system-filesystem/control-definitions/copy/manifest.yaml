@@ -1,0 +1,45 @@
+format: 1
+id: copy
+name: Copy
+description: Copies files or directories inside the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Copy
+        description: Copy a file or directory to a new workspace path.
+        input:
+          type: object
+          description: Copy request.
+          required:
+            - source
+            - destination
+          properties:
+            source:
+              type: string
+              description: Source path relative to the project workspace, or an absolute path.
+            destination:
+              type: string
+              description: Destination path relative to the project workspace, or an absolute path.
+          additionalProperties: false
+        output:
+          type: object
+          description: Copy result.
+          required:
+            - bytesCopied
+            - entriesCopied
+          properties:
+            bytesCopied:
+              type: number
+              description: Total bytes copied for file contents.
+            entriesCopied:
+              type: number
+              description: Total file-system entries copied, including directories.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: copy

@@ -1,0 +1,31 @@
+format: 1
+id: sqlite
+name: SQLite
+version: 1.0.0
+description: Local SQLite-backed storage provider for KV and relational state.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - storage/kv
+  - storage/table
+interfaces:
+  - anthori.storage-kv.v1
+  - anthori.storage-table.v1
+runtime:
+  kind: library
+  libraryId: sqlite-provider-runtime
+  actions:
+    resolveSQLitePath: resolve-sqlite-path
+configSchema:
+  fields:
+    path:
+      type: string
+      required: true
+      label: Database Path
+      picker: storageFile
+      placeholder: /absolute/path/main.sqlite
+      helpKey: provider.sqlite.config.path.help
+control:
+  visible: false

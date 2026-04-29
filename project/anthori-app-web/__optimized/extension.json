@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "manifestFile": "manifest.yaml",
+  "manifest": {
+    "id": "anthori.app.web",
+    "name": "Web",
+    "scope": "project",
+    "version": "1.0.0",
+    "description": "First-party browser automation and inspection controls packaged as extension-owned executable controls.",
+    "catalogPath": [
+      "Anthori",
+      "App",
+      "Web"
+    ],
+    "supportedOs": [
+      "mac",
+      "windows"
+    ],
+    "catalogVisibility": {},
+    "lifecycle": {
+      "install": {},
+      "uninstall": {}
+    },
+    "externalLibraries": [
+      "external-libraries/anthori-web-runtime"
+    ],
+    "controlDefinitions": [
+      "control-definitions/assistant",
+      "control-definitions/back",
+      "control-definitions/click",
+      "control-definitions/close",
+      "control-definitions/download",
+      "control-definitions/eval",
+      "control-definitions/find",
+      "control-definitions/focus",
+      "control-definitions/forward",
+      "control-definitions/html",
+      "control-definitions/keys",
+      "control-definitions/layout",
+      "control-definitions/list",
+      "control-definitions/load",
+      "control-definitions/element",
+      "control-definitions/open",
+      "control-definitions/refresh",
+      "control-definitions/scroll",
+      "control-definitions/search",
+      "control-definitions/select",
+      "control-definitions/snapshot",
+      "control-definitions/tab",
+      "control-definitions/text",
+      "control-definitions/tree",
+      "control-definitions/type",
+      "control-definitions/wait",
+      "control-definitions/web-base"
+    ]
+  }
+}

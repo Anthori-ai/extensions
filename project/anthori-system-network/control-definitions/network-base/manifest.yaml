@@ -1,0 +1,52 @@
+format: 1
+id: network-base
+name: Network Base
+description: Hidden shared base for network controls that run server-side helper actions.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system/network
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-network-runtime
+    permissions:
+      type: array
+      description: Network permissions this control may request before contacting external URLs.
+      items:
+        type: object
+        required: [capability, access, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [network]
+            default: network
+          access:
+            type: array
+            default: [connect]
+            items:
+              type: string
+              enum: [connect]
+          scope:
+            type: string
+            description: URL origin or endpoint, such as https://example.com or https://example.com/api.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix, origin]
+            description: Scope matching mode. Origins default to origin; endpoint paths default to exact.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+  ui:
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: network
+        accessOptions: [connect]
+        matchOptions: [origin, exact, prefix]
+        helpText: "Network resources this control is allowed to request. Each row needs a scope and the reason shown in the permission prompt."

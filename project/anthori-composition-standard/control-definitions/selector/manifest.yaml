@@ -1,0 +1,7 @@
+format: 1
+id: selector
+name: Selector
+description: Exposes one connected control from an options list so callers see only the currently selected target.
+baseControlRef: controls/1/extensions/anthori.composition.standard/definitions/selector-base
+control:
+  visible: true

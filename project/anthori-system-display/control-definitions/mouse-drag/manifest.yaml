@@ -1,0 +1,107 @@
+format: 1
+id: mouse-drag
+name: Mouse Drag
+description: Drags the mouse from one coordinate to another.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Mouse Drag
+        description: Drag the mouse from one coordinate to another.
+        input:
+          type: object
+          description: Mouse drag request.
+          properties:
+            displayId:
+              type: number
+              description: Display id from display_list.
+            fromX:
+              type: number
+              description: Start X in display pixels.
+            fromY:
+              type: number
+              description: Start Y in display pixels.
+            toX:
+              type: number
+              description: End X in display pixels.
+            toY:
+              type: number
+              description: End Y in display pixels.
+            button:
+              type: string
+              description: "Mouse button: left, right, or middle."
+            steps:
+              type: number
+              description: Number of drag steps.
+            shift:
+              type: boolean
+              description: Hold Shift during the drag.
+            ctrl:
+              type: boolean
+              description: Hold Control during the drag.
+            alt:
+              type: boolean
+              description: Hold Alt during the drag.
+            meta:
+              type: boolean
+              description: Hold Meta during the drag.
+        output:
+          type: object
+          description: Mouse drag result.
+          properties:
+            result:
+              type: object
+              description: Result details for the completed mouse drag.
+              required:
+                - displayId
+                - fromX
+                - fromY
+                - toX
+                - toY
+                - button
+                - steps
+              properties:
+                displayId:
+                  type: number
+                  description: Display id that received the drag.
+                fromX:
+                  type: number
+                  description: Start X coordinate in display pixels.
+                fromY:
+                  type: number
+                  description: Start Y coordinate in display pixels.
+                toX:
+                  type: number
+                  description: End X coordinate in display pixels.
+                toY:
+                  type: number
+                  description: End Y coordinate in display pixels.
+                button:
+                  type: string
+                  description: Mouse button used for the drag.
+                steps:
+                  type: number
+                  description: Number of intermediate drag steps.
+            error:
+              type: string
+              description: Error message when the drag could not be sent.
+            details:
+              type: object
+              description: Extra context for handled drag failures.
+
+control:
+  visible: true
+  libraryPath: system/input
+  permissions:
+    - id: macos.accessibility
+      title: Accessibility
+      description: Allow Anthori to control the mouse and keyboard.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Accessibility
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: mouse-drag
+

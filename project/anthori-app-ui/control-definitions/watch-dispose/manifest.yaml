@@ -1,0 +1,32 @@
+format: 1
+id: watch-dispose
+name: Watch Dispose
+description: Dispose of a UI watch when it is no longer needed.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Watch Dispose
+        description: Dispose of a UI watch when it is no longer needed.
+        input:
+          type: object
+          description: Watch disposal request.
+          properties:
+            watchId:
+              type: string
+              description: Watch id returned by app_ui_watch_create.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: watchDispose

@@ -1,0 +1,13 @@
+format: 1
+id: anthori-system-runtime
+name: System Runtime
+version: 1.0.0
+entry: runtime/anthori-system-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 120
+actions:
+  - id: time
+  - id: exec

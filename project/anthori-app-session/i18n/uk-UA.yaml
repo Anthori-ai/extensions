@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.app.session"
+  owner: "Anthori"
+  locale: "uk-UA"
+  version: 1
+entries:
+  - key: "app.session.start.sessionId.help"
+    kind: "field_tip"
+    target: "app.session.start.sessionId"
+    format: "text"
+    text: "Опційно. Залиште порожнім, щоб почати тимчасову дитячу сесію."

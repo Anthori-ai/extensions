@@ -1,0 +1,60 @@
+format: 1
+id: element
+name: Element
+description: Return details for DOM elements by u value or selector.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Element
+        description: Return details for DOM elements by u value or selector.
+        input:
+          type: object
+          description: Element inspection request.
+          required:
+            - windowId
+            - snapshotId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            u:
+              type:
+                - integer
+                - array
+              description: One or more element u values.
+            selector:
+              type:
+                - string
+                - array
+              description: One or more CSS selectors.
+            depth:
+              type: integer
+              description: Child expansion depth.
+            textLimit:
+              type: integer
+              description: Max inline text length.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: element

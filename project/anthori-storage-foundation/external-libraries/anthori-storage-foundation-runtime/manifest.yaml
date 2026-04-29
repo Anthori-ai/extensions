@@ -1,0 +1,17 @@
+format: 1
+id: anthori-storage-foundation-runtime
+name: Storage Foundation Runtime
+version: 1.0.0
+entry: runtime/anthori-storage-foundation-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: kv-control
+    name: KV Storage Control
+  - id: table-control
+    name: Table Storage Control
+  - id: provider-control
+    name: Storage Provider Control

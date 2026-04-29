@@ -1,0 +1,581 @@
+format: 1
+id: collection
+name: Collection
+description: Session-backed key-value collection.
+baseControlRef: controls/1/extensions/anthori.data.standard/definitions/data-base
+contracts:
+  caller:
+    contracts:
+      - id: get
+        name: Get
+        description: Read one collection value by key.
+        showWhen:
+          key: access
+          equals: read
+        input:
+          type: object
+          required:
+            - get
+          properties:
+            get:
+              type: string
+              description: Key to read.
+          additionalProperties: false
+        output: &collectionGetOutput
+          type: object
+          required:
+            - ok
+            - key
+            - exists
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Key read by the action.
+            exists:
+              type: boolean
+              description: True when the requested key exists.
+            type:
+              type: string
+              description: Inferred value type for the selected key.
+            value:
+              description: Value read by the action when the key exists.
+          additionalProperties: false
+      - id: has
+        name: Has
+        description: Test whether a collection key exists.
+        showWhen:
+          key: access
+          equals: read
+        input:
+          type: object
+          required:
+            - has
+          properties:
+            has:
+              type: string
+              description: Key to test.
+          additionalProperties: false
+        output: &collectionHasOutput
+          type: object
+          required:
+            - ok
+            - key
+            - exists
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Key checked by the action.
+            exists:
+              type: boolean
+              description: True when the requested key exists.
+          additionalProperties: false
+      - id: keys
+        name: Keys
+        description: List collection keys.
+        showWhen:
+          key: access
+          equals: read
+        input:
+          type: object
+          required:
+            - keys
+          properties:
+            keys:
+              type: boolean
+              enum:
+                - true
+              description: Run the keys action.
+          additionalProperties: false
+        output: &collectionKeysOutput
+          type: object
+          required:
+            - ok
+            - keys
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            keys:
+              type: array
+              description: Ordered list of collection keys.
+              items:
+                type: string
+          additionalProperties: false
+      - id: entries
+        name: Entries
+        description: List collection entries.
+        showWhen:
+          key: access
+          equals: read
+        input:
+          type: object
+          required:
+            - entries
+          properties:
+            entries:
+              type: boolean
+              enum:
+                - true
+              description: Run the entries action.
+          additionalProperties: false
+        output: &collectionEntriesOutput
+          type: object
+          required:
+            - ok
+            - entries
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            entries:
+              type: array
+              description: Collection entries as key/value records.
+              items:
+                type: object
+                required:
+                  - key
+                  - type
+                  - value
+                properties:
+                  key:
+                    type: string
+                    description: Collection key.
+                  type:
+                    type: string
+                    description: Inferred value type stored at this key.
+                  value:
+                    type: any
+                    description: Current value stored at this key.
+                additionalProperties: false
+          additionalProperties: false
+      - id: set
+        name: Set
+        description: Write one collection value.
+        showWhen:
+          key: access
+          equals: write
+        input:
+          type: object
+          required:
+            - set
+            - value
+          properties:
+            set:
+              type: string
+              description: Key to write.
+            value:
+              anyOf:
+                - type: string
+                - type: number
+                - type: boolean
+                - type: object
+                - type: array
+              description: JSON-compatible value to store.
+          additionalProperties: false
+        output: &collectionSetOutput
+          type: object
+          required:
+            - ok
+            - key
+            - type
+            - value
+            - state
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Key written by the action.
+            type:
+              type: string
+              description: Inferred value type written by the action.
+            value:
+              description: Value written by the action.
+            state:
+              type: object
+              description: Full collection state after the action.
+              additionalProperties: true
+          additionalProperties: false
+      - id: delete
+        name: Delete
+        description: Delete one collection key.
+        showWhen:
+          key: access
+          equals: delete
+        input:
+          type: object
+          required:
+            - delete
+          properties:
+            delete:
+              type: string
+              description: Key to delete.
+          additionalProperties: false
+        output: &collectionDeleteOutput
+          type: object
+          required:
+            - ok
+            - key
+            - deleted
+            - state
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Key targeted by the delete action.
+            deleted:
+              type: boolean
+              description: True when delete removed an existing key.
+            state:
+              type: object
+              description: Full collection state after the action.
+              additionalProperties: true
+          additionalProperties: false
+      - id: merge
+        name: Merge
+        description: Merge a patch into the collection state.
+        showWhen:
+          key: access
+          equals: write
+        input:
+          type: object
+          required:
+            - merge
+          properties:
+            merge:
+              type: object
+              description: Patch object merged into the current collection state.
+          additionalProperties: false
+        output: &collectionStateOutput
+          type: object
+          required:
+            - ok
+            - state
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            state:
+              type: object
+              description: Full collection state after the action.
+              additionalProperties: true
+          additionalProperties: false
+      - id: increment
+        name: Increment
+        description: Increment a numeric collection value.
+        showWhen:
+          key: access
+          equals: write
+        input:
+          type: object
+          required:
+            - increment
+          properties:
+            increment:
+              type: string
+              description: Key to increment by 1.
+            by:
+              type: number
+              description: Increment amount. Defaults to 1 when omitted.
+          additionalProperties: false
+        output: &collectionIncrementOutput
+          type: object
+          required:
+            - ok
+            - key
+            - previous
+            - by
+            - value
+            - state
+          properties:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Key incremented by the action.
+            previous:
+              description: Previous numeric value before the increment.
+            by:
+              description: Increment amount applied by the action.
+            value:
+              description: New numeric value after the increment.
+            state:
+              type: object
+              description: Full collection state after the action.
+              additionalProperties: true
+          additionalProperties: false
+      - id: clear
+        name: Clear
+        description: Clear the collection state.
+        showWhen:
+          key: access
+          equals: write
+        input:
+          type: object
+          required:
+            - clear
+          properties:
+            clear:
+              type: boolean
+              enum:
+                - true
+              description: Run the clear action.
+          additionalProperties: false
+        output: *collectionStateOutput
+      - id: replace
+        name: Replace
+        description: Replace the full collection state.
+        showWhen:
+          key: access
+          equals: write
+        input:
+          type: object
+          required:
+            - replace
+          properties:
+            replace:
+              type: object
+              description: Full replacement object.
+          additionalProperties: false
+        output: *collectionStateOutput
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: collection-control
+    namespace:
+      type: string
+      required: false
+      description: Optional shared namespace for session-backed collection data (defaults to control id).
+    access:
+      type: array
+      default:
+        - read
+      minItems: 1
+      description: Access capabilities. Read exposes get, has, keys, and entries. Write exposes set, merge, increment, clear, and replace. Delete exposes delete.
+      items:
+        type: string
+        enum:
+          - read
+          - write
+          - delete
+    entries:
+      type: array
+      default: []
+      description: Initial typed entries used as base values or as seed values when no session snapshot exists yet.
+    maxFlowInputs:
+      type: number
+      required: false
+      default: 0
+      description: Maximum number of incoming flow conduits allowed (0 disables flow traversal into collection).
+    maxFlowOutputs:
+      type: number
+      required: false
+      default: 0
+      description: Maximum number of outgoing flow conduits allowed (0 disables flow traversal out of collection).
+  ui:
+    fields:
+      - key: namespace
+        label: Namespace
+        type: text
+        placeholder: Defaults to control id
+        helpKey: core.data.collection.namespace.help
+      - key: access
+        label: Access
+        type: multiselect
+        size: 3
+        minItems: 1
+        helpKey: core.data.collection.access.help
+        dataSource:
+          kind: static
+          options:
+            - value: read
+              label: Read
+            - value: write
+              label: Write
+            - value: delete
+              label: Delete
+      - key: entries
+        label: Entries
+        type: collectionEntries
+        helpKey: core.data.collection.entries.help
+    info:
+      sections:
+        - title: NOTES
+          kind: text
+          text:
+            - "Input uses exactly one action key per call."
+            - "Collection is session-backed."
+            - "Read exposes get, has, keys, and entries."
+            - "Write exposes set, merge, increment, clear, and replace."
+            - "Delete exposes delete."
+            - 'Example: { set: "hp", value: 10 }'
+        - title: INPUT
+          kind: schema
+          schema:
+            anyOf:
+              - type: object
+                required:
+                  - get
+                properties:
+                  get:
+                    type: string
+                    description: Key to read.
+                additionalProperties: false
+              - type: object
+                required:
+                  - set
+                  - value
+                properties:
+                  set:
+                    type: string
+                    description: Key to write.
+                  value:
+                    anyOf:
+                      - type: string
+                      - type: number
+                      - type: boolean
+                      - type: object
+                      - type: array
+                    description: JSON-compatible value to store.
+                additionalProperties: false
+              - type: object
+                required:
+                  - delete
+                properties:
+                  delete:
+                    type: string
+                    description: Key to delete.
+                additionalProperties: false
+              - type: object
+                required:
+                  - has
+                properties:
+                  has:
+                    type: string
+                    description: Key to test.
+                additionalProperties: false
+              - type: object
+                required:
+                  - keys
+                properties:
+                  keys:
+                    type: boolean
+                    enum:
+                      - true
+                    description: Run the keys action.
+                additionalProperties: false
+              - type: object
+                required:
+                  - entries
+                properties:
+                  entries:
+                    type: boolean
+                    enum:
+                      - true
+                    description: Run the entries action.
+                additionalProperties: false
+              - type: object
+                required:
+                  - merge
+                properties:
+                  merge:
+                    type: object
+                    description: Patch object merged into the current collection state.
+                additionalProperties: false
+              - type: object
+                required:
+                  - increment
+                properties:
+                  increment:
+                    type: string
+                    description: Key to increment by 1.
+                  by:
+                    type: number
+                    description: Increment amount. Defaults to 1 when omitted.
+                additionalProperties: false
+              - type: object
+                required:
+                  - clear
+                properties:
+                  clear:
+                    type: boolean
+                    enum:
+                      - true
+                    description: Run the clear action.
+                additionalProperties: false
+              - type: object
+                required:
+                  - replace
+                properties:
+                  replace:
+                    type: object
+                    description: Full replacement object.
+                additionalProperties: false
+        - title: OUTPUT
+          kind: schema
+          schema:
+            ok:
+              type: boolean
+              description: True when the collection action succeeded.
+            key:
+              type: string
+              description: Collection key read or changed by the action.
+            exists:
+              type: boolean
+              description: True when the requested key exists.
+            type:
+              type: string
+              description: Inferred value type for the selected key, when available.
+            value:
+              type: any
+              description: Value read from the collection or written by the action.
+            keys:
+              type: array
+              description: Ordered list of collection keys.
+              items:
+                type: string
+            entries:
+              type: array
+              description: Collection entries as key/value records.
+              items:
+                type: object
+                required:
+                  - key
+                  - type
+                  - value
+                properties:
+                  key:
+                    type: string
+                    description: Collection key.
+                  type:
+                    type: string
+                    description: Inferred value type stored at this key.
+                  value:
+                    type: any
+                    description: Current value stored at this key.
+                additionalProperties: false
+            state:
+              type: object
+              description: Full collection state after a mutating action.
+              additionalProperties: true
+            previous:
+              type: number
+              description: Previous numeric value before an increment.
+            by:
+              type: number
+              description: Increment amount applied by the action.
+            deleted:
+              type: boolean
+              description: True when delete removed an existing key.

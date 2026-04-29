@@ -1,0 +1,50 @@
+format: 1
+id: create-control
+name: Create Control
+description: Creates a new control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create Control
+        description: Create a control in the current graph.
+        input:
+          type: object
+          description: Control settings for the new graph control.
+          properties:
+            type:
+              type: string
+              description: Control kind to create.
+            controlRef:
+              type: string
+              description: Control reference to instantiate.
+            symbolRef:
+              type: string
+              description: Symbol reference to instantiate.
+            title:
+              type: string
+              description: Control title to show in the graph.
+            x:
+              type: number
+              description: X position in the graph canvas.
+            y:
+              type: number
+              description: Y position in the graph canvas.
+            config:
+              type: object
+              description: Additional control configuration fields.
+        output:
+          type: object
+          required:
+            - controlId
+          properties:
+            controlId:
+              type: string
+              description: Created control id.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-control

@@ -1,0 +1,337 @@
+format: 1
+id: agent-storage
+name: Agent Storage
+description: Message-aware storage for agent history with table-style CRUD plus streamed reply assembly.
+baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/table-base
+control:
+  visible: true
+  contracts:
+    caller:
+      contracts:
+        - id: default
+          name: Append
+          description: Append one-or-more agent messages in order. This keeps Agent and Context message-native without wrapper scripts.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: array
+            items: anthori.standard.ConversationMessage
+            minItems: 1
+          output:
+            type: object
+            required:
+              - ok
+              - ids
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              ids:
+                type: array
+                items:
+                  type: number
+                description: Storage-assigned row ids for the appended messages, in the same order.
+            additionalProperties: false
+          outputFormat: |-
+            {
+              ok:true
+              ids:number[]
+            }
+        - id: insert
+          name: Insert
+          description: Insert one stored agent message.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+              - row
+            properties:
+              action:
+                type: string
+                enum:
+                  - insert
+              row: StoredMessage
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"insert"
+              row:StoredMessage
+            }
+          output:
+            type: object
+            required:
+              - ok
+              - id
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              id:
+                type: number
+                description: Storage-assigned row id for the inserted message.
+            additionalProperties: false
+          outputFormat: |-
+            {
+              ok:true
+              id:number
+            }
+        - id: insertAll
+          name: Insert All
+          description: Insert multiple stored agent messages in order.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+              - rows
+            properties:
+              action:
+                type: string
+                enum:
+                  - insertAll
+              rows:
+                type: array
+                items: StoredMessage
+                minItems: 1
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"insertAll"
+              rows:StoredMessage[]
+            }
+          output:
+            type: object
+            required:
+              - ok
+              - ids
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              ids:
+                type: array
+                items:
+                  type: number
+                description: Storage-assigned row ids for the inserted messages, in the same order.
+            additionalProperties: false
+          outputFormat: |-
+            {
+              ok:true
+              ids:number[]
+            }
+        - id: select
+          name: Select
+          description: Select stored agent message row envelopes.
+          showWhen:
+            key: access
+            equals: read
+          input:
+            type: object
+            required:
+              - action
+            properties:
+              action:
+                type: string
+                enum:
+                  - select
+              where:
+                type: object
+                description: Filter object used to match stored rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for selected rows.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit for select.
+              maxChars:
+                type: number
+                description: Optional maximum JSON character count for the returned row envelope array. Agent Storage trims the oldest selected rows until the result fits.
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"select"
+              where?:object
+              orderBy?:{
+                field:string
+                direction?:"asc" | "desc"
+              }[]
+              limit?:number
+              maxChars?:number
+            }
+          output:
+            type: array
+            items: StoredMessageEnvelope
+            description: Matching stored message row envelopes.
+          outputFormat: StoredMessageEnvelope[]
+        - id: update
+          name: Update
+          description: Update stored agent messages by filter.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            anyOf:
+              - type: object
+                required:
+                  - action
+                  - where
+                  - values
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match stored rows to update.
+                  values: StoredMessagePatch
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                  - where
+                  - row
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match stored rows to update.
+                  row: StoredMessage
+                additionalProperties: false
+          inputFormat: |-
+            {
+              action:"update"
+              where:object
+              values:StoredMessagePatch
+            } | {
+              action:"update"
+              where:object
+              row:StoredMessage
+            }
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+          outputFormat: |-
+            {
+              ok:true
+              rowsAffected:number
+            }
+        - id: delete
+          name: Delete
+          description: Delete stored agent messages by filter.
+          showWhen:
+            key: access
+            equals: delete
+          input:
+            type: object
+            required:
+              - action
+              - where
+            properties:
+              action:
+                type: string
+                enum:
+                  - delete
+              where:
+                type: object
+                description: Filter object used to match stored rows to delete.
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"delete"
+              where:object
+            }
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+          outputFormat: |-
+            {
+              ok:true
+              rowsAffected:number
+            }
+        - id: writeStream
+          name: Write Stream
+          description: Assemble one streamed agent reply across stream events and persist it as one stored row.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+              - event
+            properties:
+              action:
+                type: string
+                enum:
+                  - writeStream
+              event: StreamWriteEvent
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"writeStream"
+              event:StreamWriteEvent
+            }
+          output: StreamWriteResult
+          outputFormat: StreamWriteResult
+  ui:
+    info:
+      sections:
+        - title: AGENT STORAGE
+          kind: text
+          text: |
+            Agent Storage keeps agent-style messages in a table-shaped store and adds one extra writeStream action that assembles agent replies for you. Use insert/select/update/delete when you want direct row control. Use writeStream on a pull lane when you want Anthori to keep one live agent reply row updated automatically across ordered chunks.
+configSchema:
+  runtimeLibraryId:
+    type: string
+    default: anthori-agent-standard-runtime
+  runtimeActionForward:
+    type: string
+    default: agent-storage-control

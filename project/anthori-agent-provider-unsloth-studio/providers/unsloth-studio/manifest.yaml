@@ -1,0 +1,51 @@
+format: 1
+id: unsloth-studio-provider
+name: Unsloth Studio
+version: 1.0.0
+description: Unsloth Studio text provider using Studio's OpenAI-compatible inference API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiKey:
+      type: secretString
+      label: API Key
+      placeholder: Unsloth Studio API key
+      helpKey: provider.unslothStudio.config.apiKey.help
+    apiBaseUrl:
+      type: url
+      label: Base URL
+      required: true
+      placeholder: http://127.0.0.1:8888/v1
+      helpKey: provider.unslothStudio.config.baseUrl.help
+    llmModel:
+      type: string
+      label: Model
+      placeholder: Use active loaded model
+      helpKey: provider.unslothStudio.config.model.help
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      helpKey: provider.unslothStudio.config.reasoning.help
+      enum:
+        - ""
+        - low
+        - medium
+        - high
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 300
+control:
+  visible: false

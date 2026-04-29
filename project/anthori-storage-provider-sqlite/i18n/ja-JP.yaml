@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.storage.provider.sqlite"
+  owner: "Anthori"
+  locale: "ja-JP"
+  version: 1
+entries:
+  - key: "provider.sqlite.config.path.help"
+    kind: "field_tip"
+    target: "provider.sqlite.config.path"
+    format: "text"
+    text: "絶対パスでSQLiteファイルを指定してください。ファイルの場所をピッカーで選択してください。"

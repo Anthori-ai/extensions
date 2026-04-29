@@ -1,0 +1,63 @@
+format: 1
+id: keys
+name: Keys
+description: Send keyboard events to the page or an element.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Keys
+        description: Send keyboard events to the page or an element.
+        input:
+          type: object
+          description: Keyboard event request.
+          required:
+            - windowId
+            - snapshotId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            key:
+              type: string
+              description: Single key name to send.
+            keys:
+              type: array
+              description: Ordered key sequence to send.
+            u:
+              type: integer
+              description: Element u value to target.
+            selector:
+              type: string
+              description: CSS selector target.
+            returnSnapshot:
+              type: boolean
+              description: Return a snapshot after sending keys.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: keys
+    returnSnapshotDefault:
+      type: boolean
+      required: false
+      default: true

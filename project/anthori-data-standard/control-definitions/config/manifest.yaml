@@ -1,0 +1,72 @@
+format: 1
+id: config
+name: Config
+description: Immutable inline JSON or YAML config value with optional schema validation.
+baseControlRef: controls/1/extensions/anthori.data.standard/definitions/data-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Config
+        description: Return the parsed config value.
+        input:
+          type: void
+          description: Config does not accept caller input.
+        output:
+          type: unknown
+          description: Parsed config value.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: config-control
+    content:
+      type: string
+      default: "{}"
+      description: Inline JSON or YAML value returned by this config.
+    schema:
+      type: string
+      required: false
+      default: ""
+      description: Optional JSON or YAML schema used to validate the config and specialize the output contract.
+    maxFlowInputs:
+      type: number
+      required: false
+      default: 0
+      description: Maximum number of incoming flow conduits allowed (0 disables flow traversal into config).
+    maxFlowOutputs:
+      type: number
+      required: false
+      default: 0
+      description: Maximum number of outgoing flow conduits allowed (0 disables flow traversal out of config).
+  ui:
+    fields:
+      - key: schema
+        label: Schema
+        type: textarea
+        language: yaml
+        helpKey: core.data.config.schema.help
+      - key: content
+        label: Value
+        type: textarea
+        language: yaml
+        helpKey: core.data.config.content.help
+    info:
+      sections:
+        - title: NOTES
+          kind: text
+          text:
+            - "Config is a control-local immutable value."
+            - "Input is always void."
+            - "When Schema is present, it validates the value and becomes the output contract."
+        - title: INPUT
+          kind: schema
+          schema:
+            type: void
+            description: Config does not accept caller input.
+        - title: OUTPUT
+          kind: schema
+          schema:
+            type: unknown
+            description: Parsed config value, specialized from Schema when present.

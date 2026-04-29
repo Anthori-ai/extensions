@@ -1,0 +1,37 @@
+format: 1
+id: exists
+name: Exists
+description: Checks whether a path exists inside the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Exists
+        description: Check whether a workspace path currently exists.
+        input:
+          type: object
+          description: Existence check request.
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+          additionalProperties: false
+        output:
+          type: object
+          description: Existence check result.
+          required:
+            - exists
+          properties:
+            exists:
+              type: boolean
+              description: Whether the path exists.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: exists

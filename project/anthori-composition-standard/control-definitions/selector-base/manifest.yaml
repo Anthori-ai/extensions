@@ -1,0 +1,67 @@
+format: 1
+id: selector-base
+name: Selector Base
+description: Hidden shared base for forwarding calls to one selected control from a list of options.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Forward
+        description: Forward the incoming value to the currently selected connected control and return that control's output.
+        input:
+          type: any
+          description: Value forwarded to the selected option.
+        output:
+          type: any
+          description: Value returned by the selected option.
+control:
+  visible: false
+  libraryPath: composition
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-composition-runtime
+    runtimeActionForward:
+      type: string
+      default: selector-control
+    options:
+      type: controlTarget[]
+      default: []
+      description: Connected control refs that can be selected.
+      exposesTargetControlTypes: true
+      exposesTargetContracts: true
+      selectedControlTargetKey: selectedOption
+    selectedOption:
+      type: string
+      required: false
+      description: Currently selected control ref.
+  ui:
+    graphBinding:
+      kind: aggregateControlTargetList
+      field: options
+    fields:
+      - key: options
+        label: Options
+        type: controlTarget[]
+        helpKey: core.composition.selector.options.help
+      - key: selectedOption
+        label: Selected
+        type: select
+        supportsPin: true
+        autoSelectFirst: true
+        helpKey: core.composition.selector.selectedOption.help
+        dataSource:
+          kind: local
+          source: configControlTargets
+          configKey: options
+    info:
+      sections:
+        - title: NOTES
+          kind: text
+          text: |
+            Selector exposes one connected control from the Options list.
+
+            It forwards its incoming value to the selected control and returns that control's output.
+
+            Use Selected to choose which connected control is active.

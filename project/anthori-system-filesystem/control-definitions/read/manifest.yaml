@@ -1,0 +1,321 @@
+format: 1
+id: read
+name: Read
+description: Reads file contents from the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Read
+        description: Read file content and return file metadata plus the decoded content value.
+        input:
+          description: File read request.
+          anyOf:
+            - type: object
+              description: Guarded file read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines.
+              propertyOrder: [path, fileHash, encoding, offset, limit]
+              required: [path, fileHash, encoding]
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                fileHash:
+                  type: string
+                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Content encoding to use for the returned `content` value.
+                offset:
+                  type: number
+                  description: Optional byte offset to start reading from.
+                limit:
+                  type: number
+                  description: Optional byte limit.
+              additionalProperties: false
+            - type: object
+              description: Dangerous unguarded file read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
+              propertyOrder: [path, dangerous, encoding, offset, limit]
+              required: [path, dangerous, encoding]
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Must be true to bypass `fileHash` validation.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Content encoding to use for the returned `content` value.
+                offset:
+                  type: number
+                  description: Optional byte offset to start reading from.
+                limit:
+                  type: number
+                  description: Optional byte limit.
+              additionalProperties: false
+        output:
+          type: object
+          description: File read result.
+          propertyOrder:
+            - content
+            - fileByteCount
+            - fileHash
+            - offset
+            - limit
+            - bytesRead
+            - truncated
+            - rangeKey
+          required:
+            - content
+            - fileByteCount
+            - fileHash
+            - offset
+            - limit
+            - bytesRead
+          properties:
+            content:
+              type: any
+              description: File content decoded using the requested encoding.
+            fileByteCount:
+              type: number
+              description: Full file size in bytes.
+            fileHash:
+              type: string
+              description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+            offset:
+              type: number
+              description: Starting byte offset used for this read.
+            limit:
+              type: number
+              description: Effective byte limit used for this read, or `-1` when reading the remainder of the file.
+            truncated:
+              type: boolean
+              description: True when the read stopped before the end of the file because of the requested limit.
+            bytesRead:
+              type: number
+              description: Number of file bytes returned in `content`.
+            rangeKey:
+              type: string
+              description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.
+          additionalProperties: false
+      - id: start
+        toolVisible: false
+        name: Pull Start
+        description: Start a background file read owned by the supplied invocation and return a task handle.
+        input:
+          anyOf:
+            - type: object
+              required: [pull, ownerInvocationId, path, fileHash, encoding]
+              propertyOrder: [pull, ownerInvocationId, path, fileHash, encoding, offset, limit]
+              properties:
+                pull:
+                  type: string
+                  enum: [start]
+                ownerInvocationId:
+                  type: string
+                  description: Invocation that owns the background task lifetime.
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                fileHash:
+                  type: string
+                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Content encoding to use for the returned `content` value.
+                offset:
+                  type: number
+                  description: Optional byte offset to start reading from.
+                limit:
+                  type: number
+                  description: Optional byte limit.
+              additionalProperties: false
+            - type: object
+              required: [pull, ownerInvocationId, path, dangerous, encoding]
+              propertyOrder: [pull, ownerInvocationId, path, dangerous, encoding, offset, limit]
+              properties:
+                pull:
+                  type: string
+                  enum: [start]
+                ownerInvocationId:
+                  type: string
+                  description: Invocation that owns the background task lifetime.
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Must be true to bypass `fileHash` validation for unstable files.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Content encoding to use for the returned `content` value.
+                offset:
+                  type: number
+                  description: Optional byte offset to start reading from.
+                limit:
+                  type: number
+                  description: Optional byte limit.
+              additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Opaque task id returned by the pullable read task.
+          additionalProperties: false
+      - id: pull
+        toolVisible: false
+        name: Pull Step
+        description: Read the next available read event from a running pullable task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [step]
+            taskId:
+              type: string
+          additionalProperties: false
+        output:
+          anyOf:
+            - type: object
+              required: [taskId]
+              propertyOrder: [taskId]
+              properties:
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, content]
+              propertyOrder: [phase, taskId, sequence, content, metadata]
+              properties:
+                phase:
+                  type: string
+                  enum: [chunk]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                content:
+                  type: any
+                  description: Read chunk payload. Chunk content may already be aggregated by the producer.
+                metadata:
+                  type: object
+                  description: Optional chunk metadata for the returned pull event.
+                  required: [encoding, bytes, offset]
+                  propertyOrder: [encoding, bytes, offset]
+                  properties:
+                    encoding:
+                      type: string
+                      enum: [utf8, base64, bytes]
+                      description: Encoding used for this chunk payload.
+                    bytes:
+                      type: number
+                      description: Number of file bytes represented by this chunk.
+                    offset:
+                      type: number
+                      description: Starting file offset for this chunk.
+                  additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead]
+              propertyOrder: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead, truncated, rangeKey]
+              properties:
+                phase:
+                  type: string
+                  enum: [end]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                fileByteCount:
+                  type: number
+                  description: Full file size in bytes.
+                fileHash:
+                  type: string
+                  description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+                offset:
+                  type: number
+                  description: Starting byte offset used for this read.
+                limit:
+                  type: number
+                  description: Effective byte limit used for this read, or `-1` when reading the remainder of the file.
+                bytesRead:
+                  type: number
+                  description: Number of file bytes delivered by chunk events for the read.
+                truncated:
+                  type: boolean
+                  description: True when the read stopped before the end of the file because of the requested limit.
+                rangeKey:
+                  type: string
+                  description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence]
+              propertyOrder: [phase, taskId, sequence, reason]
+              properties:
+                phase:
+                  type: string
+                  enum: [error, cancel]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                reason:
+                  type: string
+                  description: Optional terminal reason for error or cancellation.
+              additionalProperties: false
+      - id: cancel
+        toolVisible: false
+        name: Pull Cancel
+        description: Cancel a running pullable read task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [cancel]
+            taskId:
+              type: string
+            reason:
+              type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  capabilities:
+    - pullable
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: read
+  ui:
+    info:
+      sections:
+        - title: POLL
+          kind: text
+          text: |
+            Read exposes explicit `Pull Start`, `Pull Step`, and `Pull Cancel` caller contracts for visible reverse async flow.

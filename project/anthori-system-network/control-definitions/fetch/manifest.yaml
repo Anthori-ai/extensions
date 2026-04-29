@@ -1,0 +1,299 @@
+format: 1
+id: fetch
+name: Fetch
+description: Send an HTTP request and return the response status, headers, and body.
+baseControlRef: controls/1/extensions/anthori.system.network/definitions/network-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Fetch
+        description: Send an HTTP request and return the response payload.
+        input:
+          type: object
+          description: HTTP request options.
+          required:
+            - url
+            - method
+          properties:
+            url:
+              type: string
+              description: Absolute URL to request.
+            method:
+              type: string
+              description: Required HTTP method token.
+            headers:
+              type: object
+              description: Optional request headers keyed by header name.
+              additionalProperties:
+                type: string
+            body:
+              description: Optional request body. Non-string values are JSON-encoded.
+            timeoutSeconds:
+              type: number
+              description: Optional per-request timeout in seconds. Leave blank to use the control or project timeout.
+            responseType:
+              type: string
+              enum:
+                - text
+                - base64
+                - bytes
+              description: Response body encoding. Use `base64` for binary-safe text transport or `bytes` for raw Uint8Array output.
+          additionalProperties: false
+        output:
+          type: object
+          description: HTTP response payload.
+          required:
+            - ok
+            - status
+            - statusText
+            - headers
+            - body
+          properties:
+            ok:
+              type: boolean
+              description: True when the status code is in the 2xx range.
+            status:
+              type: number
+              description: HTTP status code.
+            statusText:
+              type: string
+              description: Full HTTP status text, including code and reason phrase.
+            headers:
+              type: object
+              description: Response headers keyed by header name.
+              additionalProperties: true
+            body:
+              description: Response body as text, base64 text, or a Uint8Array, depending on Response Type.
+          additionalProperties: false
+      - id: start
+        toolVisible: false
+        name: Pull Start
+        description: Start a background HTTP request owned by the supplied invocation and return a task handle.
+        input:
+          type: object
+          required: [pull, ownerInvocationId, url, method]
+          properties:
+            pull:
+              type: string
+              enum: [start]
+            ownerInvocationId:
+              type: string
+              description: Invocation that owns the background task lifetime.
+            url:
+              type: string
+              description: Absolute URL to request.
+            method:
+              type: string
+              description: Required HTTP method token.
+            headers:
+              type: object
+              description: Optional request headers keyed by header name.
+              additionalProperties:
+                type: string
+            body:
+              description: Optional request body. Non-string values are JSON-encoded.
+            timeoutSeconds:
+              type: number
+              description: Optional per-request timeout in seconds. Leave blank to use the control or project timeout.
+            responseType:
+              type: string
+              enum:
+                - text
+                - base64
+                - bytes
+              description: Response body encoding. Use `base64` for binary-safe text transport or `bytes` for raw Uint8Array output.
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Opaque task id returned by the pullable fetch task.
+          additionalProperties: false
+      - id: pull
+        toolVisible: false
+        name: Pull Step
+        description: Read the next available fetch event from a running pullable task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [step]
+            taskId:
+              type: string
+          additionalProperties: false
+        output:
+          anyOf:
+            - type: object
+              required: [taskId]
+              propertyOrder: [taskId]
+              properties:
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, content]
+              propertyOrder: [phase, taskId, sequence, content, metadata]
+              properties:
+                phase:
+                  type: string
+                  enum: [chunk]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                content:
+                  type: any
+                  description: Fetch chunk payload. Chunk content may already be aggregated by the producer.
+                metadata:
+                  type: object
+                  description: Optional chunk metadata for the returned pull event.
+                  required: [bytes]
+                  propertyOrder: [bytes]
+                  properties:
+                    bytes:
+                      type: number
+                      description: Number of response bytes represented by this chunk.
+                  additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, ok, status, statusText, headers]
+              propertyOrder: [phase, taskId, sequence, ok, status, statusText, headers]
+              properties:
+                phase:
+                  type: string
+                  enum: [end]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                ok:
+                  type: boolean
+                  description: True when the status code is in the 2xx range.
+                status:
+                  type: number
+                  description: HTTP status code.
+                statusText:
+                  type: string
+                  description: Full HTTP status text, including code and reason phrase.
+                headers:
+                  type: object
+                  description: Response headers keyed by header name.
+                  additionalProperties: true
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence]
+              propertyOrder: [phase, taskId, sequence, reason]
+              properties:
+                phase:
+                  type: string
+                  enum: [error, cancel]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                reason:
+                  type: string
+                  description: Optional terminal reason for error or cancellation.
+              additionalProperties: false
+      - id: cancel
+        toolVisible: false
+        name: Pull Cancel
+        description: Cancel a running pullable fetch task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [cancel]
+            taskId:
+              type: string
+            reason:
+              type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  capabilities:
+    - pullable
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: fetch
+  ui:
+    info:
+      sections:
+        - title: PULL
+          kind: text
+          text: |
+            Fetch exposes explicit `Pull Start`, `Pull Step`, and `Pull Cancel` caller contracts for visible reverse async flow.
+
+            `Pull Step` returns chunk content on `phase:"chunk"`. The terminal `phase:"end"` event carries the final HTTP response fields top-level: `ok`, `status`, `statusText`, and `headers`.
+        - title: EXAMPLES
+          kind: examples
+          examples:
+            - intent: Fetch plain text from an endpoint.
+              input:
+                url: https://example.com
+                method: GET
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers:
+                  Content-Type: text/html; charset=utf-8
+                body: "..."
+            - intent: POST JSON to an API.
+              input:
+                url: https://example.com/api
+                method: POST
+                headers:
+                  Content-Type: application/json
+                body:
+                  hello: world
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+                body: "..."
+            - intent: Fetch binary content safely as base64 text.
+              input:
+                url: https://example.com/image.png
+                method: GET
+                responseType: base64
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+                body: "iVBORw0KGgoAAA..."
+            - intent: Fetch binary content as raw bytes.
+              input:
+                url: https://example.com/image.png
+                method: GET
+                responseType: bytes
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+                body: Uint8Array(...)

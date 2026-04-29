@@ -1,0 +1,21 @@
+format: 1
+id: anthori.data.standard
+name: Data Standard
+scope: project
+version: 1.0.0
+description: First-party data controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - Data
+  - Standard
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-data-standard-runtime
+controlDefinitions:
+  - control-definitions/data-base
+  - control-definitions/collection
+  - control-definitions/state
+  - control-definitions/config

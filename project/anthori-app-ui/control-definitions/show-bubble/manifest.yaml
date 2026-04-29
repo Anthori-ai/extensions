@@ -1,0 +1,81 @@
+format: 1
+id: show-bubble
+name: Show Bubble
+description: Show a speech, thought, or status bubble on the Anthori assistant cursor.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Show Bubble
+        description: Show a speech, thought, or status bubble on the Anthori assistant cursor.
+        input:
+          type: object
+          description: Bubble display request.
+          required:
+            - kind
+            - text
+          properties:
+            kind:
+              type: string
+              enum:
+                - speech
+                - thought
+                - status
+              description: 'Bubble mode to use: speech, thought, or status.'
+            text:
+              type: string
+              description: Text to display. Empty string hides status bubbles. Keep speech bubbles short for reliable readability.
+            durationMs:
+              type: number
+              description: Optional visible duration for speech or thought bubbles.
+        output:
+          type: object
+          description: Bubble display result.
+          properties:
+            showing:
+              type: boolean
+              description: True when a status bubble remains visible after the call.
+            minVisibleMs:
+              type: number
+              description: Minimum visible duration for a status bubble.
+            durationMs:
+              type: number
+              description: Actual visible duration for speech or thought bubbles.
+            waitUntilMs:
+              type: number
+              description: UTC millisecond timestamp when the bubble clears.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: showBubble
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            kind:
+              type: string
+              enum:
+                - speech
+                - thought
+                - status
+              description: 'speech = message to user; thought = what you are thinking (auto-dismisses); status = persistent task indicator (stays until replaced or hidden with empty text).'
+            text:
+              type: string
+              description: Text to display. Empty string hides status bubbles. Keep speech bubbles short for reliable readability.
+            durationMs:
+              type: number
+              description: Optional visible duration for speech or thought bubbles.
+        - title: NOTES
+          kind: text
+          text: |
+            Three kinds:
+            - thought: what you are thinking about right now. Empty text shows animated dots.
+            - speech: a message directly to the user. Keep it to 160 characters or fewer. When assistant speech audio is active, the bubble follows actual playback and the assistant's talking animation stays on for the same interval. Without speech audio playback, it falls back to durationMs (2000-15000 ms, auto-calculated from text length if omitted). If called again before the prior speech bubble clears, the call returns an error with remainingMs.
+            - status: a persistent spinning indicator shown while you are performing a task. It does not auto-dismiss. Call with empty text ("") to hide it explicitly.

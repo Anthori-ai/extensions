@@ -1,0 +1,203 @@
+format: 1
+id: anthori.standard
+name: Standard
+scope: project
+version: 1.0.1
+description: First-party hidden foundation package that contributes shared message, tool-call, and usage types.
+typeDefinitions:
+  MessagePart:
+    type: object
+    description: One structured message part.
+    required:
+      - kind
+    properties:
+      kind:
+        type: string
+        description: What this part contains, such as text, reasoning, attachment, tool_call, or error.
+      text:
+        type: string
+        description: The text for this part.
+      attachment:
+        type: object
+        description: Structured attachment payload for attachment parts.
+      toolCall: ToolCall
+      error:
+        type: object
+        description: Structured error payload for error parts.
+      metadata:
+        type: object
+        description: Extra details for this part.
+    additionalProperties: false
+  ToolCall:
+    type: object
+    description: One requested tool invocation.
+    required:
+      - name
+    properties:
+      id:
+        type: string
+        description: Optional provider-generated tool call id.
+      name:
+        type: string
+        description: Tool name to invoke.
+      title:
+        type: string
+        description: Optional Anthori-side display title for the resolved tool control.
+      arguments:
+        type: string
+        description: JSON string arguments for the tool call.
+      status:
+        type: string
+        description: Anthori-side tool call status for live chat updates.
+      details:
+        type: object
+        description: Optional Anthori-side tool call details.
+      detailsRef:
+        type: string
+        description: Session-local sidecar reference for large Anthori-side tool call details.
+      metadata:
+        type: object
+        description: Provider-owned round-trip metadata that must stay attached to the tool call across provider rounds.
+    additionalProperties: false
+  UserMessage:
+    type: object
+    description: One user-authored conversation message.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - user
+        description: Always `user` for user-authored conversation messages.
+      name:
+        type: string
+        description: Optional participant display name for this message.
+      participantId:
+        type: string
+        description: Optional participant id for this message.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: MessagePart
+      turn:
+        type: number
+        description: Optional chat turn number for this message.
+    additionalProperties: false
+  SystemMessage:
+    type: object
+    description: One system conversation message.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - system
+        description: Always `system` for system-authored conversation messages.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: MessagePart
+      turn:
+        type: number
+        description: Optional chat turn number for this message.
+    additionalProperties: false
+  AgentMessage:
+    type: object
+    description: One agent conversation message.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - agent
+        description: Always `agent` for agent-authored conversation messages.
+      name:
+        type: string
+        description: Optional participant display name for this message.
+      participantId:
+        type: string
+        description: Optional participant id for this message.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: MessagePart
+      turn:
+        type: number
+        description: Optional chat turn number for this message.
+      speaker:
+        type: string
+        description: Optional display name shown beside the message.
+      usage: Usage
+      finishReason:
+        type: string
+        description: Provider finish reason for this message when available.
+      model:
+        type: string
+        description: Effective model used for this message when available.
+      replace:
+        type: boolean
+        description: Stream-only replacement hint for message assembly consumers.
+    additionalProperties: false
+  ToolResultMessage:
+    type: object
+    description: One tool-result conversation message.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - tool
+        description: Always `tool` for tool-result conversation messages.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: MessagePart
+      attachments:
+        type: array
+        description: Attached files or media referenced by the message.
+        items:
+          type: object
+      turn:
+        type: number
+        description: Optional chat turn number for this message.
+      toolCallId:
+        type: string
+        description: Optional tool-call id associated with this tool result message.
+      name:
+        type: string
+        description: Optional tool name associated with this tool result message.
+    additionalProperties: false
+  ConversationMessage:
+    anyOf:
+      - SystemMessage
+      - UserMessage
+      - AgentMessage
+      - ToolResultMessage
+    description: One structured conversation message object.
+  Usage:
+    type: object
+    description: Optional usage details such as token counts.
+    properties:
+      inputTokens:
+        type: number
+        description: Input or prompt token count when available.
+      outputTokens:
+        type: number
+        description: Output or completion token count when available.
+      reasoningTokens:
+        type: number
+        description: Reasoning token count when available.
+      cacheReadTokens:
+        type: number
+        description: Cache-read token count when available.
+      cacheWriteTokens:
+        type: number
+        description: Cache-write token count when available.
+      totalTokens:
+        type: number
+        description: Total token count when available.
+    additionalProperties: false

@@ -1,0 +1,17 @@
+format: 1
+id: guide-provider-runtime
+name: Guide Provider Runtime
+description: Rule-based conversational engine inspired by classic chatbots (ELIZA, PARRY, A.L.I.C.E.).
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/guide-provider-runtime.js
+timeoutSeconds: 5
+actions:
+  - id: list-models
+    name: List Models
+    description: Return Guide's built-in model metadata and context limit.
+  - id: respond-text
+    name: Respond Text
+    description: Generate a scripted guide response using pattern matching and topic tracking.

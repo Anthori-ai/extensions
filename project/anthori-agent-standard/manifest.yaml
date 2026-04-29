@@ -1,0 +1,225 @@
+format: 1
+id: anthori.agent.standard
+name: Agent Standard
+scope: project
+version: 1.0.1
+description: First-party standard visible Agent package built on anthori.agent.foundation and related first-party runtime helpers.
+catalogPath:
+  - Anthori
+  - Agent
+  - Standard
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+  - id: anthori.app.chat
+    version: ^1.0.0
+  - id: anthori.storage.foundation
+    version: ^1.0.0
+typeDefinitions:
+  StoredUserMessage:
+    type: object
+    description: Stored user message row.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - user
+        description: Always `user` for stored user messages.
+      name:
+        type: string
+        description: Optional participant display name for this message.
+      participantId:
+        type: string
+        description: Optional participant id for this message.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: anthori.standard.MessagePart
+    additionalProperties: false
+  StoredSystemMessage:
+    type: object
+    description: Stored system message row.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - system
+        description: Always `system` for stored system messages.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: anthori.standard.MessagePart
+    additionalProperties: false
+  StoredAgentMessage:
+    type: object
+    description: Stored agent message row.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - agent
+        description: Always `agent` for stored agent messages.
+      name:
+        type: string
+        description: Optional participant display name for this message.
+      participantId:
+        type: string
+        description: Optional participant id for this message.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: anthori.standard.MessagePart
+      speaker:
+        type: string
+        description: Optional display name shown beside the message.
+      usage: anthori.standard.Usage
+      finishReason:
+        type: string
+        description: Provider finish reason for this message when available.
+      model:
+        type: string
+        description: Effective model used for this message when available.
+    additionalProperties: false
+  StoredToolResultMessage:
+    type: object
+    description: Stored tool-result message row.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - tool
+        description: Always `tool` for stored tool-result messages.
+      parts:
+        type: array
+        description: The message body as an ordered list of parts.
+        items: anthori.standard.MessagePart
+      attachments:
+        type: array
+        description: Attached files or media referenced by the message.
+        items:
+          type: object
+      toolCallId:
+        type: string
+        description: Optional tool-call id associated with this tool result message.
+      name:
+        type: string
+        description: Optional tool name associated with this tool result message.
+    additionalProperties: false
+  StoredMessage:
+    anyOf:
+      - StoredSystemMessage
+      - StoredUserMessage
+      - StoredAgentMessage
+      - StoredToolResultMessage
+    description: Message shape stored by Agent Storage for user, agent, system, and tool history.
+  StoredMessagePatch:
+    type: object
+    description: Partial StoredMessage field update.
+    properties:
+      role:
+        type: string
+      name:
+        type: string
+      participantId:
+        type: string
+      parts:
+        type: array
+        items: anthori.standard.MessagePart
+      attachments:
+        type: array
+        items:
+          type: object
+      toolCallId:
+        type: string
+      speaker:
+        type: string
+      usage: anthori.standard.Usage
+      finishReason:
+        type: string
+      model:
+        type: string
+    additionalProperties: false
+  StoredMessageEnvelope:
+    type: object
+    description: Stored Agent Storage row envelope.
+    required:
+      - id
+      - created
+      - updated
+      - row
+    properties:
+      id:
+        type: number
+        description: Storage-assigned row id.
+      created:
+        type: string
+        description: Storage-assigned creation timestamp.
+      updated:
+        type: string
+        description: Storage-assigned last update timestamp.
+      turn:
+        type: number
+        description: Storage-assigned turn for session or execution scoped rows when applicable.
+      row: StoredMessage
+    additionalProperties: false
+  StreamWriteEvent:
+    type: object
+    description: Stream event accepted by Agent Storage writeStream.
+    required:
+      - id
+      - phase
+    properties:
+      id:
+        type: string
+        description: Current stream session id.
+      phase:
+        type: string
+        enum:
+          - start
+          - chunk
+          - end
+          - error
+          - cancel
+        description: Current stream lifecycle phase.
+      content:
+        description: Structured agent message payload for chunk/end events.
+        anyOf:
+          - type: "null"
+          - anthori.app.chat.OutputMessage
+      reason:
+        type: string
+        description: Optional terminal reason for error or cancellation events.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this stream session.
+      metadata:
+        type: object
+        description: Producer-supplied stream event metadata.
+    additionalProperties: false
+  StreamWriteResult:
+    type: object
+    description: Result returned after Agent Storage processes one stream event.
+    required:
+      - ok
+    properties:
+      ok:
+        type: boolean
+        enum:
+          - true
+      id:
+        type: number
+        description: Storage-assigned row id when a streamed reply row is active.
+    additionalProperties: false
+controlDefinitions:
+  - control-definitions/agent
+  - control-definitions/agent-storage
+externalLibraries:
+  - external-libraries/anthori-agent-standard-runtime

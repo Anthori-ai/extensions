@@ -1,0 +1,52 @@
+format: 1
+id: list
+name: List
+description: Lists all projects in the user's workspace.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: Lists all projects in the user's workspace.
+        input:
+          type: object
+          description: No input required.
+          additionalProperties: false
+        output:
+          type: object
+          description: Project list result.
+          additionalProperties: false
+          required:
+            - projects
+          properties:
+            projects:
+              type: array
+              description: Projects visible in the current workspace.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - name
+                  - description
+                  - graphRef
+                properties:
+                  id:
+                    type: string
+                    description: Stable project id.
+                  name:
+                    type: string
+                    description: Display name shown in the project list.
+                  description:
+                    type: string
+                    description: Saved project description text.
+                  graphRef:
+                    type: string
+                    description: Graph reference used to open the project's main graph.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list

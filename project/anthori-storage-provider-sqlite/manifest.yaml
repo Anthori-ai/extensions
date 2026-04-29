@@ -1,0 +1,27 @@
+format: 1
+id: anthori.storage.provider.sqlite
+name: SQLite Storage Provider
+scope: project
+version: 1.0.0
+description: Extension that bundles a SQLite-backed storage provider definition.
+catalogPath:
+  - Anthori
+  - Storage
+  - Providers
+  - SQLite
+extensionDependencies:
+  - id: anthori.storage.foundation
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+localizationPaths:
+  - i18n/{locale}.yaml
+externalLibraries:
+  - external-libraries/sqlite-provider-runtime
+providers:
+  - providers/sqlite
+controlDefinitions:
+  - control-definitions/kv-sqlite
+  - control-definitions/table-sqlite

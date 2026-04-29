@@ -1,0 +1,734 @@
+format: 1
+id: table-base
+name: Table Storage Base
+description: Hidden shared base for table-style storage controls with configurable scope and backend.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  category: storage
+  libraryPath: storage
+  capabilities:
+    - storage/table
+  contracts:
+    caller:
+      contracts:
+        - id: insert
+          name: Insert
+          description: Insert a table row into the configured backend.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+              - row
+            properties:
+              action:
+                type: string
+                enum:
+                  - insert
+              row:
+                type: object
+                description: User-authored row JSON to insert. Storage metadata fields are assigned automatically.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - id
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              id:
+                type: number
+                description: Storage-assigned row id for the inserted row.
+            additionalProperties: false
+        - id: select
+          name: Select
+          description: Select table rows from the configured backend.
+          showWhen:
+            key: access
+            equals: read
+          input:
+            type: object
+            required:
+              - action
+            properties:
+              action:
+                type: string
+                enum:
+                  - select
+              where:
+                type: object
+                description: Filter object used to match rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for select.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit for select.
+            additionalProperties: false
+          output:
+            type: array
+            items:
+              type: object
+              required:
+                - id
+                - created
+                - updated
+                - row
+              properties:
+                id:
+                  type: number
+                  description: Storage-assigned row id.
+                created:
+                  type: string
+                  description: Storage-assigned creation timestamp.
+                updated:
+                  type: string
+                  description: Storage-assigned last update timestamp.
+                turn:
+                  type: number
+                  description: Storage-assigned turn for session or execution scoped rows when applicable.
+                row:
+                  type: object
+                  description: User-authored row JSON.
+              additionalProperties: false
+            description: Array of matching stored row envelopes.
+        - id: update
+          name: Update
+          description: Update table rows in the configured backend.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            anyOf:
+              - type: object
+                required:
+                  - action
+                  - where
+                  - values
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  values:
+                    type: object
+                    description: Field values applied by update. Storage metadata fields are not writable.
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                  - where
+                  - row
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  row:
+                    type: object
+                    description: Full replacement row JSON. Storage metadata fields are assigned automatically and are not writable.
+                additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: delete
+          name: Delete
+          description: Delete table rows from the configured backend.
+          showWhen:
+            key: access
+            equals: delete
+          input:
+            type: object
+            required:
+              - action
+              - where
+            properties:
+              action:
+                type: string
+                enum:
+                  - delete
+              where:
+                type: object
+                description: Filter object used to match rows to delete.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+    bindings:
+      field:
+        providerControl:
+          contracts:
+            - id: insert
+              name: Insert
+              description: Table storage forwards insert actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - table
+                  - action
+                  - row
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                    description: Optional storage scope to use. Defaults to session.
+                  table:
+                    type: string
+                    description: Table name used by table-storage actions.
+                  action:
+                    type: string
+                    enum:
+                      - insert
+                  row:
+                    type: object
+                    description: User-authored row JSON to insert. Storage metadata fields are assigned automatically.
+                additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                  - id
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  id:
+                    type: number
+                    description: Storage-assigned row id for the inserted row.
+                additionalProperties: false
+            - id: select
+              name: Select
+              description: Table storage forwards select actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - table
+                  - action
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - select
+                  where:
+                    type: object
+                  orderBy:
+                    type: array
+                    description: Optional ordering rules for selected rows.
+                    items:
+                      type: object
+                      required:
+                        - field
+                      properties:
+                        field:
+                          type: string
+                          description: Field name to sort by.
+                        direction:
+                          type: string
+                          description: Sort direction. Defaults to asc.
+                          enum:
+                            - asc
+                            - desc
+                      additionalProperties: false
+                  limit:
+                    type: number
+                additionalProperties: false
+              output:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - created
+                    - updated
+                    - row
+                  properties:
+                    id:
+                      type: number
+                      description: Storage-assigned row id.
+                    created:
+                      type: string
+                      description: Storage-assigned creation timestamp.
+                    updated:
+                      type: string
+                      description: Storage-assigned last update timestamp.
+                    turn:
+                      type: number
+                      description: Storage-assigned turn for session or execution scoped rows when applicable.
+                    row:
+                      type: object
+                      description: User-authored row JSON.
+                  additionalProperties: false
+            - id: update
+              name: Update
+              description: Table storage forwards update actions through the connected storage provider control.
+              input:
+                anyOf:
+                  - type: object
+                    required:
+                      - table
+                      - action
+                      - where
+                      - values
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - user
+                          - project
+                          - session
+                          - execution
+                      table:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - update
+                      where:
+                        type: object
+                      values:
+                        type: object
+                        description: Field values applied by update. Storage metadata fields are not writable.
+                    additionalProperties: false
+                  - type: object
+                    required:
+                      - table
+                      - action
+                      - where
+                      - row
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - user
+                          - project
+                          - session
+                          - execution
+                      table:
+                        type: string
+                      action:
+                        type: string
+                        enum:
+                          - update
+                      where:
+                        type: object
+                      row:
+                        type: object
+                        description: Full replacement row JSON. Storage metadata fields are assigned automatically and are not writable.
+                    additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                  - rowsAffected
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  rowsAffected:
+                    type: number
+                additionalProperties: false
+            - id: delete
+              name: Delete
+              description: Table storage forwards delete actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - table
+                  - action
+                  - where
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - delete
+                  where:
+                    type: object
+                additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                  - rowsAffected
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  rowsAffected:
+                    type: number
+                additionalProperties: false
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-storage-foundation-runtime
+    runtimeActionForward:
+      type: string
+      default: table-control
+    backend:
+      type: string
+      required: false
+      default: internal
+      description: Internal managed storage or provider-backed storage.
+    providerControl:
+      type: controlTarget
+      required: false
+      targetControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+      description: Storage provider control used when backend is provider.
+    scope:
+      type: string
+      required: false
+      default: session
+      enum:
+        - user
+        - project
+        - session
+        - execution
+      description: Storage scope, which also controls copy behavior between user, project, session, and execution data.
+    table:
+      type: string
+      required: false
+      description: Logical table name to use for stored rows. Defaults to the control id.
+    access:
+      type: array
+      default:
+        - read
+        - write
+        - delete
+      minItems: 1
+      description: Access capabilities. Read exposes select. Write exposes insert and update. Delete exposes delete.
+      items:
+        type: string
+        enum:
+          - read
+          - write
+          - delete
+  ui:
+    fields:
+      - key: backend
+        label: Backend
+        type: select
+        helpKey: core.storage.table.backend.help
+        dataSource:
+          kind: static
+          options:
+            - value: internal
+              label: Internal
+            - value: provider
+              label: Provider
+      - key: providerControl
+        label: Provider
+        type: controlTarget
+        helpKey: core.storage.table.providerControl.help
+        targetControlRef: controls/1/extensions/anthori.storage.foundation/definitions/provider-base
+        showWhen:
+          key: backend
+          equals: provider
+      - key: scope
+        label: Scope
+        type: select
+        helpKey: core.storage.table.scope.help
+        dataSource:
+          kind: static
+          options:
+            - value: user
+              label: User
+            - value: project
+              label: Project
+            - value: session
+              label: Session
+            - value: execution
+              label: Execution
+      - key: table
+        label: Table
+        type: text
+        placeholder: assistant-memory
+        helpKey: core.storage.table.table.help
+      - key: access
+        label: Access
+        type: multiselect
+        size: 3
+        minItems: 1
+        helpKey: core.storage.table.access.help
+        dataSource:
+          kind: static
+          options:
+            - value: read
+              label: Read
+            - value: write
+              label: Write
+            - value: delete
+              label: Delete
+      - type: button
+        label: View
+        action: viewBackingFile
+        showWhen:
+          - key: backend
+            equals: internal
+          - key: scope
+            notEquals: execution
+    info:
+      sections:
+        - title: CONFIG
+          kind: schema
+          schema:
+            backend:
+              type: string
+              description: "`internal` uses Anthori-managed storage; `provider` forwards calls through Provider while keeping the same scope semantics."
+            providerControl:
+              type: controlTarget
+              description: "Required when Backend is `provider`. Must target a storage provider control."
+            table:
+              type: string
+              description: Logical table name. Defaults to the control id when empty.
+        - title: INPUT
+          kind: schema
+          schema:
+            anyOf:
+              - type: object
+                required:
+                  - action
+                  - row
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - insert
+                    description: Insert a table row.
+                  row:
+                    type: object
+                    description: User-authored row JSON to insert. Storage metadata fields are assigned automatically.
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - select
+                    description: Select matching table rows.
+                  where:
+                    type: object
+                    description: Filter object used to match rows.
+                  orderBy:
+                    type: array
+                    description: Optional ordering rules for select.
+                    items:
+                      type: object
+                      required:
+                        - field
+                      properties:
+                        field:
+                          type: string
+                          description: Field or storage metadata name to sort by.
+                        direction:
+                          type: string
+                          description: Sort direction. Defaults to asc.
+                          enum:
+                            - asc
+                            - desc
+                      additionalProperties: false
+                  limit:
+                    type: number
+                    description: Optional row limit for select.
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                  - where
+                  - values
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                    description: Patch matching rows.
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  values:
+                    type: object
+                    description: Field values applied by update patch calls. Storage metadata fields are not writable.
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                  - where
+                  - row
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - update
+                    description: Replace matching rows.
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  row:
+                    type: object
+                    description: Full replacement row JSON. Storage metadata fields are assigned automatically and are not writable.
+                additionalProperties: false
+              - type: object
+                required:
+                  - action
+                  - where
+                properties:
+                  action:
+                    type: string
+                    enum:
+                      - delete
+                    description: Delete matching rows.
+                  where:
+                    type: object
+                    description: Filter object used to match rows to delete.
+                additionalProperties: false
+        - title: OUTPUT
+          kind: schema
+          schema:
+            anyOf:
+              - type: object
+                required:
+                  - ok
+                  - id
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  id:
+                    type: number
+                    description: Storage-assigned row id for the inserted row.
+                additionalProperties: false
+              - type: array
+                description: Array of matching stored row envelopes.
+                items:
+                  type: object
+                  required:
+                    - id
+                    - created
+                    - updated
+                    - row
+                  properties:
+                    id:
+                      type: number
+                      description: Storage-assigned row id.
+                    created:
+                      type: string
+                      description: Storage-assigned creation timestamp.
+                    updated:
+                      type: string
+                      description: Storage-assigned last update timestamp.
+                    turn:
+                      type: number
+                      description: Storage-assigned turn for session or execution scoped rows when applicable.
+                    row:
+                      type: object
+                      description: User-authored row JSON.
+                  additionalProperties: false
+              - type: object
+                required:
+                  - ok
+                  - rowsAffected
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  rowsAffected:
+                    type: number
+                    description: Number of rows updated or deleted.
+                additionalProperties: false
+  editorScripts:
+    - id: viewBackingFile
+      name: View Backing File
+      enabled: true
+      targetKind: control
+      runOn:
+        - kind: uiEvent
+          interaction: click
+          actionId: viewBackingFile
+      code: |
+        const file = context.editor.resources.resolve("backingFile");
+        const result = context.editor.createResult();
+
+        if (file?.path)
+        {
+          result.effect().openFile(file);
+        }
+        else
+        {
+          result.effect().showToast("Backing file is not available for this control.");
+        }
+
+        return result.build();

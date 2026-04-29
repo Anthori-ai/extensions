@@ -1,0 +1,64 @@
+format: 1
+id: passthrough-base
+name: Passthrough Base
+description: Hidden shared base for forwarding calls through one extra control boundary while exposing connected controls to supported hosts.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Invoke
+        description: Invoke one connected control through this Passthrough boundary.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Connected control control id to invoke through this Passthrough.
+            path:
+              type: array
+              description: Optional nested Passthrough path for another downstream Passthrough boundary.
+              items:
+                type: string
+            args:
+              type: any
+              description: Input forwarded to the final target control.
+        output:
+          type: any
+          description: Output returned by the final target control.
+control:
+  visible: false
+  libraryPath: composition
+  capabilities:
+    - passthrough
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-composition-runtime
+    runtimeActionForward:
+      type: string
+      default: passthrough-control
+    controls:
+      type: controlTarget[]
+      default: []
+      description: Ordered control refs exposed through this Passthrough.
+  ui:
+    graphBinding:
+      kind: aggregateControlTargetList
+      field: controls
+    fields:
+      - key: controls
+        label: Controls
+        type: controlTarget[]
+        helpKey: core.composition.passthrough.controls.help
+    info:
+      sections:
+        - title: NOTES
+          kind: text
+          text: |
+            Passthrough adds one real control boundary in front of connected Controls.
+
+            Hosts that expose connected controls from controlTarget[] bindings can flatten those connected controls so callers see them as if they were attached directly, while runtime still invokes through Passthrough first.

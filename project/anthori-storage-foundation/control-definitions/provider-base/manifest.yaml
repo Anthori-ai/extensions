@@ -1,0 +1,460 @@
+format: 1
+id: provider-base
+name: Storage Provider Base
+description: Hidden shared base for provider controls that execute storage-backed calls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  category: providers
+  libraryPath: providers/storage
+  capabilities:
+    - storage/provider
+  contracts:
+    caller:
+      contracts:
+        - id: kv-get
+          name: KV Get
+          description: Read a key-value entry from the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+            properties:
+              namespace:
+                type: string
+                description: Namespace key used by key-value storage actions.
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+                description: Optional storage scope to use. Defaults to session.
+              action:
+                type: string
+                enum:
+                  - get
+              key:
+                type: string
+                description: Key to read from the selected namespace.
+            additionalProperties: false
+          output:
+            anyOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: object
+              - type: array
+              - enum:
+                  - null
+            description: Stored JSON-compatible value for the requested key, or null when the key is missing.
+        - id: kv-set
+          name: KV Set
+          description: Write a key-value entry through the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+              - value
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - set
+              key:
+                type: string
+              value:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: object
+                  - type: array
+                  - enum:
+                      - null
+                description: JSON-compatible value to store for the selected key.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+            additionalProperties: false
+        - id: kv-delete
+          name: KV Delete
+          description: Delete a key-value entry through the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - delete
+              key:
+                type: string
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: kv-clear
+          name: KV Clear
+          description: Clear all key-value entries in the selected namespace through the storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - clear
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: table-insert
+          name: Table Insert
+          description: Insert a table row through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+              - row
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - insert
+              row:
+                type: object
+                description: User-authored row JSON to insert. Storage metadata fields are assigned automatically.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - id
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              id:
+                type: number
+                description: Storage-assigned row id for the inserted row.
+            additionalProperties: false
+        - id: table-select
+          name: Table Select
+          description: Select table rows through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - select
+              where:
+                type: object
+                description: Filter object used to match rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for the selected rows.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit.
+            additionalProperties: false
+          output:
+            type: array
+            items:
+              type: object
+              required:
+                - id
+                - created
+                - updated
+                - row
+              properties:
+                id:
+                  type: number
+                  description: Storage-assigned row id.
+                created:
+                  type: string
+                  description: Storage-assigned creation timestamp.
+                updated:
+                  type: string
+                  description: Storage-assigned last update timestamp.
+                turn:
+                  type: number
+                  description: Storage-assigned turn for session or execution scoped rows when applicable.
+                row:
+                  type: object
+                  description: User-authored row JSON.
+              additionalProperties: false
+            description: Array of matching stored row envelopes.
+        - id: table-update
+          name: Table Update
+          description: Update table rows through the selected storage provider.
+          input:
+            anyOf:
+              - type: object
+                required:
+                  - table
+                  - action
+                  - where
+                  - values
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  values:
+                    type: object
+                    description: Field values applied to matched rows. Storage metadata fields are not writable.
+                additionalProperties: false
+              - type: object
+                required:
+                  - table
+                  - action
+                  - where
+                  - row
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  row:
+                    type: object
+                    description: Full replacement row JSON. Storage metadata fields are assigned automatically and are not writable.
+                additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: table-delete
+          name: Table Delete
+          description: Delete table rows through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+              - where
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - delete
+              where:
+                type: object
+                description: Filter object used to match rows to delete.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-storage-foundation-runtime
+    runtimeActionForward:
+      type: string
+      default: provider-control
+    providerRef:
+      type: string
+      required: true
+      description: Provider id from the Providers panel.
+    providerDefinitionId:
+      type: string
+      required: false
+    providerInterfaces:
+      type: array
+      required: false
+      default:
+        - anthori.storage-kv.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Provider
+        type: select
+        helpKey: core.storageProvider.providerRef.help
+        dataSource:
+          kind: resource
+          resource: providers
+          filters:
+            interface: anthori.storage-kv.v1
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            namespace:
+              type: string
+              description: Required for key-value actions.
+            scope:
+              type: string
+              enum:
+                - user
+                - project
+                - session
+                - execution
+              description: Optional storage scope. Defaults to session.
+            table:
+              type: string
+              description: Required for table actions.
+            action:
+              type: string
+              description: Storage action to perform. Use get, set, delete, clear, insert, select, or update.
+        - title: OUTPUT
+          kind: schema
+          schema:
+            result:
+              type: any
+              description: "Action-specific result. get returns the stored JSON-compatible value or null, select returns row envelopes { id, created, updated, row, turn? }, table insert returns { ok: true, id }, set returns { ok: true }, and delete/update/clear return { ok: true, rowsAffected }."

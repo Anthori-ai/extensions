@@ -1,0 +1,62 @@
+format: 1
+id: list-controls
+name: List Controls
+description: Lists all controls in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List Controls
+        description: List controls in the current graph.
+        input:
+          type: object
+          description: No input.
+        output:
+          type: object
+          required:
+            - controls
+          properties:
+            controls:
+              type: array
+              description: Controls in the current graph.
+              items:
+                type: object
+                required:
+                  - id
+                  - type
+                  - title
+                  - position
+                  - config
+                properties:
+                  id:
+                    type: string
+                    description: Control id.
+                  type:
+                    type: string
+                    description: Control type.
+                  title:
+                    type: string
+                    description: Control title.
+                  position:
+                    type: object
+                    description: Control position.
+                    required:
+                      - x
+                      - y
+                    properties:
+                      x:
+                        type: integer
+                        description: Horizontal position.
+                      y:
+                        type: integer
+                        description: Vertical position.
+                  config:
+                    type: object
+                    description: Control configuration.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-controls

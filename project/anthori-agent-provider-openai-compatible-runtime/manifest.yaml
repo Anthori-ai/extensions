@@ -1,0 +1,11 @@
+format: 1
+id: anthori.agent.provider.openai-compatible-runtime
+name: OpenAI-Compatible Provider Runtime
+version: 1.0.0
+description: Shared runtime library for API-key providers that expose OpenAI-compatible chat completions.
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/openai-compatible-provider-runtime

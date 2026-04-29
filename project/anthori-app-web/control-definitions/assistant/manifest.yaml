@@ -1,0 +1,51 @@
+format: 1
+id: assistant
+name: Assistant
+description: Ask the user to complete a web step manually.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Assistant
+        description: Ask the user to complete a web step manually.
+        input:
+          type: object
+          description: Assistant request for a manual web step.
+          required:
+            - windowId
+            - request
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            request:
+              type: string
+              description: Prompt shown to the user.
+            notes:
+              type: string
+              description: Optional extra instructions.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: assistant
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 120

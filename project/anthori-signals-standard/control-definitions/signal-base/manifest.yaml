@@ -1,0 +1,15 @@
+format: 1
+id: signal-base
+name: Signal Base
+description: Hidden shared base for signal controls that report readiness to the runtime.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  category: signals
+  libraryPath: signals
+  capabilities:
+    - signal
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-signals-standard-runtime

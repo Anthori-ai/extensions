@@ -1,0 +1,43 @@
+format: 1
+id: simple
+name: Simple HTTP
+version: 1.0.0
+description: Generic text provider that forwards prompts to a custom HTTP endpoint.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    http:
+      type: url
+      label: HTTP Endpoint
+      required: true
+      placeholder: http://127.0.0.1:8765/api/submit
+      helpKey: provider.simple.config.http.help
+    llmModel:
+      type: string
+      label: Model
+      placeholder: custom-model
+      helpKey: provider.simple.config.model.help
+    maxContextTokens:
+      type: number
+      label: Context Limit
+      required: true
+      placeholder: "128000"
+      helpKey: provider.simple.config.contextLimit.help
+runtime:
+  kind: library
+  libraryId: simple-provider-runtime
+  actions:
+    listModels: list-models
+    respondText: respond-text
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 204
+control:
+  visible: false

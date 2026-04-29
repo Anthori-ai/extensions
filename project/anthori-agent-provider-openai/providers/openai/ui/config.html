@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenAI Provider</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/provider-frame-bootstrap.js" defer></script>
+    <script src="config.js" defer></script>
+    <style>
+      .provider-config-root {
+        display: grid;
+        gap: 0;
+      }
+
+      .provider-stack-field {
+        display: grid;
+        gap: 0;
+      }
+
+      .provider-inline-status {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        font-family: inherit;
+        font-size: var(--text-sm);
+        font-style: normal;
+        font-weight: 400;
+        letter-spacing: 0;
+        line-height: 1.35;
+        text-transform: none;
+        white-space: pre-wrap;
+      }
+
+      .provider-inline-status-spinner {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 56px;
+        min-height: 14px;
+        flex: 0 0 auto;
+      }
+
+      .provider-inline-status[data-state="loading"] .provider-inline-status-spinner {
+        display: inline-flex;
+      }
+
+      .provider-inline-status-message {
+        color: inherit;
+        flex: 1 1 auto;
+        font-family: inherit;
+        font-size: inherit;
+        font-style: inherit;
+        font-weight: inherit;
+        letter-spacing: inherit;
+        min-width: 0;
+        text-transform: inherit;
+      }
+
+      .provider-inline-status[data-state="warning"] {
+        color: var(--theme-warning, #8a5b00);
+      }
+
+      .provider-inline-status[data-state="error"] {
+        color: var(--theme-danger, #a1260d);
+      }
+
+      .provider-inline-status[data-state="success"] {
+        color: var(--theme-success, #107c10);
+      }
+
+      .provider-inline-status[data-state="loading"] {
+        color: var(--text-secondary);
+      }
+
+      .provider-inline-status:not([hidden]) {
+        display: flex;
+      }
+
+      .provider-config-status {
+        margin-top: var(--space-2);
+      }
+
+    </style>
+  </head>
+  <body>
+    <section class="settings-section active provider-config-root" id="openai-config-root" data-ui-ready="true">
+      <label class="editor-settings-row inspector-field-row" for="openai-api-key" id="openai-api-key-row">
+        <span class="inspector-field-title">API Key</span>
+        <input
+          id="openai-api-key"
+          type="password"
+          placeholder="sk-..."
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="openai-model" id="openai-model-row" data-field-help-key="provider.openai.ui.model.help" hidden>
+        <span class="inspector-field-title">Model</span>
+        <div class="provider-stack-field">
+          <select id="openai-model" class="prompt-input"></select>
+        </div>
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="openai-reasoning" id="openai-reasoning-row" data-field-help-key="provider.openai.ui.reasoning.help" hidden>
+        <span class="inspector-field-title">Reasoning</span>
+        <select id="openai-reasoning" class="prompt-input">
+          <option value="">(optional)</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+          <option value="xhigh">Extra High</option>
+        </select>
+      </label>
+
+      <div id="openai-status" class="provider-inline-status provider-config-status" hidden></div>
+    </section>
+  </body>
+</html>

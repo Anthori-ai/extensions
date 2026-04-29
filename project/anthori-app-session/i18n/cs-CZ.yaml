@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.app.session
+  owner: Anthori
+  locale: cs-CZ
+  version: 1
+entries: []

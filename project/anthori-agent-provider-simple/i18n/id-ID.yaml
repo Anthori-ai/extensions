@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.agent.provider.simple
+  owner: Anthori
+  locale: id-ID
+  version: 1
+entries: []

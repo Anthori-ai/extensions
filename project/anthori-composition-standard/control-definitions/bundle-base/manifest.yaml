@@ -1,0 +1,167 @@
+format: 1
+id: bundle-base
+name: Bundle Base
+description: Hidden shared base for grouped controls that can be listed, inspected, or invoked by id.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: list
+        name: List
+        description: List the controls in this bundle.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - action
+          properties:
+            action:
+              type: string
+              enum:
+                - list
+              description: Return summary info for the grouped controls.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - controls
+          properties:
+            controls:
+              type: array
+              description: Summary rows returned by `list`.
+              items:
+                type: object
+                required:
+                  - id
+                  - title
+                  - name
+                  - description
+                properties:
+                  id:
+                    type: string
+                    description: Bundled control control id.
+                  title:
+                    type: string
+                    description: Current control title for the bundled control.
+                  name:
+                    type: string
+                    description: Control name for the bundled control.
+                  description:
+                    type: string
+                    description: Control description for the bundled control.
+                additionalProperties: false
+      - id: inspect
+        name: Inspect
+        description: Return full information for one bundled control.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - action
+            - id
+          properties:
+            action:
+              type: string
+              enum:
+                - inspect
+              description: Return full info for one grouped control.
+            id:
+              type: string
+              description: Bundled control control id. Use list first to get the ids.
+        output:
+          type: object
+          description: Full control information returned by `inspect`.
+          required:
+            - kind
+            - id
+            - title
+            - name
+            - description
+          properties:
+            kind:
+              type: string
+              enum:
+                - control
+              description: Descriptor kind returned by `inspect`.
+            id:
+              type: string
+              description: Bundled control control id.
+            title:
+              type: string
+              description: Current control title for the bundled control.
+            name:
+              type: string
+              description: Control name for the bundled control.
+            description:
+              type: string
+              description: Control description for the bundled control.
+            contracts:
+              type: object
+              additionalProperties: true
+              description: Resolved bundled control contracts.
+            docs:
+              type: object
+              additionalProperties: true
+              description: Documentation sections for the bundled control.
+          additionalProperties: false
+      - id: invoke
+        name: Invoke
+        description: Invoke one bundled control by id.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - action
+            - id
+          properties:
+            action:
+              type: string
+              enum:
+                - invoke
+              description: Invoke one grouped control.
+            id:
+              type: string
+              description: Bundled control control id. Use list first to get the ids.
+            args:
+              type: any
+              description: Input passed to the selected control.
+        output:
+          type: any
+          description: Output returned by `invoke`.
+control:
+  visible: false
+  libraryPath: composition
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-composition-runtime
+    runtimeActionForward:
+      type: string
+      default: bundle-control
+    controls:
+      type: controlTarget[]
+      default: []
+      description: Ordered control refs grouped by this bundle.
+  ui:
+    graphBinding:
+      kind: aggregateControlTargetList
+      field: controls
+    fields:
+      - key: controls
+        label: Controls
+        type: controlTarget[]
+        helpKey: core.composition.bundle.controls.help
+    info:
+      sections:
+        - title: NOTES
+          kind: text
+          text: |
+            Use Bundle in this order:
+
+            1. Call `{ action: "list" }` to return `{ controls: [...] }` with summary info for the grouped controls.
+
+            2. Call `{ action: "inspect", id }` to return full info for one grouped control, especially when you need to know required input fields or output shape.
+
+            3. Call `{ action: "invoke", id, args }` to invoke one grouped control and return its output.
+
+            Do not guess required `args` when they are not obvious. `inspect` first.

@@ -1,0 +1,47 @@
+format: 1
+id: create
+name: Create
+description: Creates files or directories inside the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create
+        description: Create an empty file or directory at a workspace path.
+        input:
+          type: object
+          description: File or directory creation request.
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            type:
+              type: string
+              enum: [file, directory]
+              description: Create a file or a directory. Defaults to `file`.
+            createDirs:
+              type: boolean
+              description: Create missing parent directories first.
+            mode:
+              type: string
+              description: Optional octal file mode such as `0644` for files or `0755` for directories.
+          additionalProperties: false
+        output:
+          type: object
+          description: Creation result. File creation returns the new empty file's current hash; directory creation returns an empty fileHash.
+          required:
+            - fileHash
+          properties:
+            fileHash:
+              type: string
+              description: Current full-file XXH3-128 version token for created files. Empty for directories.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create

@@ -1,0 +1,46 @@
+bundle:
+  namespace: anthori.agent.provider.simple
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.simple.config.http.help
+    kind: field_tip
+    target: providers.simple.config.http
+    format: text
+    text: Anthori sends JSON with model, system, and prompt to this endpoint.
+  - key: provider.simple.config.model.help
+    kind: field_tip
+    target: providers.simple.config.model
+    format: text
+    text: Optional default model name to send to the endpoint. Leave it blank if the endpoint does not need one.
+  - key: provider.simple.config.contextLimit.help
+    kind: field_tip
+    target: providers.simple.config.contextLimit
+    format: text
+    text: Required maximum context window, in tokens, for the model this provider configuration represents.
+  - key: provider.simple.config.timeout.help
+    kind: field_tip
+    target: providers.simple.config.timeout
+    format: text
+    text: Optional timeout override for the request.
+  - key: provider.simple.ui.http.help
+    kind: field_tip
+    target: providers.simple.ui.http
+    format: text
+    text: HTTP endpoint Anthori will call for provider requests.
+  - key: provider.simple.ui.model.help
+    kind: field_tip
+    target: providers.simple.ui.model
+    format: text
+    text: Default model name Anthori sends to the endpoint unless the control overrides it.
+  - key: provider.simple.ui.contextLimit.help
+    kind: field_tip
+    target: providers.simple.ui.contextLimit
+    format: text
+    text: Maximum context window, in tokens, for this configured model. Agent uses it to size Context requests.
+  - key: provider.simple.ui.timeout.help
+    kind: field_tip
+    target: providers.simple.ui.timeout
+    format: text
+    text: Optional request timeout in seconds.

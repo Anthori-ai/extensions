@@ -1,0 +1,315 @@
+format: 1
+id: text-provider-base
+name: Agent Text Provider Base
+description: Hidden shared base for provider controls that execute agent text calls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: providers/agent/text
+  capabilities:
+    - pullable
+  contracts:
+    caller:
+      contracts:
+        - id: call
+          name: Text
+          description: Calls the configured provider and returns the provider response.
+          input:
+            type: object
+            properties:
+              input:
+                type: any
+                description: Input sent to the provider runtime.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Provider id from the Providers panel.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this call.
+              reasoning:
+                type: string
+                fieldRef: reasoningEffort
+                enum:
+                  - none
+                  - low
+                  - medium
+                  - high
+                  - xhigh
+                description: Optional reasoning hint for compatible providers. Use none to suppress inherited provider reasoning.
+              timeoutSeconds:
+                type: number
+                fieldRef: timeoutSeconds
+                description: Optional timeout override in seconds.
+              speaker:
+                type: string
+                description: Optional visible speaker label for emitted agent output.
+            additionalProperties: false
+          output: ProviderCallResult
+        - id: start
+          toolVisible: false
+          name: Pull Start
+          description: Start a background provider call owned by the supplied invocation and return a task handle.
+          input:
+            type: object
+            required:
+              - pull
+              - ownerInvocationId
+            properties:
+              pull:
+                type: string
+                enum:
+                  - start
+                description: Start a pullable provider task.
+              ownerInvocationId:
+                type: string
+                description: Invocation that owns the background task lifetime.
+              input:
+                type: any
+                description: Input sent to the provider runtime.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Provider id from the Providers panel.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this call.
+              reasoning:
+                type: string
+                fieldRef: reasoningEffort
+                enum:
+                  - none
+                  - low
+                  - medium
+                  - high
+                  - xhigh
+                description: Optional reasoning hint for compatible providers. Use none to suppress inherited provider reasoning.
+              timeoutSeconds:
+                type: number
+                fieldRef: timeoutSeconds
+                description: Optional timeout override in seconds.
+              speaker:
+                type: string
+                description: Optional visible speaker label for emitted agent output.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - taskId
+            properties:
+              taskId:
+                type: string
+                description: Opaque task id returned by the pullable provider.
+            additionalProperties: false
+        - id: pull
+          toolVisible: false
+          name: Pull Step
+          description: Read the next available provider event from a running pullable task.
+          input:
+            type: object
+            required:
+              - pull
+              - taskId
+            properties:
+              pull:
+                type: string
+                enum:
+                  - step
+                description: Step a running provider task.
+              taskId:
+                type: string
+                description: Task id returned by Pull Start.
+            additionalProperties: false
+          output:
+            type: object
+            propertyOrder:
+              - phase
+              - taskId
+              - sequence
+              - content
+              - reason
+              - metadata
+            required:
+              - taskId
+            properties:
+              phase:
+                type: string
+                enum:
+                  - chunk
+                  - end
+                  - error
+                  - cancel
+                description: Optional event phase. Omitted when nothing new is buffered for this pull round.
+              taskId:
+                type: string
+                description: Task id for this pull result.
+              sequence:
+                type: number
+                description: Delivered event sequence for this task. Omitted when this step round has no unread event.
+              content:
+                type: any
+                description: Optional payload for the returned pull event. Chunk content may already be aggregated by the producer.
+              reason:
+                type: string
+                description: Optional terminal reason for error or cancellation.
+              metadata:
+                type: object
+                description: Optional metadata for the returned pull event.
+            additionalProperties: false
+        - id: cancel
+          toolVisible: false
+          name: Pull Cancel
+          description: Cancel a running pullable provider task.
+          input:
+            type: object
+            required:
+              - pull
+              - taskId
+            properties:
+              pull:
+                type: string
+                enum:
+                  - cancel
+                description: Cancel a running provider task.
+              taskId:
+                type: string
+                description: Task id returned by Pull Start.
+              reason:
+                type: string
+                description: Optional cancellation reason for diagnostics.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - taskId
+            properties:
+              taskId:
+                type: string
+                description: Task id that was cancelled.
+            additionalProperties: false
+        - id: metadata
+          name: Metadata
+          description: Returns provider metadata, including context sizing metadata, for the configured provider.
+          input:
+            type: object
+            required:
+              - metadata
+            properties:
+              metadata:
+                type: boolean
+                enum:
+                  - true
+                description: Request provider metadata.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Optional provider id override for this metadata lookup. Maps onto the control's Config field when unlocked.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this metadata lookup.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - maxContextTokens
+            properties:
+              maxContextTokens:
+                type: number
+                description: Maximum provider context length for the selected model.
+              model:
+                type: string
+                description: Effective model used for this metadata lookup.
+              providerRef:
+                type: string
+                description: Effective provider instance id for this metadata lookup.
+              providerDefinitionId:
+                type: string
+                description: Effective provider definition id for this metadata lookup.
+              providerInterfaces:
+                type: array
+                description: Effective provider interface ids for this metadata lookup.
+                items:
+                  type: string
+            additionalProperties: false
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-agent-foundation-runtime
+    runtimeActionForward:
+      type: string
+      default: text-provider-control
+    providerRef:
+      type: string
+      required: true
+      description: Provider id from the Providers panel.
+    providerDefinitionId:
+      type: string
+      required: false
+    providerInterfaces:
+      type: array
+      required: false
+    llmModel:
+      type: string
+      required: false
+      description: Optional model override for this provider control.
+    timeoutSeconds:
+      type: number
+      required: false
+      description: Optional timeout override for this provider control.
+    reasoningEffort:
+      type: string
+      required: false
+      enum:
+        - ""
+        - none
+        - low
+        - medium
+        - high
+        - xhigh
+      description: Optional reasoning hint for compatible providers. Use none to suppress inherited provider reasoning.
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        type: select
+        supportsPin: true
+        helpKey: core.textProvider.providerRef.help
+        dataSource:
+          kind: resource
+          resource: providers
+          filters:
+            interface: anthori.agent-text.v1
+      - key: llmModel
+        label: Model
+        type: text
+        supportsPin: true
+        placeholder: Inherit provider model
+        helpKey: core.textProvider.llmModel.help
+      - key: reasoningEffort
+        label: Reasoning
+        type: select
+        supportsPin: true
+        helpKey: core.textProvider.reasoningEffort.help
+        dataSource:
+          kind: static
+          options:
+            - value: ""
+              label: Inherit provider reasoning
+            - value: none
+              label: None
+            - value: low
+              label: Low
+            - value: medium
+              label: Medium
+            - value: high
+              label: High
+            - value: xhigh
+              label: Extra High
+      - key: timeoutSeconds
+        label: Timeout
+        type: number
+        placeholder: Inherit provider timeout
+        helpKey: core.textProvider.timeoutSeconds.help

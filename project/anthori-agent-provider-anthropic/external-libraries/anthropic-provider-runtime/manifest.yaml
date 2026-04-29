@@ -1,0 +1,17 @@
+format: 1
+id: anthropic-provider-runtime
+name: Anthropic Provider Runtime
+description: Runtime library for Anthropic text generation.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/anthropic-provider-runtime.js
+timeoutSeconds: 120
+actions:
+  - id: list-models
+    name: List Models
+    description: Return the bundled Anthropic model catalog with context limits.
+  - id: respond-text
+    name: Respond Text
+    description: Send a generic text request to Anthropic's Messages API.

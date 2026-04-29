@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.agent.provider.openai
+  owner: Anthori
+  locale: tr-TR
+  version: 1
+entries: []

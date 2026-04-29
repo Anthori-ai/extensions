@@ -1,0 +1,91 @@
+format: 1
+id: find
+name: Find
+description: Finds regex matches inside project workspace files and returns matching line and byte ranges. Use Find to locate marker text before Read Lines; narrow `path` first when possible, and use `filter` only for file-name globs.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Find
+        description: Find regex matches in a file or directory tree. Use this to find line and byte ranges for anchors such as `<style>`, `<script>`, function names, or headings before reading or editing nearby ranges with Read, Read Lines, Write, or Write Lines. `filter` filters file names only and supports brace alternatives such as `*.{js,ts,html}`.
+        input:
+          type: object
+          description: Content find request.
+          required:
+            - path
+            - pattern
+          propertyOrder: [path, pattern, filter, limit]
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            pattern:
+              type: string
+              description: Regular expression pattern to find.
+            filter:
+              type: string
+              description: Optional file-name glob used to filter directory entries. Matches file names only, not full relative paths. Supports common brace alternatives such as `*.{js,ts,html}`.
+            limit:
+              type: number
+              default: 100
+              description: Optional maximum number of matches to return before truncating. Defaults to 100 and may be capped by control config.
+          additionalProperties: false
+        output:
+          type: object
+          description: Content find result.
+          required:
+            - matches
+            - truncated
+            - scannedFiles
+          properties:
+            matches:
+              type: array
+              description: Regex matches found during the find operation. Use each match's line range as the anchor for a small follow-up Read Lines range, or its byte offsets for byte-oriented Read/Write work.
+              items:
+                type: object
+                required:
+                  - path
+                  - fileHash
+                  - startLine
+                  - endLine
+                  - startOffset
+                  - endOffset
+                  - text
+                propertyOrder: [path, fileHash, startLine, endLine, startOffset, endOffset, text]
+                properties:
+                  path:
+                    type: string
+                    description: Absolute file path containing the match.
+                  fileHash:
+                    type: string
+                    description: Current full-file XXH3-128 version token for the matched file. Use this for guarded Read or Read Lines calls.
+                  startLine:
+                    type: number
+                    description: 1-based line where the regex match starts.
+                  endLine:
+                    type: number
+                    description: Inclusive 1-based line where the regex match ends. Find is line-oriented, so this currently equals `startLine`.
+                  startOffset:
+                    type: number
+                    description: Zero-based byte offset where the regex match starts in the file.
+                  endOffset:
+                    type: number
+                    description: Zero-based byte offset immediately after the regex match in the file. This end offset is exclusive.
+                  text:
+                    type: string
+                    description: Full line text containing the match.
+                additionalProperties: false
+            truncated:
+              type: boolean
+              description: True when Find hit the match limit.
+            scannedFiles:
+              type: number
+              description: Total files scanned during Find.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: find

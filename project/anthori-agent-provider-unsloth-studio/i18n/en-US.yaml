@@ -1,0 +1,46 @@
+bundle:
+  namespace: anthori.agent.provider.unsloth-studio
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.unslothStudio.config.apiKey.help
+    kind: field_tip
+    target: providers.unslothStudio.config.apiKey
+    format: text
+    text: API key created in Unsloth Studio. Anthori sends it as a bearer token.
+  - key: provider.unslothStudio.config.baseUrl.help
+    kind: field_tip
+    target: providers.unslothStudio.config.baseUrl
+    format: text
+    text: OpenAI-compatible Unsloth Studio API base URL. The local default is http://127.0.0.1:8888/v1.
+  - key: provider.unslothStudio.config.model.help
+    kind: field_tip
+    target: providers.unslothStudio.config.model
+    format: text
+    text: Optional model id. Unsloth Studio usually routes requests to the active loaded model.
+  - key: provider.unslothStudio.config.reasoning.help
+    kind: field_tip
+    target: providers.unslothStudio.config.reasoning
+    format: text
+    text: Optional default reasoning effort for requests from this provider config.
+  - key: provider.unslothStudio.ui.apiKey.help
+    kind: field_tip
+    target: providers.unslothStudio.ui.apiKey
+    format: text
+    text: API key created in Unsloth Studio. Anthori stores it as a provider secret.
+  - key: provider.unslothStudio.ui.baseUrl.help
+    kind: field_tip
+    target: providers.unslothStudio.ui.baseUrl
+    format: text
+    text: Base URL for the Unsloth Studio OpenAI-compatible API. Anthori accepts the server root and normalizes it to /v1.
+  - key: provider.unslothStudio.ui.model.help
+    kind: field_tip
+    target: providers.unslothStudio.ui.model
+    format: text
+    text: Optional default model. Leave empty to use the active loaded model reported by Unsloth Studio.
+  - key: provider.unslothStudio.ui.reasoning.help
+    kind: field_tip
+    target: providers.unslothStudio.ui.reasoning
+    format: text
+    text: Optional default reasoning effort for requests from this provider config.

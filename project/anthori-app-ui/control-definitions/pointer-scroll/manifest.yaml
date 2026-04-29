@@ -1,0 +1,53 @@
+format: 1
+id: pointer-scroll
+name: Pointer Scroll
+description: Scroll at a target or coordinate inside a Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pointer Scroll
+        description: Scroll at a target or coordinate inside a Anthori window.
+        input:
+          type: object
+          description: Pointer scroll request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id.
+            targetId:
+              type: string
+              description: Optional AI target id to scroll over.
+            x:
+              type: number
+              description: Viewport X coordinate.
+            "y":
+              type: number
+              description: Viewport Y coordinate.
+            deltaX:
+              type: number
+              description: Horizontal scroll delta.
+            deltaY:
+              type: number
+              description: Vertical scroll delta.
+            tween:
+              type: boolean
+              description: Animate the pointer move first.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before scrolling.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pointerScroll

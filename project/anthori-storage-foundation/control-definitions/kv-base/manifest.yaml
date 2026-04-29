@@ -1,0 +1,472 @@
+format: 1
+id: kv-base
+name: KV Storage Base
+description: Hidden shared base for key-value storage controls with configurable scope and backend.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  category: storage
+  libraryPath: storage
+  capabilities:
+    - storage/kv
+  contracts:
+    caller:
+      contracts:
+        - id: get
+          name: Get
+          description: Read a key-value entry from the configured backend.
+          showWhen:
+            key: access
+            equals: read
+          input:
+            type: object
+            required:
+              - action
+              - key
+            properties:
+              action:
+                type: string
+                enum:
+                  - get
+              key:
+                type: string
+                description: Key to read within the selected namespace.
+            additionalProperties: false
+          output:
+            anyOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: object
+              - type: array
+              - enum:
+                  - null
+            description: Stored JSON-compatible value for the requested key, or null when the key is missing.
+        - id: set
+          name: Set
+          description: Write a key-value entry to the configured backend.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+              - key
+              - value
+            properties:
+              action:
+                type: string
+                enum:
+                  - set
+              key:
+                type: string
+                description: Key to write within the selected namespace.
+              value:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: object
+                  - type: array
+                  - enum:
+                      - null
+                description: JSON-compatible value to store for the selected key.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+            additionalProperties: false
+        - id: delete
+          name: Delete
+          description: Delete a key-value entry from the configured backend.
+          showWhen:
+            key: access
+            equals: delete
+          input:
+            type: object
+            required:
+              - action
+              - key
+            properties:
+              action:
+                type: string
+                enum:
+                  - delete
+              key:
+                type: string
+                description: Key to delete within the selected namespace.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: clear
+          name: Clear
+          description: Clear all key-value entries in the selected namespace.
+          showWhen:
+            key: access
+            equals: write
+          input:
+            type: object
+            required:
+              - action
+            properties:
+              action:
+                type: string
+                enum:
+                  - clear
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+    bindings:
+      field:
+        providerControl:
+          contracts:
+            - id: get
+              name: Get
+              description: KV storage forwards get actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - namespace
+                  - action
+                  - key
+                properties:
+                  namespace:
+                    type: string
+                    description: Namespace key used by key-value storage actions.
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                    description: Optional storage scope to use. Defaults to session.
+                  action:
+                    type: string
+                    enum:
+                      - get
+                  key:
+                    type: string
+                    description: Key to read within the selected namespace.
+                additionalProperties: false
+              output:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: object
+                  - type: array
+                  - enum:
+                      - null
+                description: Stored JSON-compatible value for the requested key, or null when the key is missing.
+            - id: set
+              name: Set
+              description: KV storage forwards set actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - namespace
+                  - action
+                  - key
+                  - value
+                properties:
+                  namespace:
+                    type: string
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  action:
+                    type: string
+                    enum:
+                      - set
+                  key:
+                    type: string
+                  value:
+                    anyOf:
+                      - type: string
+                      - type: number
+                      - type: boolean
+                      - type: object
+                      - type: array
+                      - enum:
+                          - null
+                additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                additionalProperties: false
+            - id: delete
+              name: Delete
+              description: KV storage forwards delete actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - namespace
+                  - action
+                  - key
+                properties:
+                  namespace:
+                    type: string
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  action:
+                    type: string
+                    enum:
+                      - delete
+                  key:
+                    type: string
+                additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                  - rowsAffected
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  rowsAffected:
+                    type: number
+                additionalProperties: false
+            - id: clear
+              name: Clear
+              description: KV storage forwards clear actions through the connected storage provider control.
+              input:
+                type: object
+                required:
+                  - namespace
+                  - action
+                properties:
+                  namespace:
+                    type: string
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  action:
+                    type: string
+                    enum:
+                      - clear
+                additionalProperties: false
+              output:
+                type: object
+                required:
+                  - ok
+                  - rowsAffected
+                properties:
+                  ok:
+                    type: boolean
+                    enum:
+                      - true
+                  rowsAffected:
+                    type: number
+                additionalProperties: false
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-storage-foundation-runtime
+    runtimeActionForward:
+      type: string
+      default: kv-control
+    backend:
+      type: string
+      required: false
+      default: internal
+      description: Internal managed storage or provider-backed storage.
+    providerControl:
+      type: controlTarget
+      required: false
+      targetControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+      description: Storage provider control used when backend is provider.
+    namespace:
+      type: string
+      required: false
+      description: Namespace key used to separate stored values. Defaults to the control id.
+    access:
+      type: array
+      default:
+        - read
+        - write
+        - delete
+      minItems: 1
+      description: Access capabilities. Read exposes get. Write exposes set and clear. Delete exposes delete.
+      items:
+        type: string
+        enum:
+          - read
+          - write
+          - delete
+    scope:
+      type: string
+      required: false
+      default: session
+      enum:
+        - user
+        - project
+        - session
+        - execution
+      description: Storage scope, which also controls copy behavior between user, project, session, and execution data.
+  ui:
+    fields:
+      - key: backend
+        label: Backend
+        type: select
+        helpKey: core.storage.kv.backend.help
+        dataSource:
+          kind: static
+          options:
+            - value: internal
+              label: Internal
+            - value: provider
+              label: Provider
+      - key: providerControl
+        label: Provider
+        type: controlTarget
+        helpKey: core.storage.kv.providerControl.help
+        targetControlRef: controls/1/extensions/anthori.storage.foundation/definitions/provider-base
+        showWhen:
+          key: backend
+          equals: provider
+      - key: namespace
+        label: Namespace
+        type: text
+        placeholder: control-1
+        helpKey: core.storage.kv.namespace.help
+      - key: access
+        label: Access
+        type: multiselect
+        size: 3
+        minItems: 1
+        helpKey: core.storage.kv.access.help
+        dataSource:
+          kind: static
+          options:
+            - value: read
+              label: Read
+            - value: write
+              label: Write
+            - value: delete
+              label: Delete
+      - key: scope
+        label: Scope
+        type: select
+        helpKey: core.storage.kv.scope.help
+        dataSource:
+          kind: static
+          options:
+            - value: user
+              label: User
+            - value: project
+              label: Project
+            - value: session
+              label: Session
+            - value: execution
+              label: Execution
+      - type: button
+        label: View
+        action: viewBackingFile
+        showWhen:
+          - key: backend
+            equals: internal
+          - key: scope
+            notEquals: execution
+    info:
+      sections:
+        - title: CONFIG
+          kind: schema
+          schema:
+            backend:
+              type: string
+              description: "`internal` uses Anthori-managed storage; `provider` forwards calls through Provider while keeping the same scope semantics."
+            providerControl:
+              type: controlTarget
+              description: "Required when Backend is `provider`. Must target a storage provider control."
+        - title: INPUT
+          kind: schema
+          schema:
+            action:
+              type: string
+              description: Storage action to perform. Use get, set, delete, or clear.
+            key:
+              type: string
+              description: Key to read, write, or delete within the selected namespace.
+            value:
+              type: any
+              description: Value to store when `action` is `set`. Session and execution scope writes record the active turn automatically.
+        - title: OUTPUT
+          kind: schema
+          schema:
+            result:
+              type: any
+              description: "get returns the stored JSON-compatible value or null, set returns { ok: true }, and delete and clear return { ok: true, rowsAffected }."
+  editorScripts:
+    - id: viewBackingFile
+      name: View Backing File
+      enabled: true
+      targetKind: control
+      runOn:
+        - kind: uiEvent
+          interaction: click
+          actionId: viewBackingFile
+      code: |
+        const file = context.editor.resources.resolve("backingFile");
+        const result = context.editor.createResult();
+
+        if (file?.path)
+        {
+          result.effect().openFile(file);
+        }
+        else
+        {
+          result.effect().showToast("Backing file is not available for this control.");
+        }
+
+        return result.build();

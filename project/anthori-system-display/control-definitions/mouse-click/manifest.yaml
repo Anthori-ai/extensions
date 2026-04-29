@@ -1,0 +1,93 @@
+format: 1
+id: mouse-click
+name: Mouse Click
+description: Clicks the mouse at a display coordinate.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Mouse Click
+        description: Click the mouse at a display coordinate.
+        input:
+          type: object
+          description: Mouse click request.
+          properties:
+            displayId:
+              type: number
+              description: Display id from display_list.
+            x:
+              type: number
+              description: X coordinate in display pixels.
+            y:
+              type: number
+              description: Y coordinate in display pixels.
+            button:
+              type: string
+              description: "Mouse button: left, right, or middle."
+            clickCount:
+              type: number
+              description: Number of clicks.
+            shift:
+              type: boolean
+              description: Hold Shift during the click.
+            ctrl:
+              type: boolean
+              description: Hold Control during the click.
+            alt:
+              type: boolean
+              description: Hold Alt during the click.
+            meta:
+              type: boolean
+              description: Hold Meta during the click.
+        output:
+          type: object
+          description: Mouse click result.
+          properties:
+            result:
+              type: object
+              description: Result details for the completed mouse click.
+              required:
+                - displayId
+                - x
+                - y
+                - button
+                - clickCount
+              properties:
+                displayId:
+                  type: number
+                  description: Display id that received the click.
+                x:
+                  type: number
+                  description: X coordinate in display pixels.
+                y:
+                  type: number
+                  description: Y coordinate in display pixels.
+                button:
+                  type: string
+                  description: Mouse button used for the click.
+                clickCount:
+                  type: number
+                  description: Number of clicks performed.
+            error:
+              type: string
+              description: Error message when the click could not be sent.
+            details:
+              type: object
+              description: Extra context for handled click failures.
+
+control:
+  visible: true
+  libraryPath: system/input
+  permissions:
+    - id: macos.accessibility
+      title: Accessibility
+      description: Allow Anthori to control the mouse and keyboard.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Accessibility
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: mouse-click
+

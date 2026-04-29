@@ -1,0 +1,73 @@
+format: 1
+id: type
+name: Type
+description: Type text into a form field.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Type
+        description: Type text into a form field.
+        input:
+          type: object
+          description: Text entry request.
+          required:
+            - windowId
+            - snapshotId
+            - text
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            text:
+              type: string
+              description: Text to enter.
+            u:
+              type: integer
+              description: Element u value to type into.
+            selector:
+              type: string
+              description: Element selector to type into.
+            elementId:
+              type: string
+              description: Legacy element id kept for older callers.
+            append:
+              type: boolean
+              description: Append text instead of replacing the field.
+            submit:
+              type: boolean
+              description: Submit after typing when true.
+            keys:
+              type: array
+              description: Extra keys to send after typing.
+            returnSnapshot:
+              type: boolean
+              description: Return a snapshot after typing.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: type
+    returnSnapshotDefault:
+      type: boolean
+      required: false
+      default: true

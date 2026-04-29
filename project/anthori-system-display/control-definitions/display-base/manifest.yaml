@@ -1,0 +1,12 @@
+format: 1
+id: display-base
+name: Display Base
+description: Hidden shared base for display capture and input automation controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system/display
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-display-runtime

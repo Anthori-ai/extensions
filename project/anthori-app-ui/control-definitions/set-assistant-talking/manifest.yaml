@@ -1,0 +1,43 @@
+format: 1
+id: set-assistant-talking
+name: Set Assistant Talking
+description: Toggle the assistant cursor avatar's temporary talking playback override. While talking is enabled, it overrides the current active emotion without changing that underlying emotional state.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Set Assistant Talking
+        description: Toggle the assistant cursor avatar's temporary talking playback override.
+        input:
+          type: object
+          description: Assistant talking-state request.
+          properties:
+            talking:
+              type: boolean
+              description: True enables the temporary talking playback override. False returns to the current emotional state.
+        output:
+          type: object
+          required:
+            - talking
+          properties:
+            talking:
+              type: boolean
+              description: True when the talking playback override is enabled.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: setAssistantTalking
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            talking:
+              type: boolean
+              description: True enables the temporary talking playback override. False returns to the current emotional state.

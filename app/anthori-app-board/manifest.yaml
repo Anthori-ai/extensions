@@ -1,0 +1,6 @@
+format: 1
+id: anthori.app.board
+name: Board
+scope: app
+version: 1.0.0
+description: Enables Anthori's built-in project session board editor tab.

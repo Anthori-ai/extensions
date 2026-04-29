@@ -1,0 +1,22 @@
+format: 1
+id: anthori.app.graph
+name: Graph
+scope: project
+version: 1.0.0
+description: First-party graph editing and inspection controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - Graph
+externalLibraries:
+  - external-libraries/anthori-graph-runtime
+controlDefinitions:
+  - control-definitions/graph-base
+  - control-definitions/actions
+  - control-definitions/create-control
+  - control-definitions/delete-control
+  - control-definitions/list-controls
+  - control-definitions/create-conduit
+  - control-definitions/delete-conduit
+  - control-definitions/list-conduits
+  - control-definitions/move-control

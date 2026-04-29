@@ -1,0 +1,7 @@
+format: 1
+id: table
+name: Table Storage
+description: Scoped portable table storage with internal or provider-backed backends.
+baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/table-base
+control:
+  visible: true

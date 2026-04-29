@@ -1,0 +1,40 @@
+format: 1
+id: anthori.app.ui
+name: UI
+scope: project
+version: 1.0.0
+description: First-party app UI inspection, interaction, watch, and bubble controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - UI
+externalLibraries:
+  - external-libraries/anthori-ui-runtime
+controlDefinitions:
+  - control-definitions/ui-base
+  - control-definitions/ui-automation-base
+  - control-definitions/ask
+  - control-definitions/anthori-guide
+  - control-definitions/show-bubble
+  - control-definitions/set-assistant-active
+  - control-definitions/set-assistant-emotion
+  - control-definitions/set-assistant-talking
+  - control-definitions/world-overview
+  - control-definitions/window-inspect
+  - control-definitions/target-inspect
+  - control-definitions/region-inspect
+  - control-definitions/focus-window
+  - control-definitions/move-to-window
+  - control-definitions/pointer-state
+  - control-definitions/pointer-move
+  - control-definitions/pointer-click
+  - control-definitions/pointer-drag
+  - control-definitions/pointer-scroll
+  - control-definitions/type-text
+  - control-definitions/press-key
+  - control-definitions/press-key-chord
+  - control-definitions/watch-create
+  - control-definitions/watch-read
+  - control-definitions/watch-wait
+  - control-definitions/watch-dispose
+  - control-definitions/run-steps

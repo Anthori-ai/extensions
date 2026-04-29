@@ -1,0 +1,93 @@
+format: 1
+id: mouse-scroll
+name: Mouse Scroll
+description: Scrolls the mouse wheel at a display coordinate.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Mouse Scroll
+        description: Scroll the mouse wheel at a display coordinate.
+        input:
+          type: object
+          description: Mouse scroll request.
+          properties:
+            displayId:
+              type: number
+              description: Display id from display_list.
+            x:
+              type: number
+              description: X coordinate in display pixels.
+            y:
+              type: number
+              description: Y coordinate in display pixels.
+            deltaX:
+              type: number
+              description: Horizontal scroll delta.
+            deltaY:
+              type: number
+              description: Vertical scroll delta.
+            shift:
+              type: boolean
+              description: Hold Shift during the scroll.
+            ctrl:
+              type: boolean
+              description: Hold Control during the scroll.
+            alt:
+              type: boolean
+              description: Hold Alt during the scroll.
+            meta:
+              type: boolean
+              description: Hold Meta during the scroll.
+        output:
+          type: object
+          description: Mouse scroll result.
+          properties:
+            result:
+              type: object
+              description: Result details for the completed mouse scroll.
+              required:
+                - displayId
+                - x
+                - y
+                - deltaX
+                - deltaY
+              properties:
+                displayId:
+                  type: number
+                  description: Display id that received the scroll.
+                x:
+                  type: number
+                  description: X coordinate in display pixels.
+                y:
+                  type: number
+                  description: Y coordinate in display pixels.
+                deltaX:
+                  type: number
+                  description: Horizontal scroll delta.
+                deltaY:
+                  type: number
+                  description: Vertical scroll delta.
+            error:
+              type: string
+              description: Error message when the scroll could not be sent.
+            details:
+              type: object
+              description: Extra context for handled scroll failures.
+
+control:
+  visible: true
+  libraryPath: system/input
+  permissions:
+    - id: macos.accessibility
+      title: Accessibility
+      description: Allow Anthori to control the mouse and keyboard.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Accessibility
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: mouse-scroll
+

@@ -1,0 +1,78 @@
+format: 1
+id: rename
+name: Rename
+description: Renames an existing project.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Rename
+        description: Renames an existing project.
+        input:
+          type: object
+          description: Rename request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Project id to rename.
+            name:
+              type: string
+              description: New display name for the project.
+          required:
+            - projectId
+            - name
+        output:
+          type: object
+          description: Renamed project result.
+          additionalProperties: false
+          required:
+            - project
+          properties:
+            project:
+              type: object
+              description: Renamed project summary.
+              additionalProperties: false
+              required:
+                - id
+                - name
+                - graphRef
+              properties:
+                id:
+                  type: string
+                  description: Project id.
+                name:
+                  type: string
+                  description: Updated project name.
+                graphRef:
+                  type: string
+                  description: Main graph reference for the renamed project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: rename
+    projectId:
+      type: string
+      required: false
+    name:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: name
+        label: Name
+        type: text
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Renamed Project

@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.app.session"
+  owner: "Anthori"
+  locale: "zh-CN"
+  version: 1
+entries:
+  - key: "app.session.start.sessionId.help"
+    kind: "field_tip"
+    target: "app.session.start.sessionId"
+    format: "text"
+    text: "可选。留空以启动一个临时子会话。"

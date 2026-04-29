@@ -1,0 +1,36 @@
+bundle:
+  namespace: anthori.agent.provider.anthropic
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.anthropic.config.apiKey.help
+    kind: field_tip
+    target: providers.anthropic.config.apiKey
+    format: text
+    text: Anthropic API key used for Messages API requests.
+  - key: provider.anthropic.config.model.help
+    kind: field_tip
+    target: providers.anthropic.config.model
+    format: text
+    text: Optional default model id for controls and assistant requests that do not override it.
+  - key: provider.anthropic.config.timeout.help
+    kind: field_tip
+    target: providers.anthropic.config.timeout
+    format: text
+    text: Optional timeout override for Anthropic requests.
+  - key: provider.anthropic.ui.apiKey.help
+    kind: field_tip
+    target: providers.anthropic.ui.apiKey
+    format: text
+    text: API key used for Anthropic requests.
+  - key: provider.anthropic.ui.model.help
+    kind: field_tip
+    target: providers.anthropic.ui.model
+    format: text
+    text: Optional default model to use when a control does not set one.
+  - key: provider.anthropic.ui.timeout.help
+    kind: field_tip
+    target: providers.anthropic.ui.timeout
+    format: text
+    text: Optional request timeout in seconds.

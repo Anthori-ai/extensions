@@ -1,0 +1,47 @@
+format: 1
+id: anthori-guide
+name: Anthori Guide
+description: Return a curated explanation of what Anthori is, how the main UI works, and how to use the app.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Anthori Guide
+        description: Return a curated Anthori explanation for a topic.
+        input:
+          type: object
+          description: Optional topic request.
+          properties:
+            topic:
+              type: string
+              description: Optional topic or question to narrow the returned guide sections.
+        output:
+          type: string
+          description: Curated Anthori help text for the requested topic, or the full guide if no topic is supplied.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: anthoriGuide
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            topic:
+              type: string
+              description: Optional focus such as projects, sessions, graph, library, inspector, chat, providers, debug, or extensions.
+        - title: OUTPUT
+          kind: schema
+          schema:
+            type: string
+            description: Anthori guide text for the requested topic, or the full guide when no topic is supplied.
+        - title: NOTES
+          kind: text
+          text: |
+            Use this when the assistant needs product/help context about Anthori itself.
+            Omit input for the full guide, or provide { topic } for a narrower answer.

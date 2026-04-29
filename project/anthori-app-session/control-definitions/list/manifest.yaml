@@ -1,0 +1,71 @@
+format: 1
+id: list
+name: List
+description: Lists all sessions for a project.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: Lists all sessions for a project.
+        input:
+          type: object
+          description: Session list request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Optional project id. Defaults to the current project.
+        output:
+          type: object
+          description: Session list result.
+          additionalProperties: false
+          required:
+            - sessions
+            - activeSessionId
+          properties:
+            sessions:
+              type: array
+              description: Sessions saved for the selected project.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - name
+                  - createdAt
+                  - updatedAt
+                properties:
+                  id:
+                    type: string
+                    description: Session id.
+                  name:
+                    type: string
+                    description: Session name.
+                  createdAt:
+                    type: string
+                    description: Session creation time in UTC.
+                  updatedAt:
+                    type: string
+                    description: Last saved update time in UTC.
+            activeSessionId:
+              type: string
+              description: Active session id for the selected project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list
+    projectId:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects

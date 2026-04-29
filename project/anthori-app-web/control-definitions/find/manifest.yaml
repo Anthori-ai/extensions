@@ -1,0 +1,62 @@
+format: 1
+id: find
+name: Find
+description: Find DOM elements by selector, text, tag, or role.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Find
+        description: Find DOM elements by selector, text, tag, or role.
+        input:
+          type: object
+          description: Page search request.
+          required:
+            - windowId
+            - snapshotId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            selector:
+              type: string
+              description: CSS selector filter.
+            text:
+              type: string
+              description: Text content filter.
+            tag:
+              type: string
+              description: HTML tag filter.
+            role:
+              type: string
+              description: Accessibility role filter.
+            visible:
+              type: boolean
+              description: Limit results to visible elements when true.
+            limit:
+              type: integer
+              description: Maximum number of matches to return.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: find

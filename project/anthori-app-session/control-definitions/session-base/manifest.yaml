@@ -1,0 +1,12 @@
+format: 1
+id: session-base
+name: Session Base
+description: Hidden shared base for controls that create, load, and inspect project sessions.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/project/session
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-session-runtime

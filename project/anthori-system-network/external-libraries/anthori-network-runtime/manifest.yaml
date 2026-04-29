@@ -1,0 +1,13 @@
+format: 1
+id: anthori-network-runtime
+name: Network Runtime
+version: 1.0.0
+entry: runtime/anthori-network-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+actions:
+  - id: fetch
+  - id: download
+  - id: upload

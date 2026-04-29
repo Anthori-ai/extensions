@@ -1,0 +1,141 @@
+format: 1
+id: screenshot
+name: Screenshot
+description: Captures a screenshot of a display or region.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Screenshot
+        description: Capture a screenshot of a display or region.
+        input:
+          type: object
+          description: Screenshot request.
+          required:
+            - displayId
+          properties:
+            displayId:
+              type: number
+              description: Display id from display_list.
+            encoding:
+              type: string
+              description: Output encoding. Only base64 is supported.
+              default: base64
+            x:
+              type: number
+              description: Region origin X in display pixels.
+            y:
+              type: number
+              description: Region origin Y in display pixels.
+            width:
+              type: number
+              description: Region width in display pixels.
+            height:
+              type: number
+              description: Region height in display pixels.
+        output:
+          type: object
+          required:
+            - version
+            - output
+            - attachments
+          properties:
+            version:
+              type: number
+              description: Response envelope version.
+            output:
+              type: object
+              description: Screenshot payload or handled error payload.
+              properties:
+                image:
+                  type: object
+                  description: Captured image metadata for a successful screenshot.
+                  properties:
+                    displayId:
+                      type: number
+                      description: Display id that was captured.
+                    width:
+                      type: number
+                      description: Captured image width in pixels.
+                    height:
+                      type: number
+                      description: Captured image height in pixels.
+                    encoding:
+                      type: string
+                      description: Image encoding.
+                    mimeType:
+                      type: string
+                      description: Image MIME type.
+                    data:
+                      type: string
+                      description: Encoded image data.
+                    attached:
+                      type: boolean
+                      description: True when the image bytes are attached to the response.
+                    x:
+                      type: number
+                      description: Optional capture X coordinate.
+                    y:
+                      type: number
+                      description: Optional capture Y coordinate.
+                    captureWidth:
+                      type: number
+                      description: Optional captured region width.
+                    captureHeight:
+                      type: number
+                      description: Optional captured region height.
+                cursor:
+                  type: object
+                  description: Cursor location metadata captured with the screenshot.
+                error:
+                  type: string
+                  description: Error message when the screenshot could not be captured.
+                details:
+                  type: object
+                  description: Extra context for handled screenshot failures.
+            attachments:
+              type: array
+              description: Attached image payloads.
+              items:
+                type: object
+                required:
+                  - type
+                  - mimeType
+                  - encoding
+                  - data
+                  - width
+                  - height
+                properties:
+                  type:
+                    type: string
+                    description: Attachment type.
+                  mimeType:
+                    type: string
+                    description: Attachment MIME type.
+                  encoding:
+                    type: string
+                    description: Attachment data encoding.
+                  data:
+                    type: string
+                    description: Encoded attachment bytes.
+                  width:
+                    type: number
+                    description: Attachment width in pixels.
+                  height:
+                    type: number
+                    description: Attachment height in pixels.
+
+control:
+  visible: true
+  permissions:
+    - id: macos.screen-recording
+      title: Screen Recording
+      description: Allow Anthori to capture your screen.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Screen Recording
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: screenshot

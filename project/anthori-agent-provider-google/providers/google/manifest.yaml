@@ -1,0 +1,44 @@
+format: 1
+id: google-provider
+name: Google
+version: 1.0.0
+description: Google provider for Gemini models using the OpenAI-compatible Gemini API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiKey:
+      type: secretString
+      label: API Key
+      required: true
+      placeholder: Google API key
+    llmModel:
+      type: select
+      label: Model
+      placeholder: Use provider default
+      dataSource:
+        kind: providerModels
+        emptyLabel: Use provider default
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      enum:
+        - ""
+        - low
+        - medium
+        - high
+        - xhigh
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+control:
+  visible: false

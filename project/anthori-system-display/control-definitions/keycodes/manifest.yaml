@@ -1,0 +1,31 @@
+format: 1
+id: keycodes
+name: Key Codes
+description: Lists common platform virtual key codes.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Key Codes
+        description: Lists common platform virtual key codes.
+        input:
+          type: object
+          description: No input required.
+        output:
+          type: object
+          required:
+            - keyCodes
+          properties:
+            keyCodes:
+              type: object
+              description: Map of common platform virtual key names to numeric key codes.
+
+control:
+  visible: true
+  libraryPath: system/input
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: keycodes
+

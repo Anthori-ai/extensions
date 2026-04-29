@@ -1,0 +1,38 @@
+format: 1
+id: list
+name: List
+description: List currently open browser windows.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List currently open browser windows.
+        input:
+          type: object
+          description: No input required.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 10

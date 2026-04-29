@@ -1,0 +1,59 @@
+format: 1
+id: download
+name: Download
+description: Download a URL or current page resource to disk.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Download
+        description: Download a URL or current page resource to disk.
+        input:
+          type: object
+          description: Browser download request.
+          required:
+            - windowId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            url:
+              type: string
+              description: Optional URL. Defaults to the current page URL.
+            path:
+              type: string
+              description: Full output file path.
+            directory:
+              type: string
+              description: Output directory when path is omitted.
+            suggestedName:
+              type: string
+              description: Optional suggested file name.
+            createDirs:
+              type: boolean
+              description: Create missing directories when true.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: download
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 60

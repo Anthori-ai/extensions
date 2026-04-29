@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.agent.provider.lmstudio
+  owner: Anthori
+  locale: ro-RO
+  version: 1
+entries: []

@@ -1,0 +1,21 @@
+format: 1
+id: anthori-display-runtime
+name: Display Runtime
+version: 1.0.0
+entry: runtime/anthori-display-runtime.js
+supportedOs:
+  - mac
+  - windows
+timeoutSeconds: 30
+actions:
+  - id: list
+  - id: screenshot
+  - id: type
+  - id: keycodes
+  - id: key-down
+  - id: key-up
+  - id: key-chord
+  - id: mouse-move
+  - id: mouse-click
+  - id: mouse-drag
+  - id: mouse-scroll

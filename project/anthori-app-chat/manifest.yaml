@@ -1,0 +1,164 @@
+format: 1
+id: anthori.app.chat
+name: Chat
+scope: project
+version: 1.0.0
+description: First-party chat type package for the default project chat channel and related pull payloads.
+catalogPath:
+  - Anthori
+  - App
+  - Chat
+extensionDependencies:
+  - id: anthori.standard
+    version: ^1.0.0
+projectDefaults:
+  channels:
+    - id: chat
+      ensure: ifMissing
+      contracts:
+        - id: chat_input
+          name: Chat Input
+          description: The event object the chat pane sends when a user submits a message.
+          mode: in
+          formatText: anthori.app.chat.InputEvent
+          format: InputEvent
+        - id: chat_output
+          name: Chat Output
+          description: The value the chat pane expects for agent output, including pull-delivered replies.
+          mode: out
+          formatText: anthori.app.chat.Output
+          format: Output
+typeDefinitions:
+  InputEvent:
+    type: object
+    description: Default chat input event for one submitted user message.
+    required:
+      - event
+      - message
+    properties:
+      event:
+        type: string
+        enum:
+          - message
+        description: What kind of chat input this is.
+      message:
+        description: The submitted user message.
+        anyOf:
+          - anthori.standard.UserMessage
+    additionalProperties: false
+  OutputMessage:
+    description: Agent message value expected by the default chat channel.
+    anyOf:
+      - anthori.standard.AgentMessage
+  OutputChunk:
+    type: object
+    description: Appends another reply chunk to an in-flight task.
+    required:
+      - taskId
+      - phase
+      - content
+    properties:
+      taskId:
+        type: string
+        description: Current task id.
+      phase:
+        type: string
+        enum:
+          - chunk
+        description: Current event lifecycle phase.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this task.
+      metadata:
+        type: object
+        description: Producer-supplied event metadata.
+      content:
+        description: Agent message payload for this event.
+        anyOf:
+          - OutputMessage
+    additionalProperties: false
+  OutputEnd:
+    type: object
+    description: Marks the end of a reply task.
+    required:
+      - taskId
+      - phase
+    properties:
+      taskId:
+        type: string
+        description: Current task id.
+      phase:
+        type: string
+        enum:
+          - end
+        description: Current event lifecycle phase.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this task.
+      metadata:
+        type: object
+        description: Producer-supplied event metadata.
+      content:
+        description: Assistant message payload for this event.
+        anyOf:
+          - OutputMessage
+    additionalProperties: false
+  OutputError:
+    type: object
+    description: Marks a reply task that ended with an error.
+    required:
+      - taskId
+      - phase
+      - reason
+    properties:
+      taskId:
+        type: string
+        description: Current task id.
+      phase:
+        type: string
+        enum:
+          - error
+        description: Current event lifecycle phase.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this task.
+      metadata:
+        type: object
+        description: Producer-supplied event metadata.
+      reason:
+        type: string
+        description: Terminal error reason for this event.
+    additionalProperties: false
+  OutputCancel:
+    type: object
+    description: Marks a reply task that was cancelled.
+    required:
+      - taskId
+      - phase
+      - reason
+    properties:
+      taskId:
+        type: string
+        description: Current task id.
+      phase:
+        type: string
+        enum:
+          - cancel
+        description: Current event lifecycle phase.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this task.
+      metadata:
+        type: object
+        description: Producer-supplied event metadata.
+      reason:
+        type: string
+        description: Terminal cancellation reason for this event.
+    additionalProperties: false
+  Output:
+    anyOf:
+      - OutputMessage
+      - OutputChunk
+      - OutputEnd
+      - OutputError
+      - OutputCancel

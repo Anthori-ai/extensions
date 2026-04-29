@@ -1,0 +1,86 @@
+format: 1
+id: stop
+name: Stop
+description: Stop a child runtime by returned handle or execution key, with optional graceful shutdown and reason.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: handle
+        input:
+          type: object
+          additionalProperties: false
+          properties:
+            runtimeId:
+              type: string
+              description: Child runtime id returned by Start.
+            executionKey:
+              type: string
+              description: Optional execution key returned or configured on Start.
+            shutdown:
+              type: boolean
+              description: Use graceful shutdown. Defaults to true.
+            reason:
+              type: string
+              description: Optional stop or cancel reason recorded on the child runtime.
+        output:
+          type: boolean
+          description: True when the child runtime stop completed.
+      - id: execution-key
+        input:
+          type: string
+        output:
+          type: boolean
+          description: True when the child runtime stop completed.
+      - id: default
+        name: Stop
+        description: Stop a child runtime by returned handle or execution key, with optional graceful shutdown and reason.
+        input:
+          type: object
+          description: Child runtime stop request.
+          additionalProperties: false
+          properties:
+            runtimeId:
+              type: string
+              description: Child runtime id returned by Start.
+            executionKey:
+              type: string
+              description: Optional execution key returned or configured on Start.
+            shutdown:
+              type: boolean
+              description: Use graceful shutdown. Defaults to true.
+            reason:
+              type: string
+              description: Optional stop or cancel reason recorded on the child runtime.
+        output:
+          type: boolean
+          description: True when the child runtime stop completed.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: stop
+    executionKey:
+      type: string
+      required: false
+    shutdown:
+      type: boolean
+      default: true
+      required: false
+    reason:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: executionKey
+        label: Execution Key
+        type: text
+        placeholder: Optional runtime alias
+      - key: shutdown
+        label: Shutdown
+        type: checkbox
+      - key: reason
+        label: Reason
+        type: text
+        placeholder: Optional stop reason

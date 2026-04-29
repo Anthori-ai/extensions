@@ -1,0 +1,36 @@
+format: 1
+id: anthori-web-runtime
+name: Web Runtime
+version: 1.0.0
+entry: runtime/anthori-web-runtime.js
+supportedOs:
+  - mac
+  - windows
+timeoutSeconds: 120
+actions:
+  - id: assistant
+  - id: back
+  - id: click
+  - id: close
+  - id: download
+  - id: eval
+  - id: find
+  - id: focus
+  - id: forward
+  - id: html
+  - id: keys
+  - id: layout
+  - id: list
+  - id: load
+  - id: element
+  - id: open
+  - id: refresh
+  - id: scroll
+  - id: search
+  - id: select
+  - id: snapshot
+  - id: tab
+  - id: text
+  - id: tree
+  - id: type
+  - id: wait

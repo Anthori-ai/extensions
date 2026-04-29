@@ -1,0 +1,31 @@
+format: 1
+id: anthori-ui-runtime
+name: UI Runtime
+version: 1.0.0
+entry: runtime/anthori-ui-runtime.js
+timeoutSeconds: 30
+actions:
+  - id: anthoriGuide
+  - id: showBubble
+  - id: setAssistantActive
+  - id: setAssistantEmotion
+  - id: setAssistantTalking
+  - id: worldOverview
+  - id: windowInspect
+  - id: targetInspect
+  - id: regionInspect
+  - id: focusWindow
+  - id: moveToWindow
+  - id: pointerState
+  - id: pointerMove
+  - id: pointerClick
+  - id: pointerDrag
+  - id: pointerScroll
+  - id: typeText
+  - id: pressKey
+  - id: pressKeyChord
+  - id: watchCreate
+  - id: watchRead
+  - id: watchWait
+  - id: watchDispose
+  - id: runSteps

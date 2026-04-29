@@ -1,0 +1,14 @@
+format: 1
+id: anthori-composition-runtime
+name: Composition Runtime
+version: 1.0.1
+entry: runtime/anthori-composition-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: bundle-control
+  - id: passthrough-control
+  - id: selector-control

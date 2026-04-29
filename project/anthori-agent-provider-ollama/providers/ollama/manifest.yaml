@@ -1,0 +1,47 @@
+format: 1
+id: ollama-provider
+name: Ollama
+version: 1.0.0
+description: Local Ollama text provider using Ollama's OpenAI-compatible chat API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiBaseUrl:
+      type: url
+      label: Base URL
+      required: true
+      placeholder: http://127.0.0.1:11434
+      helpKey: provider.ollama.config.baseUrl.help
+    llmModel:
+      type: string
+      label: Model
+      placeholder: local-model-id
+      helpKey: provider.ollama.config.model.help
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      helpKey: provider.ollama.config.reasoning.help
+      enum:
+        - ""
+        - none
+        - low
+        - medium
+        - high
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 244
+control:
+  visible: false

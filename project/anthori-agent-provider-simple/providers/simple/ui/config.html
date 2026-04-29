@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple HTTP Provider</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/provider-frame-bootstrap.js" defer></script>
+    <script src="config.js" defer></script>
+    <style>
+      .provider-config-root {
+        display: grid;
+        gap: 0;
+      }
+
+      .provider-inline-status {
+        display: none;
+        font-size: var(--text-sm);
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
+
+      .provider-inline-status[data-state="error"] {
+        color: var(--theme-danger, #a1260d);
+      }
+
+      .provider-inline-status:not([hidden]) {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="settings-section active provider-config-root">
+      <label class="editor-settings-row inspector-field-row" for="simple-http" data-field-help-key="provider.simple.ui.http.help">
+        <span class="inspector-field-title">HTTP Endpoint</span>
+        <input
+          id="simple-http"
+          type="text"
+          placeholder="http://127.0.0.1:8765/api/submit"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="simple-model" data-field-help-key="provider.simple.ui.model.help">
+        <span class="inspector-field-title">Model</span>
+        <input
+          id="simple-model"
+          type="text"
+          placeholder="custom-model"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="simple-context-limit" data-field-help-key="provider.simple.ui.contextLimit.help">
+        <span class="inspector-field-title">Context Limit</span>
+        <input
+          id="simple-context-limit"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Required"
+          inputmode="numeric"
+        />
+      </label>
+
+      <div id="simple-status" class="provider-inline-status" hidden></div>
+    </section>
+  </body>
+</html>

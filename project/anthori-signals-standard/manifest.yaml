@@ -1,0 +1,21 @@
+format: 1
+id: anthori.signals.standard
+name: Signals Standard
+scope: project
+version: 1.0.0
+description: First-party signal controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - Signals
+  - Standard
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-signals-standard-runtime
+controlDefinitions:
+  - control-definitions/signal-base
+  - control-definitions/alarm
+  - control-definitions/timer
+  - control-definitions/shutdown

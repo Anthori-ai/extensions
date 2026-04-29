@@ -1,0 +1,53 @@
+format: 1
+id: press-key
+name: Press Key
+description: Send one key press into an Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Press Key
+        description: Send one key press into an Anthori window.
+        input:
+          type: object
+          description: Single key press request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id to target.
+            key:
+              type: string
+              description: Key name, such as Enter, Escape, Tab, or a printable character.
+            code:
+              type: string
+              description: Optional physical keyboard code to send instead of inferring one from Key.
+            ctrl:
+              type: boolean
+              description: Hold Ctrl during the key press.
+            shift:
+              type: boolean
+              description: Hold Shift during the key press.
+            alt:
+              type: boolean
+              description: Hold Alt during the key press.
+            meta:
+              type: boolean
+              description: Hold Meta during the key press.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before pressing the key.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Desktop UI host result for the key press request.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pressKey

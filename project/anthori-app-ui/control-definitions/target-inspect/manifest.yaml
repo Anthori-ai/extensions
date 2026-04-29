@@ -1,0 +1,35 @@
+format: 1
+id: target-inspect
+name: Target Inspect
+description: Inspect one AI target inside a Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Target Inspect
+        description: Inspect one AI target inside a Anthori window.
+        input:
+          type: object
+          description: Target inspection request.
+          properties:
+            targetId:
+              type: string
+              description: AI target id to inspect.
+            windowId:
+              type: string
+              description: Optional Anthori window id. Omit for the current window.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: targetInspect

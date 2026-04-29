@@ -1,0 +1,32 @@
+format: 1
+id: focus-window
+name: Focus Window
+description: Focus a Anthori window without moving pointer ownership into it.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Focus Window
+        description: Focus an Anthori window without moving pointer ownership into it.
+        input:
+          type: object
+          description: Window focus request.
+          properties:
+            windowId:
+              type: string
+              description: Anthori window id to focus.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: focusWindow

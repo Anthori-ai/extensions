@@ -1,0 +1,47 @@
+format: 1
+id: pointer-move
+name: Pointer Move
+description: Move the UI pointer to a coordinate or target inside Anthori.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pointer Move
+        description: Move the UI pointer to a coordinate or target inside Anthori.
+        input:
+          type: object
+          description: Pointer move request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id.
+            targetId:
+              type: string
+              description: Optional AI target id to move to.
+            x:
+              type: number
+              description: Viewport X coordinate.
+            "y":
+              type: number
+              description: Viewport Y coordinate.
+            tween:
+              type: boolean
+              description: Animate the move when true.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before moving.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pointerMove

@@ -1,0 +1,281 @@
+format: 1
+id: table-sqlite
+name: Table SQLite
+description: SQLite-backed table storage provider control.
+baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/provider-base
+control:
+  libraryPath: providers/storage
+  capabilities:
+    - storage/table
+  contracts:
+    caller:
+      contracts:
+        - id: table-insert
+          name: Insert
+          description: Insert a table row through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+              - row
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - insert
+              row:
+                type: object
+                description: User-authored row JSON to insert. Storage metadata fields are assigned automatically.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - id
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              id:
+                type: number
+                description: Storage-assigned row id for the inserted row.
+            additionalProperties: false
+        - id: table-select
+          name: Select
+          description: Select table rows through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - select
+              where:
+                type: object
+                description: Filter object used to match rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for the selected rows.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit.
+            additionalProperties: false
+          output:
+            type: array
+            items:
+              type: object
+              required:
+                - id
+                - created
+                - updated
+                - row
+              properties:
+                id:
+                  type: number
+                  description: Storage-assigned row id.
+                created:
+                  type: string
+                  description: Storage-assigned creation timestamp.
+                updated:
+                  type: string
+                  description: Storage-assigned last update timestamp.
+                turn:
+                  type: number
+                  description: Storage-assigned turn for session or execution scoped rows when applicable.
+                row:
+                  type: object
+                  description: User-authored row JSON.
+              additionalProperties: false
+            description: Array of matching stored row envelopes.
+        - id: table-update
+          name: Update
+          description: Update table rows through the selected storage provider.
+          input:
+            anyOf:
+              - type: object
+                required:
+                  - table
+                  - action
+                  - where
+                  - values
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  values:
+                    type: object
+                    description: Field values applied to matched rows. Storage metadata fields are not writable.
+                additionalProperties: false
+              - type: object
+                required:
+                  - table
+                  - action
+                  - where
+                  - row
+                properties:
+                  scope:
+                    type: string
+                    enum:
+                      - user
+                      - project
+                      - session
+                      - execution
+                  table:
+                    type: string
+                  action:
+                    type: string
+                    enum:
+                      - update
+                  where:
+                    type: object
+                    description: Filter object used to match rows to update.
+                  row:
+                    type: object
+                    description: Full replacement row JSON. Storage metadata fields are assigned automatically and are not writable.
+                additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: table-delete
+          name: Delete
+          description: Delete table rows through the selected storage provider.
+          input:
+            type: object
+            required:
+              - table
+              - action
+              - where
+            properties:
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              table:
+                type: string
+              action:
+                type: string
+                enum:
+                  - delete
+              where:
+                type: object
+                description: Filter object used to match rows to delete.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+  configSchema:
+    providerDefinitionId:
+      type: string
+      default: sqlite
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.storage-table.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        dataSource:
+          filters:
+            interface: anthori.storage-table.v1
+            definitionId: sqlite
+      - type: button
+        label: View
+        action: viewBackingFile
+  editorScripts:
+    - id: viewBackingFile
+      name: View Backing File
+      enabled: true
+      targetKind: control
+      runOn:
+        - kind: uiEvent
+          interaction: click
+          actionId: viewBackingFile
+      code: |
+        const file = context.editor.resources.resolve("backingFile");
+        const result = context.editor.createResult();
+
+        if (file?.path)
+        {
+          result.effect().openFile(file);
+        }
+        else
+        {
+          result.effect().showToast("Backing file is not available for this control.");
+        }
+
+        return result.build();

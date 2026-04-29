@@ -1,0 +1,33 @@
+format: 1
+id: anthori.system.filesystem
+name: Filesystem
+scope: project
+version: 1.0.0
+description: First-party filesystem controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - System
+  - Filesystem
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-filesystem-runtime
+controlDefinitions:
+  - control-definitions/filesystem-base
+  - control-definitions/chmod
+  - control-definitions/chown
+  - control-definitions/copy
+  - control-definitions/count-lines
+  - control-definitions/create
+  - control-definitions/delete
+  - control-definitions/exists
+  - control-definitions/info
+  - control-definitions/list
+  - control-definitions/read
+  - control-definitions/read-lines
+  - control-definitions/rename
+  - control-definitions/find
+  - control-definitions/write
+  - control-definitions/write-lines

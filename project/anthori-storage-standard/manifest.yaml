@@ -1,0 +1,16 @@
+format: 1
+id: anthori.storage.standard
+name: Storage Standard
+scope: project
+version: 1.0.0
+description: First-party standard visible storage package built on anthori.storage.foundation.
+catalogPath:
+  - Anthori
+  - Storage
+  - Standard
+extensionDependencies:
+  - id: anthori.storage.foundation
+    version: ^1.0.0
+controlDefinitions:
+  - control-definitions/kv
+  - control-definitions/table

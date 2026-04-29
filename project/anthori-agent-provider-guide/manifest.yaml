@@ -1,0 +1,23 @@
+format: 1
+id: anthori.agent.provider.guide
+name: Guide
+version: 1.0.0
+description: Built-in conversational guide that helps you get started and set up a real model provider.
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - Guide
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/guide-provider-runtime
+providers:
+  - providers/guide
+controlDefinitions:
+  - control-definitions/guide

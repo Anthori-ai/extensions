@@ -1,0 +1,78 @@
+format: 1
+id: wait
+name: Wait
+description: Wait for a page or element condition.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Wait
+        description: Wait for a page or element condition.
+        input:
+          type: object
+          description: Page wait request.
+          required:
+            - windowId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            ms:
+              type: integer
+              description: Optional fixed wait time in milliseconds.
+            idle:
+              type:
+                - boolean
+                - integer
+              description: Wait for the page to stay idle, or for a specific idle duration in milliseconds.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            selector:
+              type: string
+              description: Selector to watch.
+            u:
+              type: integer
+              description: Element u value to watch.
+            text:
+              type: string
+              description: Text to wait for.
+            contains:
+              type: string
+              description: Text fragment to wait for.
+            hidden:
+              type: boolean
+              description: Wait for the target to become hidden.
+            visible:
+              type: boolean
+              description: Wait for the target to become visible.
+            enabled:
+              type: boolean
+              description: Wait for the target to become enabled.
+            timeout:
+              type: integer
+              description: Maximum wait time in milliseconds.
+            interval:
+              type: integer
+              description: Polling interval in milliseconds.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: wait

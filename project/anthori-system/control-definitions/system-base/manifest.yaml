@@ -1,0 +1,12 @@
+format: 1
+id: system-base
+name: System Base
+description: Hidden shared base for system controls that run server-side helper actions.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-system-runtime

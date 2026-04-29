@@ -1,0 +1,53 @@
+format: 1
+id: press-key-chord
+name: Press Key Chord
+description: Send a key chord into an Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Press Key Chord
+        description: Send a key chord into an Anthori window.
+        input:
+          type: object
+          description: Key chord request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id to target.
+            keys:
+              type: array
+              description: Ordered list of keys in the chord.
+            codes:
+              type: array
+              description: Optional ordered physical keyboard codes matching the Keys list.
+            ctrl:
+              type: boolean
+              description: Hold Ctrl during the chord.
+            shift:
+              type: boolean
+              description: Hold Shift during the chord.
+            alt:
+              type: boolean
+              description: Hold Alt during the chord.
+            meta:
+              type: boolean
+              description: Hold Meta during the chord.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before pressing the chord.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Desktop UI host result for the key chord request.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pressKeyChord

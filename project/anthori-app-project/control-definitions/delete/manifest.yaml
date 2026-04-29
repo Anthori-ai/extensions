@@ -1,0 +1,48 @@
+format: 1
+id: delete
+name: Delete
+description: Deletes an existing project and its project data.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete
+        description: Deletes an existing project and its project data.
+        input:
+          type: object
+          description: Delete request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Project id to delete.
+          required:
+            - projectId
+        output:
+          type: object
+          description: Delete result.
+          additionalProperties: false
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              description: Always `deleted` when the project was removed.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete
+    projectId:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects

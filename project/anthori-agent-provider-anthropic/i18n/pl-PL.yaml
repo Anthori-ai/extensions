@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.agent.provider.anthropic
+  owner: Anthori
+  locale: pl-PL
+  version: 1
+entries: []

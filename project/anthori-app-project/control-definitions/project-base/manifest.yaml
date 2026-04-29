@@ -1,0 +1,12 @@
+format: 1
+id: project-base
+name: Project Base
+description: Hidden shared base for controls that create, copy, edit, and delete projects.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/project
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-project-runtime

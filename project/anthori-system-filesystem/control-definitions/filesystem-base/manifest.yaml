@@ -1,0 +1,52 @@
+format: 1
+id: filesystem-base
+name: Filesystem Base
+description: Hidden shared base for filesystem controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system/filesystem
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-filesystem-runtime
+    permissions:
+      type: array
+      description: File permissions this control may request before reading or writing paths.
+      items:
+        type: object
+        required: [capability, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [file]
+            default: file
+          access:
+            type: array
+            description: File operations this permission row covers.
+            items:
+              type: string
+              enum: [read, write]
+          scope:
+            type: string
+            description: File or folder path. Relative paths resolve from the project workspace.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a folder-like scope that covers descendants.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+  ui:
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: file
+        accessOptions: [read, write]
+        matchOptions: [exact, prefix]
+        helpText: "File resources this control is allowed to request. Each row needs a scope and the reason shown in the permission prompt. Access is filled from the control action; Copy records both read and write."

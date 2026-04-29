@@ -1,0 +1,16 @@
+format: 1
+id: openai-provider-runtime
+name: OpenAI Provider Runtime
+description: Runtime library for OpenAI text generation and model listing with API key auth.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/openai-provider-runtime.js
+actions:
+  - id: respond-text
+    name: Respond Text
+    description: Send a generic text request to OpenAI using API key auth.
+  - id: list-models
+    name: List Models
+    description: List available OpenAI models for the configured API key.

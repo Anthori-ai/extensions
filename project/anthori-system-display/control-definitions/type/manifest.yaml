@@ -1,0 +1,65 @@
+format: 1
+id: type
+name: Type
+description: Types text using keyboard events.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Type
+        description: Type text using keyboard events.
+        input:
+          type: object
+          description: Keyboard typing request.
+          properties:
+            text:
+              type: string
+              description: Text to type.
+            shift:
+              type: boolean
+              description: Hold Shift while typing.
+            ctrl:
+              type: boolean
+              description: Hold Control while typing.
+            alt:
+              type: boolean
+              description: Hold Alt while typing.
+            meta:
+              type: boolean
+              description: Hold Meta while typing.
+        output:
+          type: object
+          description: Text typing result.
+          properties:
+            result:
+              type: object
+              description: Result details for the completed typing action.
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  description: Text that was typed.
+            error:
+              type: string
+              description: Error message when typing could not be sent.
+            details:
+              type: object
+              description: Extra context for handled typing failures.
+
+control:
+  visible: true
+  libraryPath: system/input
+  permissions:
+    - id: macos.accessibility
+      title: Accessibility
+      description: Allow Anthori to control the mouse and keyboard.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Accessibility
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: type
+

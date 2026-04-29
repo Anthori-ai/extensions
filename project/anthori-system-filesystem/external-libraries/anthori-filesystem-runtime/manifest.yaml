@@ -1,0 +1,26 @@
+format: 1
+id: anthori-filesystem-runtime
+name: Filesystem Runtime
+version: 1.0.0
+entry: runtime/anthori-filesystem-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: read
+  - id: list
+  - id: write
+  - id: info
+  - id: exists
+  - id: create
+  - id: delete
+  - id: rename
+  - id: copy
+  - id: find
+  - id: read-lines
+  - id: write-lines
+  - id: count-lines
+  - id: chmod
+  - id: chown

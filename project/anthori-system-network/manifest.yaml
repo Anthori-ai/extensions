@@ -1,0 +1,21 @@
+format: 1
+id: anthori.system.network
+name: Network
+scope: project
+version: 1.0.0
+description: First-party network controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - System
+  - Network
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-network-runtime
+controlDefinitions:
+  - control-definitions/network-base
+  - control-definitions/fetch
+  - control-definitions/download
+  - control-definitions/upload

@@ -1,0 +1,215 @@
+format: 1
+id: kv-sqlite
+name: KV SQLite
+description: SQLite-backed key-value storage provider control.
+baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/provider-base
+control:
+  libraryPath: providers/storage
+  capabilities:
+    - storage/kv
+  contracts:
+    caller:
+      contracts:
+        - id: kv-get
+          name: Get
+          description: Read a key-value entry from the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+            properties:
+              namespace:
+                type: string
+                description: Namespace key used by key-value storage actions.
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+                description: Optional storage scope to use. Defaults to session.
+              action:
+                type: string
+                enum:
+                  - get
+              key:
+                type: string
+                description: Key to read from the selected namespace.
+            additionalProperties: false
+          output:
+            anyOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: object
+              - type: array
+              - enum:
+                  - null
+            description: Stored JSON-compatible value for the requested key, or null when the key is missing.
+        - id: kv-set
+          name: Set
+          description: Write a key-value entry through the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+              - value
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - set
+              key:
+                type: string
+              value:
+                anyOf:
+                  - type: string
+                  - type: number
+                  - type: boolean
+                  - type: object
+                  - type: array
+                  - enum:
+                      - null
+                description: JSON-compatible value to store for the selected key.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+            additionalProperties: false
+        - id: kv-delete
+          name: Delete
+          description: Delete a key-value entry through the selected storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+              - key
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - delete
+              key:
+                type: string
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+        - id: kv-clear
+          name: Clear
+          description: Clear all key-value entries in the selected namespace through the storage provider.
+          input:
+            type: object
+            required:
+              - namespace
+              - action
+            properties:
+              namespace:
+                type: string
+              scope:
+                type: string
+                enum:
+                  - user
+                  - project
+                  - session
+                  - execution
+              action:
+                type: string
+                enum:
+                  - clear
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - ok
+              - rowsAffected
+            properties:
+              ok:
+                type: boolean
+                enum:
+                  - true
+              rowsAffected:
+                type: number
+            additionalProperties: false
+  configSchema:
+    providerDefinitionId:
+      type: string
+      default: sqlite
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.storage-kv.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        dataSource:
+          filters:
+            interface: anthori.storage-kv.v1
+            definitionId: sqlite
+      - type: button
+        label: View
+        action: viewBackingFile
+  editorScripts:
+    - id: viewBackingFile
+      name: View Backing File
+      enabled: true
+      targetKind: control
+      runOn:
+        - kind: uiEvent
+          interaction: click
+          actionId: viewBackingFile
+      code: |
+        const file = context.editor.resources.resolve("backingFile");
+        const result = context.editor.createResult();
+
+        if (file?.path)
+        {
+          result.effect().openFile(file);
+        }
+        else
+        {
+          result.effect().showToast("Backing file is not available for this control.");
+        }
+
+        return result.build();

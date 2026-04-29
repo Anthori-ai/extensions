@@ -1,0 +1,41 @@
+format: 1
+id: create-conduit
+name: Create Conduit
+description: Creates a conduit between two controls in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create Conduit
+        description: Create a conduit between two controls in the current graph.
+        input:
+          type: object
+          description: Conduit endpoints to connect.
+          properties:
+            from:
+              type: string
+              description: Source control id.
+            to:
+              type: string
+              description: Target control id.
+            fromPort:
+              type: string
+              description: Optional source port id on the source control.
+          required:
+            - from
+            - to
+        output:
+          type: object
+          required:
+            - conduitId
+          properties:
+            conduitId:
+              type: string
+              description: Created conduit id.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-conduit

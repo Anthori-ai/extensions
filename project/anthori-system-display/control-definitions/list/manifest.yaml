@@ -1,0 +1,80 @@
+format: 1
+id: list
+name: List
+description: Lists active displays for input and capture.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: Lists active displays for input and capture.
+        input:
+          type: object
+          description: No input required.
+        output:
+          type: object
+          required:
+            - displays
+          properties:
+            displays:
+              type: array
+              description: Active display list.
+              items:
+                type: object
+                required:
+                  - displayId
+                  - bounds
+                  - pixelWidth
+                  - pixelHeight
+                  - scale
+                  - isMain
+                properties:
+                  displayId:
+                    type: number
+                    description: Stable display id for downstream display actions.
+                  bounds:
+                    type: object
+                    required:
+                      - x
+                      - y
+                      - width
+                      - height
+                    properties:
+                      x:
+                        type: number
+                        description: Left edge of the display bounds.
+                      y:
+                        type: number
+                        description: Top edge of the display bounds.
+                      width:
+                        type: number
+                        description: Display width in points.
+                      height:
+                        type: number
+                        description: Display height in points.
+                    additionalProperties: false
+                  pixelWidth:
+                    type: number
+                    description: Display width in physical pixels.
+                  pixelHeight:
+                    type: number
+                    description: Display height in physical pixels.
+                  scale:
+                    type: number
+                    description: Backing scale factor for point-to-pixel conversion.
+                  isMain:
+                    type: boolean
+                    description: True when this is the primary display.
+                additionalProperties: false
+            error:
+              type: string
+              description: Error message when display discovery fails.
+          additionalProperties: false
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list

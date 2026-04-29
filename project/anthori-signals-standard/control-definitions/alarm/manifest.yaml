@@ -1,0 +1,90 @@
+format: 1
+id: alarm
+name: Alarm
+description: Scheduled time signal that becomes ready from one or more recurring or one-time alarm rules.
+baseControlRef: controls/1/extensions/anthori.signals.standard/definitions/signal-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Alarm
+        description: Checks whether one configured alarm is due right now.
+        input:
+          anyOf:
+            - type: void
+              description: Check this signal with no input.
+            - type: object
+              description: Check this signal with an empty object input.
+              additionalProperties: false
+        output:
+          anyOf:
+            - enum:
+                - false
+              description: No alarm event is ready.
+            - type: object
+              description: Alarm event.
+              required:
+                - kind
+                - type
+                - sequence
+                - format
+                - timezone
+                - time
+                - scheduledFor
+                - firedAt
+              properties:
+                kind:
+                  enum:
+                    - alarm
+                  description: Signal kind.
+                type:
+                  enum:
+                    - alarm
+                  description: Event type.
+                sequence:
+                  type: number
+                  description: Alarm event number for this execution.
+                format:
+                  type: string
+                  description: Alarm rule format.
+                timezone:
+                  type: string
+                  description: Alarm timezone.
+                time:
+                  type: string
+                  description: Alarm time of day.
+                valueId:
+                  type: string
+                  description: Optional rule id from the schedule.
+                scheduledFor:
+                  type: string
+                  description: Scheduled UTC time for this event.
+                firedAt:
+                  type: string
+                  description: UTC time when this event was checked.
+                date:
+                  type: string
+                  description: Alarm date for one-time rules.
+                weekday:
+                  type: string
+                  description: Alarm weekday for weekly rules.
+                dayOfMonth:
+                  type: number
+                  description: Alarm day of month for monthly rules.
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: alarm-control
+    values:
+      type: array
+      default: []
+      description: One or more alarm rules with format, timezone, time, and optional date/week/month selectors.
+  ui:
+    fields:
+      - key: values
+        label: Schedule
+        type: alarmValues
+        helpKey: core.signals.alarm.values.help

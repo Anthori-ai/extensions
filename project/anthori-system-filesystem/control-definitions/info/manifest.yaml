@@ -1,0 +1,61 @@
+format: 1
+id: info
+name: Info
+description: Returns file or directory metadata from the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Info
+        description: Return metadata for a file or directory.
+        input:
+          type: object
+          description: Metadata lookup request.
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+          additionalProperties: false
+        output:
+          type: object
+          description: Metadata result.
+          required:
+            - name
+            - size
+            - isDir
+            - permissions
+            - lastModified
+            - fileHash
+            - mode
+          properties:
+            name:
+              type: string
+              description: Base name of the file or directory.
+            size:
+              type: number
+              description: Entry size in bytes.
+            isDir:
+              type: boolean
+              description: Whether the path is a directory.
+            permissions:
+              type: string
+              description: Unix-style permission string such as `-rw-r--r--`.
+            lastModified:
+              type: number
+              description: Unix timestamp for the last modification time.
+            fileHash:
+              type: string
+              description: Opaque full-file XXH3-128 version token for files. Use this as the initial `fileHash` input to guarded Read and Read Lines calls.
+            mode:
+              type: any
+              description: Raw file mode value returned by the server.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: info

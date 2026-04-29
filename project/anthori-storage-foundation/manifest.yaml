@@ -1,0 +1,16 @@
+format: 1
+id: anthori.storage.foundation
+name: Storage Foundation
+scope: project
+version: 1.0.0
+description: First-party hidden storage foundation package that contributes shared storage and storage-provider bases.
+catalogPath:
+  - Anthori
+  - Storage
+  - Foundation
+controlDefinitions:
+  - control-definitions/kv-base
+  - control-definitions/table-base
+  - control-definitions/provider-base
+externalLibraries:
+  - external-libraries/anthori-storage-foundation-runtime

@@ -1,0 +1,144 @@
+format: 1
+id: anthori.agent.foundation
+name: Agent Foundation
+scope: project
+version: 1.0.0
+description: First-party hidden agent foundation package that contributes the shared agent and text-provider bases.
+catalogPath:
+  - Anthori
+  - Agent
+  - Foundation
+extensionDependencies:
+  - id: anthori.standard
+    version: ^1.0.0
+typeDefinitions:
+  AgentReplyMessage:
+    type: object
+    description: Agent reply message returned after a direct agent call completes.
+    required:
+      - role
+      - parts
+    properties:
+      role:
+        type: string
+        enum:
+          - agent
+        description: Always `agent` for direct agent replies.
+      name:
+        type: string
+        description: Optional participant display name for this reply.
+      participantId:
+        type: string
+        description: Optional participant id for this reply.
+      parts:
+        type: array
+        description: Structured reply parts returned by the provider.
+        items: anthori.standard.MessagePart
+      usage: anthori.standard.Usage
+      finishReason:
+        type: string
+        description: Provider finish reason for this reply when available.
+      model:
+        type: string
+        description: Effective model used for this reply when available.
+    additionalProperties: false
+  ProviderResult:
+    type: object
+    description: Normal provider-backed response object.
+    properties:
+      text:
+        type: string
+        description: Main agent text returned by the provider.
+      reasoningText:
+        type: string
+        description: Optional reasoning text returned separately from the main text.
+      toolCalls:
+        type: array
+        description: Optional tool calls requested by the provider.
+        items: anthori.standard.ToolCall
+      usage: anthori.standard.Usage
+      finishReason:
+        type: string
+        description: Provider finish reason for this call when available.
+      model:
+        type: string
+        description: Effective model used for this call when available.
+      providerRef:
+        type: string
+        description: Effective provider instance id for this call.
+      providerDefinitionId:
+        type: string
+        description: Effective provider definition id for this call.
+      providerInterfaces:
+        type: array
+        description: Effective provider interface ids for this call.
+        items:
+          type: string
+    additionalProperties: false
+  ProviderCancelledResult:
+    type: object
+    description: Cancellation result returned when an existing shared stream session is cancelled upstream.
+    required:
+      - cancelled
+    properties:
+      cancelled:
+        type: boolean
+        enum:
+          - true
+        description: Always `true` when the call ended because the shared stream session was cancelled.
+      output:
+        type: any
+        description: Optional cancellation output returned by the cancelled shared stream session.
+    additionalProperties: false
+  ProviderCallResult:
+    anyOf:
+      - ProviderResult
+      - ProviderCancelledResult
+    description: Final provider result returned after any visible chunk streaming completes.
+  ContextRequest:
+    type: object
+    description: Request sent to a context control before each provider round.
+    required:
+      - messages
+      - phase
+    properties:
+      messages:
+        type: array
+        items: anthori.standard.ConversationMessage
+        description: Only the new messages created since the previous provider round. Initial rounds receive the original Agent input array.
+      phase:
+        type: string
+        enum:
+          - initial
+          - tool-round
+        description: Whether this is the first provider round or a later round after tool activity.
+      maxChars:
+        type: number
+        description: Maximum number of characters Context should return for the next provider call after Agent applies the selected provider model's context limit and Max percentage.
+    additionalProperties: false
+  StreamEvent:
+    type: object
+    description: One visible shared stream session lifecycle event.
+    required:
+      - phase
+    properties:
+      id:
+        type: string
+        description: Current stream session id.
+      phase:
+        type: string
+        enum: [start, chunk, end, error, cancel]
+        description: Current stream lifecycle phase.
+      content:
+        type: any
+        description: Current event payload for this stream event.
+      sequence:
+        type: number
+        description: Monotonic delivered event sequence for this stream session.
+      metadata:
+        type: object
+        description: Producer-supplied stream event metadata.
+    additionalProperties: false
+controlDefinitions:
+  - control-definitions/agent-base
+  - control-definitions/text-provider-base

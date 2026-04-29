@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.storage.provider.sqlite"
+  owner: "Anthori"
+  locale: "de-DE"
+  version: 1
+entries:
+  - key: "provider.sqlite.config.path.help"
+    kind: "field_tip"
+    target: "provider.sqlite.config.path"
+    format: "text"
+    text: "Muss ein absoluter Pfad zu einer SQLite-Datei sein. Nutzen Sie den Picker, um die Dateilokation auszuwählen."

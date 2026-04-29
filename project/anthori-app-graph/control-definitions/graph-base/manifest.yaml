@@ -1,0 +1,12 @@
+format: 1
+id: graph-base
+name: Graph Base
+description: Hidden shared base for controls that inspect and edit saved graphs.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/project/graph
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-graph-runtime

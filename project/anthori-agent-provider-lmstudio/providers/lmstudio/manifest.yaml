@@ -1,0 +1,47 @@
+format: 1
+id: lmstudio
+name: LM Studio
+version: 1.0.0
+description: Local OpenAI-compatible text provider hosted by LM Studio.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    llmBaseUrl:
+      type: url
+      label: Base URL
+      required: true
+      placeholder: http://127.0.0.1:1234
+      helpKey: provider.lmstudio.config.baseUrl.help
+    llmModel:
+      type: string
+      label: Model
+      placeholder: local-model-id
+      helpKey: provider.lmstudio.config.model.help
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      helpKey: provider.lmstudio.config.reasoning.help
+      enum:
+        - ""
+        - none
+        - low
+        - medium
+        - high
+runtime:
+  kind: library
+  libraryId: lmstudio-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 244
+control:
+  visible: false

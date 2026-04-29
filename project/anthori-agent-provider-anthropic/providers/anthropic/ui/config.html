@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anthropic Provider</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/provider-frame-bootstrap.js" defer></script>
+    <script src="config.js" defer></script>
+    <style>
+      .provider-config-root {
+        display: grid;
+        gap: 0;
+      }
+
+      .provider-inline-status {
+        display: none;
+        font-size: var(--text-sm);
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
+
+      .provider-inline-status[data-state="error"] {
+        color: var(--theme-danger, #a1260d);
+      }
+
+      .provider-inline-status:not([hidden]) {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="settings-section active provider-config-root">
+      <label class="editor-settings-row inspector-field-row" for="anthropic-api-key" data-field-help-key="provider.anthropic.ui.apiKey.help">
+        <span class="inspector-field-title">API Key</span>
+        <input
+          id="anthropic-api-key"
+          type="password"
+          placeholder="sk-ant-..."
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="anthropic-model" data-field-help-key="provider.anthropic.ui.model.help">
+        <span class="inspector-field-title">Model</span>
+        <select id="anthropic-model" class="prompt-input"></select>
+      </label>
+
+      <div id="anthropic-status" class="provider-inline-status" hidden></div>
+    </section>
+  </body>
+</html>

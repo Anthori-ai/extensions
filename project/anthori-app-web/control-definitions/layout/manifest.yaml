@@ -1,0 +1,43 @@
+format: 1
+id: layout
+name: Layout
+description: Return spatial layout information for visible elements.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Layout
+        description: Return spatial layout information for visible elements.
+        input:
+          type: object
+          description: Layout inspection request.
+          required:
+            - windowId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            includeLabels:
+              type: boolean
+              description: Include non-interactive labels and headings.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: layout

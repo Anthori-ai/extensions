@@ -1,0 +1,38 @@
+format: 1
+id: window-inspect
+name: Window Inspect
+description: Inspect one Anthori window and optionally list visible AI targets.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Window Inspect
+        description: Inspect one Anthori window and optionally list visible AI targets.
+        input:
+          type: object
+          description: Window inspection request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id. Omit for the current window.
+            includeTargets:
+              type: boolean
+              description: When false, omit the visible AI target list.
+            limit:
+              type: number
+              description: Optional max visible targets to include.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: windowInspect

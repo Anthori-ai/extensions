@@ -1,0 +1,8 @@
+format: 1
+id: anthori-agent-foundation-runtime
+name: Agent Foundation Runtime
+description: Shared runtime for Anthori agent foundation controls.
+entry: runtime/anthori-agent-foundation-runtime.js
+actions:
+  - id: agent-control
+  - id: text-provider-control

@@ -1,0 +1,12 @@
+format: 1
+id: ui-base
+name: UI Base
+description: Hidden shared base for app UI controls that inspect or manipulate Anthori windows and panels.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/ui
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-ui-runtime

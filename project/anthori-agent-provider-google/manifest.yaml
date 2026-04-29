@@ -1,0 +1,23 @@
+format: 1
+id: anthori.agent.provider.google
+name: Google Provider
+version: 1.0.0
+description: Google provider for Gemini models using Google's OpenAI-compatible API.
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - Google
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+  - id: anthori.agent.provider.openai-compatible-runtime
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+providers:
+  - providers/google
+controlDefinitions:
+  - control-definitions/google

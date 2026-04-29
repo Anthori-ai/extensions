@@ -1,0 +1,329 @@
+format: 1
+id: upload
+name: Upload
+description: Upload request content to an HTTP endpoint and return the response status, headers, and content.
+baseControlRef: controls/1/extensions/anthori.system.network/definitions/network-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Upload
+        description: Send one complete upload request body and return the response payload.
+        input:
+          description: HTTP upload request options.
+          anyOf:
+            - type: object
+              description: Send direct request content in one shot.
+              required:
+                - url
+                - method
+                - encoding
+                - content
+              propertyOrder: [url, method, headers, encoding, content, timeoutSeconds, responseType]
+              properties:
+                url:
+                  type: string
+                  description: Absolute URL to request.
+                method:
+                  type: string
+                  description: Required HTTP method token.
+                headers:
+                  type: object
+                  description: Optional request headers keyed by header name.
+                  additionalProperties:
+                    type: string
+                encoding:
+                  type: string
+                  enum:
+                    - utf8
+                    - base64
+                    - bytes
+                  description: Required upload content encoding. `base64` decodes the input string before sending.
+                content:
+                  description: Request content to upload. Use a string for `utf8` and `base64`, or a Uint8Array for `bytes`.
+                timeoutSeconds:
+                  type: number
+                  description: Optional per-request timeout in seconds. Leave blank to use the control or project timeout.
+                responseType:
+                  type: string
+                  enum:
+                    - text
+                    - base64
+                    - bytes
+                  description: Response content encoding. Use `base64` for binary-safe text transport or `bytes` for raw Uint8Array output.
+              additionalProperties: false
+            - type: object
+              description: Read request content from a file path and upload it in one shot.
+              required:
+                - url
+                - method
+                - encoding
+                - path
+              propertyOrder: [url, method, headers, encoding, path, timeoutSeconds, responseType]
+              properties:
+                url:
+                  type: string
+                  description: Absolute URL to request.
+                method:
+                  type: string
+                  description: Required HTTP method token.
+                headers:
+                  type: object
+                  description: Optional request headers keyed by header name.
+                  additionalProperties:
+                    type: string
+                encoding:
+                  type: string
+                  enum:
+                    - utf8
+                    - base64
+                    - bytes
+                  description: Required upload content encoding. `base64` decodes the input string before sending.
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                timeoutSeconds:
+                  type: number
+                  description: Optional per-request timeout in seconds. Leave blank to use the control or project timeout.
+                responseType:
+                  type: string
+                  enum:
+                    - text
+                    - base64
+                    - bytes
+                  description: Response content encoding. Use `base64` for binary-safe text transport or `bytes` for raw Uint8Array output.
+              additionalProperties: false
+        output:
+          type: object
+          description: HTTP upload response payload.
+          required:
+            - ok
+            - status
+            - statusText
+            - headers
+          properties:
+            ok:
+              type: boolean
+              description: True when the status code is in the 2xx range.
+            status:
+              type: number
+              description: HTTP status code.
+            statusText:
+              type: string
+              description: Full HTTP status text, including code and reason phrase.
+            headers:
+              type: object
+              description: Response headers keyed by header name.
+              additionalProperties: true
+            content:
+              description: Response content as text, base64 text, or a Uint8Array, depending on Response Type.
+          additionalProperties: false
+      - id: push-start
+        toolVisible: false
+        name: Push Start
+        description: Start an upload push session owned by the supplied invocation and return a task handle.
+        input:
+          type: object
+          required: [push, ownerInvocationId, url, method, encoding]
+          properties:
+            push:
+              type: string
+              enum: [start]
+            ownerInvocationId:
+              type: string
+              description: Invocation that owns the upload push session lifetime.
+            url:
+              type: string
+              description: Absolute URL to request.
+            method:
+              type: string
+              description: Required HTTP method token.
+            headers:
+              type: object
+              description: Optional request headers keyed by header name.
+              additionalProperties:
+                type: string
+            encoding:
+              type: string
+              enum:
+                - utf8
+                - base64
+                - bytes
+              description: Required upload content encoding. `base64` decodes the accumulated upload content before sending.
+            timeoutSeconds:
+              type: number
+              description: Optional per-request timeout in seconds. Leave blank to use the control or project timeout.
+            responseType:
+              type: string
+              enum:
+                - text
+                - base64
+                - bytes
+              description: Response content encoding. Use `base64` for binary-safe text transport or `bytes` for raw Uint8Array output.
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Active upload push task id.
+          additionalProperties: false
+      - id: push-step
+        toolVisible: false
+        name: Push Step
+        description: Send the next upload chunk for a running upload push session.
+        input:
+          type: object
+          required: [push, taskId, sequence, content]
+          propertyOrder: [push, taskId, sequence, content]
+          properties:
+            push:
+              type: string
+              enum: [step]
+            taskId:
+              type: string
+              description: Active upload push task id.
+            sequence:
+              type: number
+              description: Producer-supplied chunk sequence for this upload push session. The first Push Step uses 1, and each later Push Step must increment by 1.
+            content:
+              description: Chunk content to send using the encoding selected on Push Start.
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Active upload push task id.
+          additionalProperties: false
+      - id: push-end
+        toolVisible: false
+        name: Push End
+        description: Close the upload request body stream and return the final HTTP response payload.
+        input:
+          type: object
+          required: [push, taskId]
+          propertyOrder: [push, taskId]
+          properties:
+            push:
+              type: string
+              enum: [end]
+            taskId:
+              type: string
+              description: Active upload push task id.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+            - ok
+            - status
+            - statusText
+            - headers
+          properties:
+            taskId:
+              type: string
+              description: Completed upload push task id.
+            ok:
+              type: boolean
+              description: True when the status code is in the 2xx range.
+            status:
+              type: number
+              description: HTTP status code.
+            statusText:
+              type: string
+              description: Full HTTP status text, including code and reason phrase.
+            headers:
+              type: object
+              description: Response headers keyed by header name.
+              additionalProperties: true
+            content:
+              description: Response content as text, base64 text, or a Uint8Array, depending on Response Type.
+          additionalProperties: false
+      - id: push-cancel
+        toolVisible: false
+        name: Push Cancel
+        description: Cancel a running upload push session and abort the active HTTP request body stream.
+        input:
+          type: object
+          required: [push, taskId]
+          propertyOrder: [push, taskId, reason]
+          properties:
+            push:
+              type: string
+              enum: [cancel]
+            taskId:
+              type: string
+              description: Active upload push task id.
+            reason:
+              type: string
+              description: Optional human-readable cancellation reason.
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Cancelled upload push task id.
+          additionalProperties: false
+control:
+  visible: true
+  capabilities:
+    - pushable
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: upload
+  ui:
+    info:
+      sections:
+        - title: PUSH
+          kind: text
+          text: |
+            Upload exposes explicit `Push Start`, `Push Step`, `Push End`, and `Push Cancel` caller contracts for visible forward async transfer.
+
+            `Push Start` opens the HTTP request body stream immediately. Each `Push Step` sends the next chunk upstream, and `Push End` closes the body stream and returns the final response.
+        - title: EXAMPLES
+          kind: examples
+          examples:
+            - intent: Upload a JSON body in one shot.
+              input:
+                url: https://example.com/upload
+                method: POST
+                headers:
+                  Content-Type: application/json
+                encoding: utf8
+                content: '{"hello":"world"}'
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+            - intent: Upload file content in one shot.
+              input:
+                url: https://example.com/upload
+                method: PUT
+                encoding: bytes
+                path: files/archive.bin
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+                content: "..."
+            - intent: Upload raw bytes.
+              input:
+                url: https://example.com/blob
+                method: PUT
+                encoding: bytes
+                content: Uint8Array(...)
+                responseType: bytes
+              output:
+                ok: true
+                status: 200
+                statusText: 200 OK
+                headers: {}
+                content: Uint8Array(...)

@@ -1,0 +1,192 @@
+format: 1
+id: start
+name: Start
+description: Start another project as a child runtime and return a runtime handle.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Start
+        description: Start another project as a child runtime and return a runtime handle.
+        input:
+          type: object
+          description: Options for starting a child runtime.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Project id to start as a child runtime.
+            sessionId:
+              type: string
+              description: Optional existing session id to reuse in the child project.
+            executionKey:
+              type: string
+              description: Optional alias that can be used later to stop the child runtime.
+            bindings:
+              type: array
+              description: Optional channel bindings between the parent and child runtimes.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - parentChannel
+                  - childChannel
+                properties:
+                  parentChannel:
+                    type: string
+                    description: Parent runtime channel id to bind from.
+                  childChannel:
+                    type: string
+                    description: Child runtime channel id to bind to.
+            arguments:
+              type: object
+              description: Optional argument object passed into the child runtime.
+            workspacePath:
+              type: string
+              description: Optional workspace directory override for the child project.
+            executionTimeoutSeconds:
+              type: integer
+              description: Optional execution timeout override for the child runtime, in seconds.
+            minControlDurationMs:
+              type: integer
+              description: Optional minimum delay between child control steps, in milliseconds.
+          required:
+            - projectId
+        output:
+          type: object
+          description: Child runtime handle.
+          additionalProperties: false
+          required:
+            - runtimeId
+          properties:
+            runtimeId:
+              type: string
+              description: Child runtime id.
+            executionKey:
+              type: string
+              description: Execution key associated with the child runtime.
+            projectId:
+              type: string
+              description: Started child project id.
+            graphRef:
+              type: string
+              description: Child project graph reference.
+            sessionId:
+              type: string
+              description: Child session id.
+            executionId:
+              type: string
+              description: Child execution id.
+            ownerExecId:
+              type: string
+              description: Parent execution id when the child was started from another runtime.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: start
+    projectId:
+      type: string
+      required: false
+    sessionId:
+      type: string
+      required: false
+    executionKey:
+      type: string
+      required: false
+    bindings:
+      type: string
+      required: false
+    arguments:
+      type: string
+      required: false
+    workspacePath:
+      type: string
+      required: false
+    executionTimeoutSeconds:
+      type: number
+      required: false
+    minControlDurationMs:
+      type: number
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: sessionId
+        label: Session
+        type: select
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        helpKey: app.session.start.sessionId.help
+        dataSource:
+          kind: resource
+          resource: projectSessions
+          filters:
+            projectId: "{{projectId}}"
+      - key: executionKey
+        label: Execution Key
+        type: text
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Optional runtime alias
+      - key: bindings
+        label: Bindings
+        type: textarea
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        rows: 6
+        placeholder: |
+          - parentChannel: runtime-in
+            childChannel: chat
+      - key: arguments
+        label: Arguments
+        type: textarea
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        rows: 4
+        placeholder: |
+          key: value
+      - key: workspacePath
+        label: Workspace Path
+        type: text
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Optional absolute path
+        pickerSelection: directory
+        pickerTitle: Choose Workspace Folder
+        pickerMessage: Browse the server filesystem for a workspace folder to use when starting the child project.
+        pickerSelectLabel: Use Folder
+        pickerShowFiles: false
+      - key: executionTimeoutSeconds
+        label: Timeout (seconds)
+        type: number
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Uses child project timeout
+      - key: minControlDurationMs
+        label: Delay
+        type: number
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Uses child project delay

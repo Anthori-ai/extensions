@@ -1,0 +1,86 @@
+format: 1
+id: actions
+name: Actions
+description: Applies one or more graph actions with optimistic concurrency.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Actions
+        description: Apply one or more graph control actions with optimistic concurrency.
+        input:
+          type: object
+          description: Graph control actions to apply.
+          properties:
+            graphRef:
+              type: string
+              description: Optional graph ref, defaults to the current project graph.
+            expectedVersion:
+              type: integer
+              description: Optional expected graph version to guard against concurrent edits.
+            dryRun:
+              type: boolean
+              description: Validate and preview changes without saving.
+            actions:
+              type: array
+              description: Ordered list of graph control actions to apply.
+        output:
+          type: object
+          required:
+            - graphRef
+            - revision
+            - idMap
+            - graph
+            - diagnostics
+          properties:
+            graphRef:
+              type: string
+              description: Graph reference that was edited.
+            revision:
+              type: integer
+              description: Resulting graph revision.
+            idMap:
+              type: object
+              description: Mapping from temporary ids to created control and conduit ids.
+              additionalProperties:
+                type: string
+            graph:
+              type: object
+              description: Updated graph after the actions were applied.
+            diagnostics:
+              type: array
+              description: Validation notes returned with the graph update.
+              items:
+                type: object
+                properties:
+                  severity:
+                    type: string
+                    description: Diagnostic severity such as error or warning.
+                  code:
+                    type: string
+                    description: Diagnostic code.
+                  message:
+                    type: string
+                    description: Diagnostic message.
+                  controlId:
+                    type: string
+                    description: Control involved in the diagnostic, if any.
+                  relatedControlId:
+                    type: string
+                    description: Related control involved in the diagnostic, if any.
+                  conduitId:
+                    type: string
+                    description: Conduit involved in the diagnostic, if any.
+                  bindingKind:
+                    type: string
+                    description: Binding kind involved in the diagnostic, if any.
+                  bindingName:
+                    type: string
+                    description: Binding name involved in the diagnostic, if any.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: actions

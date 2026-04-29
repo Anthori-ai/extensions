@@ -1,0 +1,162 @@
+format: 1
+id: log-detail
+name: Log Detail
+description: Returns detailed log entries for a session.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Log Detail
+        description: Returns detailed log entries for a session.
+        input:
+          type: object
+          description: Session log entry request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Optional project id. Defaults to the current project.
+            projectDir:
+              type: string
+              description: Project directory alternative when projectId is unavailable.
+            sessionId:
+              type: string
+              description: Session id to inspect.
+            ids:
+              type: array
+              description: Optional list of entry ids to return.
+              items:
+                type: integer
+            offset:
+              type: integer
+              description: Start index when ids are not specified.
+            limit:
+              type: integer
+              description: Maximum entries to return.
+          required:
+            - sessionId
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - userId
+            - sessionId
+            - graphRef
+            - items
+          properties:
+            userId:
+              type: string
+              description: User id that owns the log.
+            projectId:
+              type: string
+              description: Project id for the log, when resolved directly from a project.
+            sessionId:
+              type: string
+              description: Session id for the log.
+            graphRef:
+              type: string
+              description: Graph reference for the log entries.
+            items:
+              type: array
+              description: Detailed trace entries.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - timestamp
+                  - controlId
+                  - controlRef
+                  - kind
+                  - input
+                  - output
+                  - error
+                properties:
+                  id:
+                    type: integer
+                    description: Entry id.
+                  timestamp:
+                    type: string
+                    description: Event time in UTC.
+                  controlId:
+                    type: string
+                    description: Control id.
+                  controlRef:
+                    type: string
+                    description: Control reference for the traced step.
+                  kind:
+                    type: string
+                    description: Trace entry kind.
+                  input:
+                    type: unknown
+                    description: Trace input value.
+                  output:
+                    type: unknown
+                    description: Trace output value.
+                  error:
+                    type: string
+                    description: Error message.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: log-detail
+    projectId:
+      type: string
+      required: false
+    sessionId:
+      type: string
+      required: false
+    ids:
+      type: string
+      required: false
+    offset:
+      type: number
+      required: false
+    limit:
+      type: number
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: sessionId
+        label: Session
+        type: select
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        dataSource:
+          kind: resource
+          resource: projectSessions
+          filters:
+            projectId: "{{projectId}}"
+      - key: ids
+        label: IDs
+        type: text
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Optional comma-separated entry ids
+      - key: offset
+        label: Offset
+        type: number
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+      - key: limit
+        label: Limit
+        type: number
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false

@@ -1,0 +1,71 @@
+format: 1
+id: create
+name: Create
+description: Creates a new session for the current or selected project.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create
+        description: Creates a new session for the current or selected project.
+        input:
+          type: object
+          description: Session creation request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Optional project id. Defaults to the current project.
+            name:
+              type: string
+              description: Display name for the new session.
+        output:
+          type: object
+          description: Created session result.
+          additionalProperties: false
+          required:
+            - session
+          properties:
+            session:
+              type: object
+              description: Created session record.
+              additionalProperties: false
+              required:
+                - id
+                - name
+              properties:
+                id:
+                  type: string
+                  description: New session id.
+                name:
+                  type: string
+                  description: Session name.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create
+    projectId:
+      type: string
+      required: false
+    name:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: name
+        label: Name
+        type: text
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        placeholder: Session

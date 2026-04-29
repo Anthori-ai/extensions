@@ -1,0 +1,6 @@
+bundle:
+  namespace: anthori.storage.provider.sqlite
+  owner: Anthori
+  locale: id-ID
+  version: 1
+entries: []

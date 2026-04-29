@@ -1,0 +1,258 @@
+format: 1
+id: anthropic
+name: Anthropic
+description: Anthropic text provider backed by the Messages API.
+baseControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+control:
+  contracts:
+    caller:
+      contracts:
+        - id: call
+          name: Text
+          description: Calls the configured provider and returns the provider response.
+          input:
+            type: object
+            properties:
+              input:
+                type: any
+                description: Input sent to the provider runtime.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Provider id from the Providers panel.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this call.
+              reasoning:
+                type: string
+                fieldRef: reasoningEffort
+                enum:
+                  - low
+                  - medium
+                  - high
+                  - xhigh
+                description: Optional reasoning hint for compatible providers.
+              timeoutSeconds:
+                type: number
+                fieldRef: timeoutSeconds
+                description: Optional timeout override in seconds.
+              speaker:
+                type: string
+                description: Optional visible speaker label for emitted agent output.
+            additionalProperties: false
+          output:
+            type: object
+            description: Normal provider-backed response object.
+            properties:
+              text:
+                type: string
+                description: Main agent text returned by the provider.
+              reasoningText:
+                type: string
+                description: Optional reasoning text returned separately from the main text.
+              toolCalls:
+                type: array
+                description: Optional tool calls requested by the provider.
+                items: anthori.standard.ToolCall
+              usage: anthori.standard.Usage
+              finishReason:
+                type: string
+                description: Provider finish reason for this call when available.
+              model:
+                type: string
+                description: Effective model used for this call when available.
+              providerRef:
+                type: string
+                description: Effective provider instance id for this call.
+              providerDefinitionId:
+                type: string
+                description: Effective provider definition id for this call.
+              providerInterfaces:
+                type: array
+                description: Effective provider interface ids for this call.
+                items:
+                  type: string
+            additionalProperties: false
+        - id: start
+          toolVisible: false
+          name: Pull Start
+          description: Start a background provider call owned by the supplied invocation and return a task handle.
+          input:
+            type: object
+            required: [pull, ownerInvocationId]
+            properties:
+              pull:
+                type: string
+                enum: [start]
+              ownerInvocationId:
+                type: string
+              input:
+                type: any
+                description: Input sent to the provider runtime.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Provider id from the Providers panel.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this call.
+              reasoning:
+                type: string
+                fieldRef: reasoningEffort
+                enum:
+                  - low
+                  - medium
+                  - high
+                  - xhigh
+                description: Optional reasoning hint for compatible providers.
+              timeoutSeconds:
+                type: number
+                fieldRef: timeoutSeconds
+                description: Optional timeout override in seconds.
+              speaker:
+                type: string
+                description: Optional visible speaker label for emitted agent output.
+            additionalProperties: false
+          # Keep each explicit pull caller-contract output nested under its list
+          # item. Dedenting these blocks breaks manifest parsing.
+          output:
+            type: object
+            required: [taskId]
+            properties:
+              taskId:
+                type: string
+            additionalProperties: false
+        - id: pull
+          toolVisible: false
+          name: Pull Step
+          description: Read the next available provider event from a running pullable task.
+          input:
+            type: object
+            required: [pull, taskId]
+            properties:
+              pull:
+                type: string
+                enum: [step]
+              taskId:
+                type: string
+            additionalProperties: false
+          output:
+            type: object
+            propertyOrder: [phase, taskId, sequence, content, reason, metadata]
+            required: [taskId]
+            properties:
+              phase:
+                type: string
+                enum: [chunk, end, error, cancel]
+                description: Optional event phase. Omitted when nothing new is buffered for this pull round.
+              taskId:
+                type: string
+              sequence:
+                type: number
+                description: Delivered event sequence for this task. Omitted when this step round has no unread event.
+              content:
+                type: any
+                description: Optional payload for the returned pull event. Chunk content may already be aggregated by the producer.
+              reason:
+                type: string
+                description: Optional terminal reason for error or cancellation.
+              metadata:
+                type: object
+                description: Optional metadata for the returned pull event.
+            additionalProperties: false
+        - id: cancel
+          toolVisible: false
+          name: Pull Cancel
+          description: Cancel a running pullable provider task.
+          input:
+            type: object
+            required: [pull, taskId]
+            properties:
+              pull:
+                type: string
+                enum: [cancel]
+              taskId:
+                type: string
+              reason:
+                type: string
+            additionalProperties: false
+          output:
+            type: object
+            required: [taskId]
+            properties:
+              taskId:
+                type: string
+            additionalProperties: false
+        - id: metadata
+          name: Metadata
+          description: Returns provider metadata, including context sizing metadata, for the configured provider.
+          input:
+            type: object
+            required:
+              - metadata
+            properties:
+              metadata:
+                type: boolean
+                enum:
+                  - true
+                description: Request provider metadata.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Optional provider id override for this metadata lookup. Maps onto the control's Config field when unlocked.
+              model:
+                type: string
+                fieldRef: llmModel
+                description: Optional model override for this metadata lookup.
+            additionalProperties: false
+          output:
+            type: object
+            required:
+              - maxContextTokens
+            properties:
+              maxContextTokens:
+                type: number
+                description: Maximum provider context length for the selected model.
+              model:
+                type: string
+                description: Effective model used for this metadata lookup.
+              providerRef:
+                type: string
+                description: Effective provider instance id for this metadata lookup.
+              providerDefinitionId:
+                type: string
+                description: Effective provider definition id for this metadata lookup.
+              providerInterfaces:
+                type: array
+                description: Effective provider interface ids for this metadata lookup.
+                items:
+                  type: string
+            additionalProperties: false
+  configSchema:
+    providerDefinitionId:
+      type: string
+      default: anthropic-provider
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.agent-text.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        supportsPin: true
+        helpKey: core.textProvider.providerRef.help
+        dataSource:
+          filters:
+            interface: anthori.agent-text.v1
+            definitionId: anthropic-provider
+      - key: llmModel
+        label: Model
+        type: select
+        supportsPin: true
+        helpKey: core.textProvider.llmModel.help
+        dataSource:
+          kind: providerModels
+          emptyLabel: Inherit provider model

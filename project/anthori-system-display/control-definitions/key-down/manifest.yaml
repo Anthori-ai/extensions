@@ -1,0 +1,62 @@
+format: 1
+id: key-down
+name: Key Down
+description: Sends a key down event.
+baseControlRef: controls/1/extensions/anthori.system.display/definitions/display-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Key Down
+        description: Sends a key down event.
+        input:
+          type: object
+          description: Key down request.
+          properties:
+            keyCode:
+              type: number
+              description: Platform virtual key code.
+            shift:
+              type: boolean
+              description: Hold Shift during the key down.
+            ctrl:
+              type: boolean
+              description: Hold Control during the key down.
+            alt:
+              type: boolean
+              description: Hold Alt during the key down.
+            meta:
+              type: boolean
+              description: Hold Meta during the key down.
+        output:
+          type: object
+          description: Key down result.
+          properties:
+            result:
+              type: object
+              description: Result details for the completed key down event.
+              required:
+                - keyCode
+              properties:
+                keyCode:
+                  type: number
+                  description: Key code that was pressed down.
+            error:
+              type: string
+              description: Error message when the key down event could not be sent.
+
+control:
+  visible: true
+  libraryPath: system/input
+  permissions:
+    - id: macos.accessibility
+      title: Accessibility
+      description: Allow Anthori to control the mouse and keyboard.
+      platform: macos
+      action: grant
+      settingsPath: System Settings > Privacy & Security > Accessibility
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: key-down
+

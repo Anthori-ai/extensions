@@ -1,0 +1,37 @@
+format: 1
+id: count-lines
+name: Count Lines
+description: Counts lines in a text file inside the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Count Lines
+        description: Count the number of lines in a text file.
+        input:
+          type: object
+          description: Line count request.
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+          additionalProperties: false
+        output:
+          type: object
+          description: Line count result.
+          required:
+            - lineCount
+          properties:
+            lineCount:
+              type: number
+              description: Total number of lines in the file.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: count-lines

@@ -1,0 +1,7 @@
+format: 1
+id: kv
+name: KV Storage
+description: Scoped key-value map storage with internal or provider-backed backends.
+baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/kv-base
+control:
+  visible: true

@@ -1,0 +1,15 @@
+format: 1
+id: sqlite-provider-runtime
+name: SQLite Provider Runtime
+version: 1.0.0
+description: Runtime library for SQLite storage provider path resolution.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/sqlite-provider-runtime.js
+timeoutSeconds: 30
+actions:
+  - id: resolve-sqlite-path
+    name: Resolve SQLite Path
+    description: Resolve the configured SQLite database path for host-managed storage operations.

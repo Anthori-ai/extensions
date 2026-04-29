@@ -1,0 +1,48 @@
+format: 1
+id: list-conduits
+name: List Conduits
+description: Lists all conduits in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List Conduits
+        description: List conduits in the current graph.
+        input:
+          type: object
+          description: No input.
+        output:
+          type: object
+          required:
+            - conduits
+          properties:
+            conduits:
+              type: array
+              description: Conduits in the current graph.
+              items:
+                type: object
+                required:
+                  - id
+                  - from
+                  - to
+                  - fromPort
+                properties:
+                  id:
+                    type: string
+                    description: Conduit id.
+                  from:
+                    type: string
+                    description: Source control id.
+                  to:
+                    type: string
+                    description: Target control id.
+                  fromPort:
+                    type: string
+                    description: Source port name.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-conduits

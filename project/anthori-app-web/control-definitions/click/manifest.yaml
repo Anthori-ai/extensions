@@ -1,0 +1,78 @@
+format: 1
+id: click
+name: Click
+description: Click an element in the page.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Click
+        description: Click an element in the page.
+        input:
+          type: object
+          description: Page click request.
+          required:
+            - windowId
+            - snapshotId
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            u:
+              type: integer
+              description: Preferred target element u value.
+            selector:
+              type: string
+              description: CSS selector target.
+            elementId:
+              type: string
+              description: Legacy element id kept for older callers.
+            double:
+              type: boolean
+              description: Double click when true.
+            right:
+              type: boolean
+              description: Right click when true.
+            ctrl:
+              type: boolean
+              description: Hold Ctrl during the click.
+            shift:
+              type: boolean
+              description: Hold Shift during the click.
+            alt:
+              type: boolean
+              description: Hold Alt during the click.
+            meta:
+              type: boolean
+              description: Hold Meta during the click.
+            returnSnapshot:
+              type: boolean
+              description: Return a snapshot after clicking.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: click
+    returnSnapshotDefault:
+      type: boolean
+      required: false
+      default: true

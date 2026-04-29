@@ -1,0 +1,50 @@
+format: 1
+id: type-text
+name: Type Text
+description: Type text into an editable Anthori target.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Type Text
+        description: Type text into an editable Anthori target.
+        input:
+          type: object
+          description: Text input request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id to target.
+            targetId:
+              type: string
+              description: Optional AI target id for the editable field to type into.
+            x:
+              type: number
+              description: Viewport X coordinate used when no target id is provided.
+            "y":
+              type: number
+              description: Viewport Y coordinate used when no target id is provided.
+            text:
+              type: string
+              description: Text to enter.
+            mode:
+              type: string
+              description: "Text insertion mode: `insert`, `replace-all`, or `append`."
+            focusWindow:
+              type: boolean
+              description: Focus the target window before typing.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Desktop UI host result for the text entry request.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: typeText

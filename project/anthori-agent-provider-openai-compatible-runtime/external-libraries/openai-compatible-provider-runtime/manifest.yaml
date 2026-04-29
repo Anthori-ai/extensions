@@ -1,0 +1,16 @@
+format: 1
+id: openai-compatible-provider-runtime
+name: OpenAI-Compatible Provider Runtime
+description: Shared runtime library for OpenAI-compatible text generation and model listing.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/openai-compatible-provider-runtime.js
+actions:
+  - id: respond-text
+    name: Respond Text
+    description: Send a text request to an OpenAI-compatible chat completions endpoint.
+  - id: list-models
+    name: List Models
+    description: List available models for the configured provider API key.

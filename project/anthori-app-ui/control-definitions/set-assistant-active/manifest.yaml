@@ -1,0 +1,43 @@
+format: 1
+id: set-assistant-active
+name: Set Assistant Active
+description: Switch the assistant cursor avatar between inactive and active state banks.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Set Assistant Active
+        description: Switch the assistant cursor avatar between inactive and active state banks.
+        input:
+          type: object
+          description: Assistant active-state request.
+          properties:
+            active:
+              type: boolean
+              description: True selects the active avatar state. False selects the inactive state.
+        output:
+          type: object
+          required:
+            - active
+          properties:
+            active:
+              type: boolean
+              description: True when the active avatar state is selected.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: setAssistantActive
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            active:
+              type: boolean
+              description: True selects the active avatar state. False selects the inactive state.

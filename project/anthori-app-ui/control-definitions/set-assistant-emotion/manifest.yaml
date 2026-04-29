@@ -1,0 +1,43 @@
+format: 1
+id: set-assistant-emotion
+name: Set Assistant Emotion
+description: Set the assistant cursor avatar's current emotional state inside the active or inactive bank. If talking is currently enabled, this updates the emotion that will show after talking ends.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Set Assistant Emotion
+        description: Set the assistant cursor avatar's current emotional state.
+        input:
+          type: object
+          description: Assistant emotion request.
+          properties:
+            emotion:
+              type: string
+              description: Emotion key to select. Empty resets to idle. If talking is active, this updates the post-talking emotion without interrupting the current talking playback.
+        output:
+          type: object
+          required:
+            - emotion
+          properties:
+            emotion:
+              type: string
+              description: Selected avatar emotion, or idle when cleared.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: setAssistantEmotion
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: INPUT
+          kind: schema
+          schema:
+            emotion:
+              type: string
+              description: Emotion key to select. Empty resets to idle. If talking is active, this updates the post-talking emotion without interrupting the current talking playback.

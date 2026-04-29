@@ -1,0 +1,37 @@
+format: 1
+id: anthropic-provider
+name: Anthropic
+version: 1.0.0
+description: Anthropic text provider backed by the Messages API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiKey:
+      type: secretString
+      label: API Key
+      required: true
+      placeholder: sk-ant-...
+      helpKey: provider.anthropic.config.apiKey.help
+    llmModel:
+      type: string
+      label: Model
+      placeholder: claude-sonnet-4-6
+      helpKey: provider.anthropic.config.model.help
+runtime:
+  kind: library
+  libraryId: anthropic-provider-runtime
+  actions:
+    listModels: list-models
+    respondText: respond-text
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 172
+control:
+  visible: false

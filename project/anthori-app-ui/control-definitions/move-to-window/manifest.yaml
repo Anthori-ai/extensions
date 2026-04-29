@@ -1,0 +1,32 @@
+format: 1
+id: move-to-window
+name: Move To Window
+description: Transfer pointer ownership into another Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Move To Window
+        description: Transfer pointer ownership into another Anthori window.
+        input:
+          type: object
+          description: Pointer ownership transfer request.
+          properties:
+            windowId:
+              type: string
+              description: Anthori window id that should own the UI pointer.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: moveToWindow

@@ -1,0 +1,298 @@
+format: 1
+id: write-lines
+name: Write Lines
+description: "Edits specific lines in an existing text file inside the project workspace. Use `replace`, `insert`, or `delete` with a `rangeKey` returned by `Read Lines`. Insert may omit `rangeKey` only when the target file is empty. Use insert with `after: true` and a key for the last line to add lines at the end of a non-empty file. Line edits preserve the target file's existing trailing newline state."
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      # Keep mode as a literal discriminator on each variant because runtime
+      # contract selection does not pass the matched caller contract into the handler.
+      # Keep the contract descriptions explicit because agents often see the
+      # tool schema without surrounding docs, and insert-position confusion leads
+      # to avoidable bad tool calls.
+      - id: replace
+        name: Replace
+        description: Replace the exact entire line range identified by a `rangeKey` returned from Read Lines. If you only want to replace a subset of previously read lines, call Read Lines again for exactly that subset and use the new key. The write fails if the file or selected range changed since that key was created.
+        input:
+          description: Replace line request.
+          anyOf:
+            - type: object
+              description: Replace existing lines using an explicit array of replacement lines.
+              propertyOrder:
+                - path
+                - mode
+                - rangeKey
+                - lines
+              required:
+                - path
+                - mode
+                - rangeKey
+                - lines
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                mode:
+                  type: string
+                  enum: [replace]
+                  description: Replace lines.
+                rangeKey:
+                  type: string
+                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                lines:
+                  type: array
+                  description: Replacement lines.
+                  minItems: 1
+                  items:
+                    type: string
+              additionalProperties: false
+            - type: object
+              description: Replace existing lines using newline-delimited text content.
+              propertyOrder:
+                - path
+                - mode
+                - rangeKey
+                - content
+              required:
+                - path
+                - mode
+                - rangeKey
+                - content
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                mode:
+                  type: string
+                  enum: [replace]
+                  description: Replace lines.
+                rangeKey:
+                  type: string
+                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                content:
+                  type: string
+                  description: Newline-delimited replacement text.
+              additionalProperties: false
+        output:
+          type: object
+          description: Line edit result.
+          propertyOrder:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+            - rangeKey
+          required:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+            - rangeKey
+          properties:
+            linesWritten:
+              type: number
+              description: Number of input lines written or removed by the operation.
+            startLine:
+              type: number
+              description: Effective starting line number for the operation.
+            endLine:
+              type: number
+              description: Effective ending line number for the operation.
+            lineDelta:
+              type: number
+              description: Net change in total line count after the edit.
+            fileLineCount:
+              type: number
+              description: Total lines in the file after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+            rangeKey:
+              type: string
+              description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
+          additionalProperties: false
+      - id: insert
+        name: Insert
+        description: "Insert one or more new lines before or after the exact entire line range identified by a `rangeKey` returned from Read Lines. If you only want to insert around a subset of previously read lines, call Read Lines again for exactly that subset and use the new key. The write fails if the file or selected range changed since that key was created. Omit `rangeKey` only when the target file is empty. Use `after: true` with a key for the last line to add lines at the end of a non-empty file."
+        input:
+          description: Insert line request.
+          anyOf:
+            - type: object
+              description: Insert new lines using an explicit array of line strings.
+              propertyOrder:
+                - path
+                - mode
+                - lines
+                - rangeKey
+                - after
+              required:
+                - path
+                - mode
+                - lines
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                mode:
+                  type: string
+                  enum: [insert]
+                  description: Insert lines.
+                rangeKey:
+                  type: string
+                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                lines:
+                  type: array
+                  description: Inserted lines.
+                  minItems: 1
+                  items:
+                    type: string
+                after:
+                  type: boolean
+                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+              additionalProperties: false
+            - type: object
+              description: Insert new lines using newline-delimited text content.
+              propertyOrder:
+                - path
+                - mode
+                - content
+                - rangeKey
+                - after
+              required:
+                - path
+                - mode
+                - content
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                mode:
+                  type: string
+                  enum: [insert]
+                  description: Insert lines.
+                rangeKey:
+                  type: string
+                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                content:
+                  type: string
+                  description: Newline-delimited inserted text.
+                after:
+                  type: boolean
+                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+              additionalProperties: false
+        output:
+          type: object
+          description: Line edit result.
+          propertyOrder:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+            - rangeKey
+          required:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+            - rangeKey
+          properties:
+            linesWritten:
+              type: number
+              description: Number of input lines written or removed by the operation.
+            startLine:
+              type: number
+              description: Effective starting line number for the operation.
+            endLine:
+              type: number
+              description: Effective ending line number for the operation.
+            lineDelta:
+              type: number
+              description: Net change in total line count after the edit.
+            fileLineCount:
+              type: number
+              description: Total lines in the file after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+            rangeKey:
+              type: string
+              description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
+          additionalProperties: false
+      - id: delete
+        name: Delete
+        description: Delete the exact entire line range identified by a `rangeKey` returned from Read Lines. If you only want to delete a subset of previously read lines, call Read Lines again for exactly that subset and use the new key. The write fails if the file or selected range changed since that key was created.
+        input:
+          type: object
+          description: Delete line request.
+          propertyOrder:
+            - path
+            - mode
+            - rangeKey
+          required:
+            - path
+            - mode
+            - rangeKey
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            mode:
+              type: string
+              enum: [delete]
+              description: Delete lines.
+            rangeKey:
+              type: string
+              description: Line range key returned by Read Lines for the exact entire range to delete. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+          additionalProperties: false
+        output:
+          type: object
+          description: Line edit result.
+          propertyOrder:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+          required:
+            - linesWritten
+            - startLine
+            - endLine
+            - lineDelta
+            - fileLineCount
+            - fileHash
+          properties:
+            linesWritten:
+              type: number
+              description: Number of input lines written or removed by the operation.
+            startLine:
+              type: number
+              description: Effective starting line number for the operation.
+            endLine:
+              type: number
+              description: Effective ending line number for the operation.
+            lineDelta:
+              type: number
+              description: Net change in total line count after the edit.
+            fileLineCount:
+              type: number
+              description: Total lines in the file after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: write-lines

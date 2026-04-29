@@ -1,0 +1,20 @@
+format: 1
+id: anthori.system
+name: System
+scope: project
+version: 1.0.0
+description: First-party system controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - System
+  - System
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-system-runtime
+controlDefinitions:
+  - control-definitions/system-base
+  - control-definitions/time
+  - control-definitions/exec

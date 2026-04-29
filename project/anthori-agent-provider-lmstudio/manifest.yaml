@@ -1,0 +1,25 @@
+format: 1
+id: anthori.agent.provider.lmstudio
+name: LM Studio Provider
+version: 1.0.0
+description: Extension that bundles a hosted LM Studio provider definition.
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - LM Studio
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+localizationPaths:
+  - i18n/{locale}.yaml
+externalLibraries:
+  - external-libraries/lmstudio-provider-runtime
+providers:
+  - providers/lmstudio
+controlDefinitions:
+  - control-definitions/lmstudio

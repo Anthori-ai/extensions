@@ -1,0 +1,56 @@
+format: 1
+id: pointer-click
+name: Pointer Click
+description: Click with the UI pointer inside an Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pointer Click
+        description: Click with the UI pointer inside an Anthori window.
+        input:
+          type: object
+          description: Pointer click request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id to target.
+            targetId:
+              type: string
+              description: Optional AI target id to click.
+            x:
+              type: number
+              description: Viewport X coordinate used when no target id is provided.
+            "y":
+              type: number
+              description: Viewport Y coordinate used when no target id is provided.
+            button:
+              type: string
+              description: "Mouse button: left, middle, or right."
+            clickCount:
+              type: number
+              description: Number of clicks to send.
+            tween:
+              type: boolean
+              description: Animate the pointer move before clicking.
+            focusWindow:
+              type: boolean
+              description: Focus the target window before clicking.
+            modifiers:
+              type: object
+              description: Optional modifier state with ctrl, shift, alt, and meta booleans.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Desktop UI host result for the pointer click request.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pointerClick

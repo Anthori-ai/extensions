@@ -1,0 +1,28 @@
+format: 1
+id: anthori.app.session
+name: Session
+scope: project
+version: 1.0.0
+description: First-party session management and inspection controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - Session
+localizationPaths:
+  - i18n/{locale}.yaml
+externalLibraries:
+  - external-libraries/anthori-session-runtime
+extensionDependencies:
+  - id: anthori.standard
+    version: ^1.0.0
+controlDefinitions:
+  - control-definitions/session-base
+  - control-definitions/start
+  - control-definitions/stop
+  - control-definitions/list
+  - control-definitions/load
+  - control-definitions/create
+  - control-definitions/select
+  - control-definitions/log
+  - control-definitions/log-latest
+  - control-definitions/log-detail

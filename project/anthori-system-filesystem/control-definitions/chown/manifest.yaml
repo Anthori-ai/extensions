@@ -1,0 +1,118 @@
+format: 1
+id: chown
+name: Chown
+description: Updates file ownership inside the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Chown
+        description: Change ownership on a file or directory.
+        input:
+          description: Ownership change request. Provide exactly one owner selector (`uid` or `user`) and exactly one group selector (`gid` or `group`).
+          anyOf:
+            - type: object
+              description: Change ownership using numeric uid and gid directly.
+              propertyOrder:
+                - path
+                - uid
+                - gid
+              required:
+                - path
+                - uid
+                - gid
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                uid:
+                  type: number
+                  description: Numeric uid to apply directly.
+                gid:
+                  type: number
+                  description: Numeric gid to apply directly.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using numeric uid and a group name.
+              propertyOrder:
+                - path
+                - uid
+                - group
+              required:
+                - path
+                - uid
+                - group
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                uid:
+                  type: number
+                  description: Numeric uid to apply directly.
+                group:
+                  type: string
+                  description: Group name to resolve into a gid.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using a user name and numeric gid.
+              propertyOrder:
+                - path
+                - user
+                - gid
+              required:
+                - path
+                - user
+                - gid
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                user:
+                  type: string
+                  description: User name to resolve into a uid.
+                gid:
+                  type: number
+                  description: Numeric gid to apply directly.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using a user name and a group name.
+              propertyOrder:
+                - path
+                - user
+                - group
+              required:
+                - path
+                - user
+                - group
+              properties:
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                user:
+                  type: string
+                  description: User name to resolve into a uid.
+                group:
+                  type: string
+                  description: Group name to resolve into a gid.
+              additionalProperties: false
+        output:
+          type: object
+          description: Ownership change result.
+          required:
+            - uid
+            - gid
+          properties:
+            uid:
+              type: number
+              description: Resolved uid applied to the path.
+            gid:
+              type: number
+              description: Resolved gid applied to the path.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: chown

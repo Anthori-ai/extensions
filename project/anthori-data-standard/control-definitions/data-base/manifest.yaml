@@ -1,0 +1,13 @@
+format: 1
+id: data-base
+name: Data Base
+description: Hidden shared base for data controls that expose reusable in-memory state and definitions.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  category: data
+  libraryPath: data
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-data-standard-runtime

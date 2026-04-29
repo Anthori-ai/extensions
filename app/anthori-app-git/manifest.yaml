@@ -1,0 +1,6 @@
+format: 1
+id: anthori.app.git
+name: Git
+scope: app
+version: 1.0.0
+description: Enables Anthori's built-in workspace Git and Git provider setup surfaces as an app-level package.

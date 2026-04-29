@@ -1,0 +1,32 @@
+format: 1
+id: pointer-state
+name: Pointer State
+description: Return the UI pointer location and hovered target.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pointer State
+        description: Return the UI pointer location and hovered target.
+        input:
+          type: object
+          description: Optional window selector.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id. Omit for the current owner window.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pointerState

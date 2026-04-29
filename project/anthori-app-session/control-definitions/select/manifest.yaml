@@ -1,0 +1,66 @@
+format: 1
+id: select
+name: Select
+description: Sets the active session for the current or selected project.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Select
+        description: Sets the active session for the current or selected project.
+        input:
+          type: object
+          description: Session selection request.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Optional project id. Defaults to the current project.
+            sessionId:
+              type: string
+              description: Session id to make active.
+        required:
+          - sessionId
+        output:
+          type: object
+          description: Session selection result.
+          additionalProperties: false
+          required:
+            - activeSessionId
+          properties:
+            activeSessionId:
+              type: string
+              description: Session id now marked active for the project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: select
+    projectId:
+      type: string
+      required: false
+    sessionId:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: sessionId
+        label: Session
+        type: select
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        dataSource:
+          kind: resource
+          resource: projectSessions
+          filters:
+            projectId: "{{projectId}}"

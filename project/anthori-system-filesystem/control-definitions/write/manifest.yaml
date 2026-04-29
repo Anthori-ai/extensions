@@ -1,0 +1,429 @@
+format: 1
+id: write
+name: Write
+description: Writes content to existing files in the project workspace.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: replace
+        name: Replace
+        description: Replace the exact byte range identified by a `rangeKey` returned from Read. The write fails if the selected range changed since that key was created.
+        input:
+          type: object
+          description: Replace byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - rangeKey
+            - content
+            - encoding
+          required:
+            - path
+            - mode
+            - rangeKey
+            - content
+            - encoding
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            mode:
+              type: string
+              enum: [replace]
+              description: Replace bytes.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the exact range to replace. Keys are formatted as an opaque base62 token.
+            content:
+              type: any
+              description: Replacement content. Strings are written directly. Bytes are supported when provided by a runtime library.
+            encoding:
+              type: string
+              enum: [utf8, base64, bytes]
+              description: Required content encoding. `base64` decodes the input string before writing.
+          additionalProperties: false
+        output:
+          type: object
+          description: Write result.
+          propertyOrder:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+            - rangeKey
+          required:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+          properties:
+            bytesWritten:
+              type: number
+              description: Number of input bytes written or removed by the operation.
+            offset:
+              type: number
+              description: Effective starting byte offset for the operation.
+            endOffset:
+              type: number
+              description: Effective ending byte offset for the operation, or `offset - 1` when no resulting bytes exist.
+            byteDelta:
+              type: number
+              description: Net change in file byte count after the edit.
+            fileByteCount:
+              type: number
+              description: Total file size in bytes after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+            rangeKey:
+              type: string
+              description: Byte range key for the written range after this operation, formatted as an opaque base62 token. Omitted when the resulting range no longer exists.
+          additionalProperties: false
+      - id: insert
+        name: Insert
+        description: "Insert content before or after the exact byte range identified by a `rangeKey` returned from Read. Omit `rangeKey` only when the target file is empty. Use `after: true` with a key for the final byte to add content at the end of a non-empty file."
+        input:
+          type: object
+          description: Insert byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - content
+            - encoding
+            - rangeKey
+            - after
+          required:
+            - path
+            - mode
+            - content
+            - encoding
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            mode:
+              type: string
+              enum: [insert]
+              description: Insert bytes.
+            content:
+              type: any
+              description: Inserted content. Strings are written directly. Bytes are supported when provided by a runtime library.
+            encoding:
+              type: string
+              enum: [utf8, base64, bytes]
+              description: Required content encoding. `base64` decodes the input string before writing.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the target range. Required unless the file is empty. Keys are formatted as an opaque base62 token.
+            after:
+              type: boolean
+              description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+          additionalProperties: false
+        output:
+          type: object
+          description: Write result.
+          propertyOrder:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+            - rangeKey
+          required:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+          properties:
+            bytesWritten:
+              type: number
+              description: Number of input bytes written or removed by the operation.
+            offset:
+              type: number
+              description: Effective starting byte offset for the operation.
+            endOffset:
+              type: number
+              description: Effective ending byte offset for the operation, or `offset - 1` when no resulting bytes exist.
+            byteDelta:
+              type: number
+              description: Net change in file byte count after the edit.
+            fileByteCount:
+              type: number
+              description: Total file size in bytes after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+            rangeKey:
+              type: string
+              description: Byte range key for the written range after this operation, formatted as an opaque base62 token. Omitted when the resulting range no longer exists.
+          additionalProperties: false
+      - id: delete
+        name: Delete
+        description: Delete the exact byte range identified by a `rangeKey` returned from Read. The write fails if the selected range changed since that key was created.
+        input:
+          type: object
+          description: Delete byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - rangeKey
+          required:
+            - path
+            - mode
+            - rangeKey
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            mode:
+              type: string
+              enum: [delete]
+              description: Delete bytes.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the exact range to delete. Keys are formatted as an opaque base62 token.
+          additionalProperties: false
+        output:
+          type: object
+          description: Write result.
+          propertyOrder:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+            - rangeKey
+          required:
+            - bytesWritten
+            - offset
+            - endOffset
+            - byteDelta
+            - fileByteCount
+            - fileHash
+          properties:
+            bytesWritten:
+              type: number
+              description: Number of input bytes written or removed by the operation.
+            offset:
+              type: number
+              description: Effective starting byte offset for the operation.
+            endOffset:
+              type: number
+              description: Effective ending byte offset for the operation, or `offset - 1` when no resulting bytes exist.
+            byteDelta:
+              type: number
+              description: Net change in file byte count after the edit.
+            fileByteCount:
+              type: number
+              description: Total file size in bytes after the edit.
+            fileHash:
+              type: string
+              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+            rangeKey:
+              type: string
+              description: Byte range key for the written range after this operation, formatted as an opaque base62 token. Omitted when the resulting range no longer exists.
+          additionalProperties: false
+      - id: push-start
+        toolVisible: false
+        name: Push Start
+        description: Start an explicit write push session for an existing file and return a task handle.
+        input:
+          description: Push session start input.
+          anyOf:
+            - type: object
+              description: Start a push session that replaces the file contents, or starts writing at a specific byte offset.
+              propertyOrder:
+                - push
+                - ownerInvocationId
+                - path
+                - encoding
+                - offset
+              required:
+                - push
+                - ownerInvocationId
+                - path
+                - encoding
+              properties:
+                push:
+                  type: string
+                  enum: [start]
+                ownerInvocationId:
+                  type: string
+                  description: Invocation that owns the write push session lifetime.
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Required chunk encoding expected for this push session.
+                offset:
+                  type: number
+                  description: Optional initial byte offset.
+              additionalProperties: false
+            - type: object
+              description: Start a push session that appends chunk content to the end of an existing file.
+              propertyOrder:
+                - push
+                - ownerInvocationId
+                - path
+                - encoding
+                - append
+              required:
+                - push
+                - ownerInvocationId
+                - path
+                - encoding
+                - append
+              properties:
+                push:
+                  type: string
+                  enum: [start]
+                ownerInvocationId:
+                  type: string
+                  description: Invocation that owns the write push session lifetime.
+                path:
+                  type: string
+                  description: Path relative to the project workspace, or an absolute path.
+                encoding:
+                  type: string
+                  enum: [utf8, base64, bytes]
+                  description: Required chunk encoding expected for this push session.
+                append:
+                  type: boolean
+                  enum:
+                    - true
+                  description: Append instead of replacing the file.
+              additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Opaque task id returned by the write push session.
+          additionalProperties: false
+      - id: push
+        toolVisible: false
+        name: Push Step
+        description: Write one explicit chunk into an active write push session.
+        input:
+          type: object
+          propertyOrder:
+            - push
+            - taskId
+            - sequence
+            - content
+          required:
+            - push
+            - taskId
+            - sequence
+            - content
+          properties:
+            push:
+              type: string
+              enum: [step]
+            taskId:
+              type: string
+              description: Active write push task id.
+            sequence:
+              type: number
+              description: Producer-supplied chunk sequence for this write push session. The first Push Step uses 1, and each later Push Step must increment by 1.
+            content:
+              type: any
+              description: Chunk content to write using the encoding selected on Push Start.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Active write push task id.
+          additionalProperties: false
+      - id: push-end
+        toolVisible: false
+        name: Push End
+        description: Finish an active write push session.
+        input:
+          type: object
+          required:
+            - push
+            - taskId
+          properties:
+            push:
+              type: string
+              enum: [end]
+            taskId:
+              type: string
+              description: Active write push task id.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Finished write push task id.
+          additionalProperties: false
+      - id: push-cancel
+        toolVisible: false
+        name: Push Cancel
+        description: Cancel an active write push session.
+        input:
+          type: object
+          required:
+            - push
+            - taskId
+          properties:
+            push:
+              type: string
+              enum: [cancel]
+            taskId:
+              type: string
+              description: Active write push task id.
+            reason:
+              type: string
+              description: Optional cancellation reason.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Cancelled write push task id.
+          additionalProperties: false
+control:
+  visible: true
+  capabilities:
+    - pushable
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: write
+  ui:
+    info:
+      sections:
+        - title: PUSH
+          kind: text
+          text: |
+            Write supports range-keyed one-shot edits and explicit push sessions:
+
+            - One-shot edits use `replace`, `insert`, and `delete` with byte `rangeKey` values returned by Read.
+            - Explicit write push sessions with `Push Start`, `Push Step`, `Push End`, and `Push Cancel` for visible forward async flow.
+
+            During push writes, `start` prepares the file session, the first `Push Step` uses `sequence: 1`, each later `Push Step` must increment `sequence` by 1, and `end` or `cancel` closes the session handle.

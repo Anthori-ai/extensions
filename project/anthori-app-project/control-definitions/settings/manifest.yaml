@@ -1,0 +1,110 @@
+format: 1
+id: settings
+name: Settings
+description: Updates project execution settings and contract validation defaults.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Settings
+        description: Updates project execution settings and contract validation defaults.
+        input:
+          type: object
+          description: Project settings to update.
+          additionalProperties: false
+          properties:
+            projectId:
+              type: string
+              description: Optional project id. Defaults to the current project.
+            executionTimeoutSeconds:
+              type: integer
+              description: New default execution timeout in seconds.
+            shutdownTimeoutSeconds:
+              type: integer
+              description: New graceful shutdown timeout in seconds.
+            minControlDurationMs:
+              type: integer
+              description: New minimum step delay in milliseconds.
+            contractValidation:
+              type: object
+              description: New default contract validation policy for the project.
+              additionalProperties: false
+              properties:
+                static:
+                  type: string
+                  enum:
+                    - off
+                    - warn
+                    - error
+                  description: New default static contract validation mode.
+                runtime:
+                  type: string
+                  enum:
+                    - off
+                    - warn
+                    - error
+                  description: New default runtime contract validation mode.
+        output:
+          type: object
+          description: Updated project result.
+          additionalProperties: false
+          required:
+            - project
+          properties:
+            project:
+              type: object
+              description: Updated project object.
+              additionalProperties: false
+              required:
+                - id
+                - name
+                - graphRef
+              properties:
+                id:
+                  type: string
+                  description: Project id.
+                name:
+                  type: string
+                  description: Project name.
+                graphRef:
+                  type: string
+                  description: Main graph reference for the project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: settings
+    projectId:
+      type: string
+      required: false
+    executionTimeoutSeconds:
+      type: number
+      required: false
+    shutdownTimeoutSeconds:
+      type: number
+      required: false
+    minControlDurationMs:
+      type: number
+      required: false
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: executionTimeoutSeconds
+        label: Timeout
+        type: number
+        placeholder: Leave blank to keep current value
+      - key: shutdownTimeoutSeconds
+        label: Shutdown Timeout (seconds)
+        type: number
+        placeholder: Leave blank to keep current value
+      - key: minControlDurationMs
+        label: Delay
+        type: number
+        placeholder: Leave blank to keep current value

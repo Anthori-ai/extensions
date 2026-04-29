@@ -1,0 +1,38 @@
+format: 1
+id: region-inspect
+name: Region Inspect
+description: Inspect a viewport region inside a Anthori window.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-automation-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Region Inspect
+        description: Inspect a viewport region inside a Anthori window.
+        input:
+          type: object
+          description: Region inspection request.
+          properties:
+            windowId:
+              type: string
+              description: Optional Anthori window id. Omit for the current window.
+            rect:
+              type: object
+              description: Viewport rectangle as {x, y, width, height}.
+            limit:
+              type: number
+              description: Optional max visible targets to include.
+        output:
+          type: object
+          required:
+            - result
+          properties:
+            result:
+              description: Result returned by the desktop UI host.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: regionInspect

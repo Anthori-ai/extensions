@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.app.session"
+  owner: "Anthori"
+  locale: "de-DE"
+  version: 1
+entries:
+  - key: "app.session.start.sessionId.help"
+    kind: "field_tip"
+    target: "app.session.start.sessionId"
+    format: "text"
+    text: "Optional. Leer lassen, um eine temporäre Kind-Sitzung zu starten."

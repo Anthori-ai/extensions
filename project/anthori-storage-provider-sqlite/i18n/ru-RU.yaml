@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.storage.provider.sqlite"
+  owner: "Anthori"
+  locale: "ru-RU"
+  version: 1
+entries:
+  - key: "provider.sqlite.config.path.help"
+    kind: "field_tip"
+    target: "provider.sqlite.config.path"
+    format: "text"
+    text: "Должно быть абсолютный путь к файлу SQLite. Используйте выборщик, чтобы выбрать расположение файла."

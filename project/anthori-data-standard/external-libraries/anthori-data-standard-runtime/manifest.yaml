@@ -1,0 +1,13 @@
+format: 1
+id: anthori-data-standard-runtime
+name: Data Standard Runtime
+version: 1.0.0
+entry: runtime/anthori-data-standard-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: collection-control
+  - id: config-control

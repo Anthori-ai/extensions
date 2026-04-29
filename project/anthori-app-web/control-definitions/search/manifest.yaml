@@ -1,0 +1,60 @@
+format: 1
+id: search
+name: Search
+description: Search for text content in the page.
+baseControlRef: controls/1/extensions/anthori.app.web/definitions/web-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Search
+        description: Search for text content in the page.
+        input:
+          type: object
+          description: Page search request.
+          required:
+            - windowId
+            - snapshotId
+            - query
+          properties:
+            windowId:
+              type: string
+              description: Browser window to use.
+            snapshotId:
+              type: string
+              description: Snapshot id from a prior Snapshot call.
+            query:
+              type: string
+              description: Search text or regex.
+            regex:
+              type: boolean
+              description: Treat the query as a regular expression.
+            caseSensitive:
+              type: boolean
+              description: Match letter case when true.
+            context:
+              type: integer
+              description: Characters of surrounding context to return.
+            limit:
+              type: integer
+              description: Maximum matches to return.
+        output:
+          type: object
+          description: Browser action result.
+          properties:
+            result:
+              type: any
+              description: Result value returned by the browser action. The shape depends on the action.
+            error:
+              type: string
+              description: Error message when the web host reports a handled failure.
+            snapshot:
+              type: object
+              description: Structured page snapshot returned when requested or included with some handled failures.
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: search

@@ -1,0 +1,303 @@
+format: 1
+id: exec
+name: Exec
+description: Execute a system command and return stdout, stderr, and exit status.
+baseControlRef: controls/1/extensions/anthori.system/definitions/system-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Exec
+        description: Run a system command and return its captured output and exit status.
+        input:
+          type: object
+          description: Command execution request. Prefer argv with `command` plus `args`; when `args` is omitted, shell-style command strings are accepted for compatibility.
+          required:
+            - command
+          properties:
+            command:
+              type: string
+              description: Executable to run.
+            args:
+              type: array
+              description: Optional command-line arguments.
+              items:
+                type: string
+            workdir:
+              type: string
+              description: Optional working directory. If omitted, the project workspace path is used. Relative values resolve from the project workspace path.
+            env:
+              type: object
+              description: Optional environment variables to set for the process.
+              additionalProperties:
+                type: string
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - stdout
+            - stderr
+            - exitCode
+            - timedOut
+          properties:
+            stdout:
+              type: string
+              description: Captured standard output.
+            stderr:
+              type: string
+              description: Captured standard error.
+            exitCode:
+              type: number
+              description: Process exit code.
+            timedOut:
+              type: boolean
+              description: True when the process timed out.
+            error:
+              type: string
+              description: Optional error message when the command fails.
+          additionalProperties: false
+      - id: start
+        toolVisible: false
+        name: Pull Start
+        description: Start a background command execution owned by the supplied invocation and return a task handle.
+        input:
+          type: object
+          required: [pull, ownerInvocationId, command]
+          properties:
+            pull:
+              type: string
+              enum: [start]
+            ownerInvocationId:
+              type: string
+              description: Invocation that owns the background task lifetime.
+            command:
+              type: string
+              description: Executable to run.
+            args:
+              type: array
+              description: Optional command-line arguments.
+              items:
+                type: string
+            workdir:
+              type: string
+              description: Optional working directory. If omitted, the project workspace path is used. Relative values resolve from the project workspace path.
+            env:
+              type: object
+              description: Optional environment variables to set for the process.
+              additionalProperties:
+                type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+              description: Opaque task id returned by the pullable exec task.
+          additionalProperties: false
+      - id: pull
+        toolVisible: false
+        name: Pull Step
+        description: Read the next available exec event from a running pullable task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [step]
+            taskId:
+              type: string
+          additionalProperties: false
+        output:
+          anyOf:
+            - type: object
+              required: [taskId]
+              propertyOrder: [taskId]
+              properties:
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, content]
+              propertyOrder: [phase, taskId, sequence, content, metadata]
+              properties:
+                phase:
+                  type: string
+                  enum: [chunk]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                content:
+                  type: any
+                  description: Exec chunk payload. Chunk content may already be aggregated by the producer.
+                metadata:
+                  type: object
+                  description: Optional chunk metadata for the returned pull event.
+                  required: [stream, encoding]
+                  propertyOrder: [stream, encoding]
+                  properties:
+                    stream:
+                      type: string
+                      enum: [stdout, stderr]
+                      description: Process stream that produced this chunk.
+                    encoding:
+                      type: string
+                      enum: [utf8]
+                      description: Encoding used for this chunk payload.
+                  additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence, content]
+              propertyOrder: [phase, taskId, sequence, content]
+              properties:
+                phase:
+                  type: string
+                  enum: [end]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                content:
+                  type: object
+                  description: Final exec result for this completed pull task.
+                  required: [exitCode, timedOut]
+                  propertyOrder: [stdout, stderr, exitCode, timedOut, error]
+                  properties:
+                    stdout:
+                      type: string
+                      description: Captured standard output when it was not already delivered through chunk events.
+                    stderr:
+                      type: string
+                      description: Captured standard error when it was not already delivered through chunk events.
+                    exitCode:
+                      type: number
+                      description: Process exit code.
+                    timedOut:
+                      type: boolean
+                      description: True when the process timed out.
+                    error:
+                      type: string
+                      description: Optional error message when the command fails.
+                  additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [phase, taskId, sequence]
+              propertyOrder: [phase, taskId, sequence, reason]
+              properties:
+                phase:
+                  type: string
+                  enum: [error, cancel]
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                reason:
+                  type: string
+                  description: Optional terminal reason for error or cancellation.
+              additionalProperties: false
+      - id: cancel
+        toolVisible: false
+        name: Pull Cancel
+        description: Cancel a running pullable exec task.
+        input:
+          type: object
+          required: [pull, taskId]
+          properties:
+            pull:
+              type: string
+              enum: [cancel]
+            taskId:
+              type: string
+            reason:
+              type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [taskId]
+          properties:
+            taskId:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  capabilities:
+    - pullable
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: exec
+    permissions:
+      type: array
+      description: Exec permissions this control may request before running system commands.
+      items:
+        type: object
+        required: [capability, access, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [exec]
+            default: exec
+          access:
+            type: array
+            default: [run]
+            items:
+              type: string
+              enum: [run]
+          scope:
+            type: string
+            description: Command name, executable path, or shell command line this control is allowed to run.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a command family or executable path prefix.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+    allowedCommands:
+      type: array
+      required: false
+      description: Optional allowlist of command names or absolute paths.
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 30
+      description: Optional timeout override for the command.
+  ui:
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: exec
+        accessOptions: [run]
+        matchOptions: [exact, prefix]
+        helpText: "Commands this control is allowed to run. Each row needs a command or executable path and the reason shown in the permission prompt."
+      - key: timeoutSeconds
+        label: Timeout (seconds)
+        type: number
+        placeholder: "30"
+        helpKey: core.system.exec.timeoutSeconds.help
+    info:
+      sections:
+        - title: USAGE
+          kind: text
+          text: |
+            Exec prefers argv input: pass the executable in `command` and each argument separately in `args`, for example `command: "ls"` with `args: ["-la"]`.
+
+            For compatibility with tool callers that emit shell command lines, Exec also accepts `command` as a shell-style command string when `args` is omitted. Shell-style command strings are disabled when the control has an `allowedCommands` allowlist.
+        - title: POLL
+          kind: text
+          text: |
+            Exec exposes explicit `Pull Start`, `Pull Step`, and `Pull Cancel` caller contracts for visible reverse async flow.

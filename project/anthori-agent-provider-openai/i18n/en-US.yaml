@@ -1,0 +1,51 @@
+bundle:
+  namespace: anthori.agent.provider.openai
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.openai.config.apiKey.help
+    kind: field_tip
+    target: providers.openai.config.apiKey
+    format: text
+    text: Optional. Leave blank to use ChatGPT OAuth instead.
+  - key: provider.openai.config.model.help
+    kind: field_tip
+    target: providers.openai.config.model
+    format: text
+    text: Optional default model id for controls and assistant requests that do not override it.
+  - key: provider.openai.config.timeout.help
+    kind: field_tip
+    target: providers.openai.config.timeout
+    format: text
+    text: Optional timeout override for OpenAI requests.
+  - key: provider.openai.ui.method.help
+    kind: field_tip
+    target: providers.openai.ui.method
+    format: text
+    text: Choose whether this provider uses OAuth or a direct API key.
+  - key: provider.openai.ui.apiKey.help
+    kind: field_tip
+    target: providers.openai.ui.apiKey
+    format: text
+    text: API key used for OpenAI requests.
+  - key: provider.openai.ui.authorization.help
+    kind: field_tip
+    target: providers.openai.ui.authorization
+    format: text
+    text: Start or refresh device authorization for this provider.
+  - key: provider.openai.ui.code.help
+    kind: field_tip
+    target: providers.openai.ui.code
+    format: text
+    text: Temporary device code to enter on the OpenAI authorization page.
+  - key: provider.openai.ui.model.help
+    kind: field_tip
+    target: providers.openai.ui.model
+    format: text
+    text: Optional default model to use when a control does not set one.
+  - key: provider.openai.ui.timeout.help
+    kind: field_tip
+    target: providers.openai.ui.timeout
+    format: text
+    text: Optional request timeout in seconds.

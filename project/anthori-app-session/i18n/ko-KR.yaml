@@ -1,0 +1,11 @@
+bundle:
+  namespace: "anthori.app.session"
+  owner: "Anthori"
+  locale: "ko-KR"
+  version: 1
+entries:
+  - key: "app.session.start.sessionId.help"
+    kind: "field_tip"
+    target: "app.session.start.sessionId"
+    format: "text"
+    text: "선택 사항입니다. 빈 값으로 둘 경우 일시적인 자식 세션을 시작합니다."

@@ -1,0 +1,19 @@
+format: 1
+id: anthori-graph-runtime
+name: Graph Runtime
+version: 1.0.0
+entry: runtime/anthori-graph-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: actions
+  - id: create-control
+  - id: delete-control
+  - id: list-controls
+  - id: create-conduit
+  - id: delete-conduit
+  - id: list-conduits
+  - id: move-control

@@ -1,0 +1,39 @@
+format: 1
+id: time
+name: Time
+description: Return the current time as epoch milliseconds, epoch seconds, and ISO 8601 UTC.
+baseControlRef: controls/1/extensions/anthori.system/definitions/system-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Time
+        description: Return the current time as Unix milliseconds, seconds, and ISO 8601 UTC.
+        input:
+          type: void
+          description: Use no input.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - epochMs
+            - epochSeconds
+            - iso
+          properties:
+            epochMs:
+              type: number
+              description: Unix epoch time in milliseconds.
+            epochSeconds:
+              type: number
+              description: Unix epoch time in seconds.
+            iso:
+              type: string
+              description: ISO 8601 UTC timestamp.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: time
+  ui:
+    fields: []

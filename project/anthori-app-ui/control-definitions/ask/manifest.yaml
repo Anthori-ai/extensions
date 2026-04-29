@@ -1,0 +1,221 @@
+format: 1
+id: ask
+name: Ask
+description: Ask the user a question through chat and wait for the answer.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+contracts:
+  caller:
+    contracts:
+      - id: text
+        name: Text
+        description: Ask a freeform text question, block until the active session provides an answer, then return the structured answer.
+        input:
+          type: object
+          required:
+            - type
+            - question
+          properties:
+            type:
+              type: string
+              enum:
+                - text
+              description: Ask for a freeform text answer.
+            context:
+              type: string
+              description: Optional context shown before the question text.
+            question:
+              type: string
+              description: Question text shown in chat.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - askId
+            - type
+            - question
+            - text
+          properties:
+            askId:
+              type: string
+              description: Stable id for the question.
+            type:
+              type: string
+              enum:
+                - text
+              description: Question type that produced this answer.
+            question:
+              type: string
+              description: Original question text.
+            turn:
+              type: number
+              description: User turn that answered the question.
+            text:
+              type: string
+              description: Returned for text questions.
+          additionalProperties: false
+      - id: select
+        name: Select
+        description: Ask a single-select question, block until the active session provides an answer, then return the structured answer.
+        input:
+          type: object
+          required:
+            - type
+            - question
+            - options
+          properties:
+            type:
+              type: string
+              enum:
+                - select
+              description: Ask the user to select one predefined option.
+            context:
+              type: string
+              description: Optional context shown before the question text.
+            question:
+              type: string
+              description: Question text shown in chat.
+            allowOther:
+              type: boolean
+              description: Allow a freeform response instead of choosing one predefined option.
+            options:
+              type: array
+              description: Options shown to the user.
+              items:
+                type: object
+                required:
+                  - id
+                  - label
+                properties:
+                  id:
+                    type: string
+                    description: Stable option id returned in the answer.
+                  label:
+                    type: string
+                    description: User-facing option label.
+                additionalProperties: false
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - askId
+            - type
+            - question
+          properties:
+            askId:
+              type: string
+              description: Stable id for the question.
+            type:
+              type: string
+              enum:
+                - select
+              description: Question type that produced this answer.
+            question:
+              type: string
+              description: Original question text.
+            turn:
+              type: number
+              description: User turn that answered the question.
+            optionId:
+              type: string
+              description: Returned for select questions when a predefined option was chosen.
+            otherText:
+              type: string
+              description: Returned when a freeform response was used.
+          additionalProperties: false
+      - id: multiselect
+        name: Multiselect
+        description: Ask a multiselect question, block until the active session provides an answer, then return the structured answer.
+        input:
+          type: object
+          required:
+            - type
+            - question
+            - options
+          properties:
+            type:
+              type: string
+              enum:
+                - multiselect
+              description: Ask the user to select one or more predefined options.
+            context:
+              type: string
+              description: Optional context shown before the question text.
+            question:
+              type: string
+              description: Question text shown in chat.
+            allowOther:
+              type: boolean
+              description: Allow a freeform response in addition to the selected options.
+            options:
+              type: array
+              description: Options shown to the user.
+              items:
+                type: object
+                required:
+                  - id
+                  - label
+                properties:
+                  id:
+                    type: string
+                    description: Stable option id returned in the answer.
+                  label:
+                    type: string
+                    description: User-facing option label.
+                additionalProperties: false
+            minSelections:
+              type: number
+              description: Minimum selected options.
+            maxSelections:
+              type: number
+              description: Maximum selected options. Leave empty for no maximum.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - askId
+            - type
+            - question
+            - optionIds
+          properties:
+            askId:
+              type: string
+              description: Stable id for the question.
+            type:
+              type: string
+              enum:
+                - multiselect
+              description: Question type that produced this answer.
+            question:
+              type: string
+              description: Original question text.
+            turn:
+              type: number
+              description: User turn that answered the question.
+            optionIds:
+              type: array
+              description: Returned for multiselect questions.
+              items:
+                type: string
+            otherText:
+              type: string
+              description: Returned when a freeform response was used.
+          additionalProperties: false
+
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: askQuestion
+  ui:
+    fields: []
+    info:
+      sections:
+        - title: BEHAVIOR
+          kind: text
+          text: |
+            Ask writes the question into chat, marks the execution as waiting, and returns only after the session answers it.
+
+            - Only one open question is allowed per session.
+            - Stop or cancel clears the pending question.
+            - Switching projects or sessions does not lose the question because it is stored in the session.

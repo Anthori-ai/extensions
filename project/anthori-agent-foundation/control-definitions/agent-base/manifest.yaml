@@ -1,0 +1,595 @@
+format: 1
+id: agent-base
+name: Agent Base
+description: Hidden shared base for agent caller controls that send messages to a configured provider.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Agent
+        description: Sends prompt input to the configured provider and returns the agent reply message.
+        input:
+          type: array
+          items: anthori.standard.ConversationMessage
+        output: AgentReplyMessage
+      - id: start
+        name: Pull Start
+        description: Starts an Agent reply pull task.
+        input:
+          type: object
+          required:
+            - pull
+            - ownerInvocationId
+            - messages
+          properties:
+            pull:
+              type: string
+              enum:
+                - start
+            ownerInvocationId:
+              type: string
+              description: Invocation that owns the Agent pull task lifetime.
+            messages:
+              type: array
+              description: Same message-array input accepted by the Agent contract.
+              items: anthori.standard.ConversationMessage
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Opaque task id returned by the pullable Agent.
+          additionalProperties: false
+      - id: pull
+        name: Pull Step
+        description: Reads the next available Agent event from a running pullable task.
+        input:
+          type: object
+          required:
+            - pull
+            - taskId
+          properties:
+            pull:
+              type: string
+              enum:
+                - step
+            taskId:
+              type: string
+              description: Task id returned by Pull Start.
+          additionalProperties: false
+        output:
+          description: Agent pull step result.
+          anyOf:
+            - type: object
+              propertyOrder:
+                - taskId
+              required:
+                - taskId
+              properties:
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+              additionalProperties: false
+            - type: object
+              propertyOrder:
+                - phase
+                - taskId
+                - sequence
+                - content
+                - metadata
+              required:
+                - phase
+                - taskId
+                - sequence
+                - content
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - chunk
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                content:
+                  type: any
+                  description: Agent chunk payload. Chunk content uses Agent-level agent message payloads.
+                metadata:
+                  type: object
+                  description: Optional metadata for the returned pull event.
+              additionalProperties: false
+            - type: object
+              propertyOrder:
+                - phase
+                - taskId
+                - sequence
+                - metadata
+              required:
+                - phase
+                - taskId
+                - sequence
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - end
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                metadata:
+                  type: object
+                  description: Optional terminal metadata for this pull event.
+              additionalProperties: false
+            - type: object
+              propertyOrder:
+                - phase
+                - taskId
+                - sequence
+                - reason
+                - metadata
+              required:
+                - phase
+                - taskId
+                - sequence
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - error
+                    - cancel
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task.
+                reason:
+                  type: string
+                  description: Optional terminal reason for error or cancellation.
+                metadata:
+                  type: object
+                  description: Optional terminal metadata for this pull event.
+              additionalProperties: false
+      - id: cancel
+        name: Pull Cancel
+        description: Cancels a running pullable Agent task.
+        input:
+          type: object
+          required:
+            - pull
+            - taskId
+          properties:
+            pull:
+              type: string
+              enum:
+                - cancel
+            taskId:
+              type: string
+              description: Task id returned by Pull Start.
+            reason:
+              type: string
+              description: Optional cancellation reason for diagnostics.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - taskId
+          properties:
+            taskId:
+              type: string
+              description: Task id that was cancelled.
+          additionalProperties: false
+  bindings:
+    field:
+      providerControl:
+        contracts:
+          - id: call
+            name: Text
+            description: Agent invokes the bound provider with a text call request.
+            input:
+              type: object
+              properties:
+                input:
+                  type: any
+                  description: Provider runtime payload for this agent call, such as messages and tool definitions.
+                speaker:
+                  type: string
+                  description: Optional visible speaker label for emitted agent output.
+              additionalProperties: false
+            output: ProviderCallResult
+          - id: start
+            name: Pull Start
+            description: Agent starts a background provider call owned by the supplied invocation and receives a task handle.
+            input:
+              type: object
+              required:
+                - pull
+                - ownerInvocationId
+              properties:
+                pull:
+                  type: string
+                  enum:
+                    - start
+                ownerInvocationId:
+                  type: string
+                  description: Invocation that owns the background provider task lifetime.
+                input:
+                  type: any
+                  description: Provider runtime payload for this agent call, such as messages and tool definitions.
+                speaker:
+                  type: string
+                  description: Optional visible speaker label for emitted agent output.
+              additionalProperties: false
+            output:
+              type: object
+              required:
+                - taskId
+              properties:
+                taskId:
+                  type: string
+                  description: Opaque task id returned by the pullable provider.
+              additionalProperties: false
+          - id: pull
+            name: Pull Step
+            description: Agent reads the next available provider event from a running pullable task.
+            input:
+              type: object
+              required:
+                - pull
+                - taskId
+              properties:
+                pull:
+                  type: string
+                  enum:
+                    - step
+                taskId:
+                  type: string
+                  description: Task id returned by Pull Start.
+              additionalProperties: false
+            output:
+              type: object
+              propertyOrder:
+                - phase
+                - taskId
+                - sequence
+                - content
+                - reason
+                - metadata
+              required:
+                - taskId
+              properties:
+                phase:
+                  type: string
+                  enum:
+                    - chunk
+                    - end
+                    - error
+                    - cancel
+                  description: Optional event phase. Omitted when nothing new is buffered for this step round.
+                taskId:
+                  type: string
+                  description: Task id for this pull result.
+                sequence:
+                  type: number
+                  description: Delivered event sequence for this task. Omitted when this step round has no unread event.
+                content:
+                  type: any
+                  description: Optional payload for the returned pull event.
+                reason:
+                  type: string
+                  description: Optional terminal reason for error or cancellation.
+                metadata:
+                  type: object
+                  description: Optional metadata for the returned pull event.
+              additionalProperties: false
+          - id: cancel
+            name: Pull Cancel
+            description: Agent cancels a running pullable provider task.
+            input:
+              type: object
+              required:
+                - pull
+                - taskId
+              properties:
+                pull:
+                  type: string
+                  enum:
+                    - cancel
+                taskId:
+                  type: string
+                  description: Task id returned by Pull Start.
+                reason:
+                  type: string
+                  description: Optional cancellation reason for diagnostics.
+              additionalProperties: false
+            output:
+              type: object
+              required:
+                - taskId
+              properties:
+                taskId:
+                  type: string
+                  description: Task id that was cancelled.
+              additionalProperties: false
+          - id: metadata
+            name: Metadata
+            description: Agent asks the bound provider for metadata, including context sizing metadata, for the configured provider.
+            input:
+              type: object
+              required:
+                - metadata
+              properties:
+                metadata:
+                  type: boolean
+                  enum:
+                    - true
+                  description: Request provider metadata.
+              additionalProperties: false
+            output:
+              type: object
+              required:
+                - maxContextTokens
+              properties:
+                maxContextTokens:
+                  type: number
+                  description: Maximum provider context length for the selected model.
+                model:
+                  type: string
+                  description: Effective model used for this metadata lookup.
+                providerRef:
+                  type: string
+                  description: Effective provider instance id for this metadata lookup.
+                providerDefinitionId:
+                  type: string
+                  description: Effective provider definition id for this metadata lookup.
+                providerInterfaces:
+                  type: array
+                  description: Effective provider interface ids for this metadata lookup.
+                  items:
+                    type: string
+              additionalProperties: false
+      contextControl:
+        contracts:
+          - id: default
+            name: Context Request
+            description: Agent calls the context control before each provider round with only the new messages from that round, the round phase, and the maximum character budget it should return for the next provider call.
+            input: ContextRequest
+            output:
+              type: array
+              items: anthori.standard.ConversationMessage
+      historyControl:
+        contracts:
+          - id: default
+            name: History Append
+            description: Agent appends newly created durable messages here so Context can stay read-only and avoid re-inserting the full conversation every round.
+            input:
+              type: array
+              items: anthori.standard.ConversationMessage
+            output:
+              type: any
+      tools:
+        contracts:
+          - id: default
+            name: Tool Control
+            description: Each connected tool control is exposed to the provider using that control's own caller contracts. This binding itself does not impose one fixed tool call shape.
+            input:
+              type: any
+            output:
+              type: any
+control:
+  visible: false
+  libraryPath: agent
+  capabilities:
+    - pullable
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      runtimeOverride: false
+      default: anthori-agent-foundation-runtime
+    runtimeActionForward:
+      type: string
+      runtimeOverride: false
+      default: agent-control
+    nickname:
+      type: string
+      required: false
+    systemPrompt:
+      type: string
+      required: false
+      default: |
+        You are an agent helping the user with their project.
+
+        You may have access to tool calls. Use them when helpful to assist the user with this project.
+    maxContextPercent:
+      type: number
+      required: false
+      default: 90
+    contextControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: false
+    historyControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: false
+    providerControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: false
+      targetControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+    controls:
+      type: array
+      runtimeOverride: false
+      required: false
+      default: []
+      description: Ordered helper control bindings with id and target. On Signal can call these through context.self.controls[id](input).
+    tools:
+      type: controlTarget[]
+      runtimeOverride: false
+      required: false
+    onMessage:
+      type: string
+      runtimeOverride: false
+      required: false
+      default: ""
+      description: |
+        Optional JavaScript run whenever new messages are about to enter Agent history.
+        The script receives ({ source, messages, signal?, tool? }, context). source is "input", "signal", or "tool".
+        Return
+        { action: "pass" },
+        { action: "replace", messages: [...] },
+        { action: "drop" }, or
+        { action: "cancel", reason: "..." }.
+        alert(value) is also available there. It always writes to the session log, and it only pauses while Debug Mode is on.
+    onMessageAsync:
+      type: boolean
+      runtimeOverride: false
+      required: false
+      default: false
+      description: Allow await inside Agent On Message.
+    onSignal:
+      type: string
+      runtimeOverride: false
+      required: false
+      default: ""
+      description: |
+        Optional JavaScript run when one configured signal becomes ready.
+        The script receives (signal, context). context.self.controls exposes this control's bound Controls rows, and the script should return an action object such as
+        { action: "queue", messages: [...] },
+        { action: "interrupt", messages: [...] }, or
+        { action: "cancel", reason: "..." }.
+        alert(value) is also available there. It always writes to the session log, and it only pauses while Debug Mode is on.
+    onSignalAsync:
+      type: boolean
+      runtimeOverride: false
+      required: false
+      default: false
+      description: Allow await inside Agent On Signal.
+    maxToolRounds:
+      type: number
+      required: false
+      default: 250
+    timeoutSeconds:
+      type: number
+      required: false
+    signals:
+      type: controlTarget[]
+      runtimeOverride: false
+      required: false
+      default: []
+      targetCapability: signal
+      description: Ordered signal targets that Agent probes between pull checkpoints. When On Signal is configured, Agent consumes one ready signal at a time and lets that script decide whether to queue new messages, interrupt the current pullable task, or cancel the Agent call.
+  ui:
+    fields:
+      - key: onMessage
+        label: On Message
+        type: textarea
+        language: javascript
+        rows: 8
+        placeholder: |
+          const [message, context] = arguments;
+
+          return {
+            action: "pass",
+          };
+      - key: onMessageAsync
+        label: Await
+        type: checkbox
+      - key: onSignal
+        label: On Signal
+        type: textarea
+        language: javascript
+        rows: 8
+        placeholder: |
+          const [signal, context] = arguments;
+
+          return {
+            action: "ignore",
+          };
+      - key: onSignalAsync
+        label: Await
+        type: checkbox
+      - key: controls
+        label: Controls
+        type: scriptHooks
+        supportsMode: false
+        supportsName: false
+        usesIds: true
+        addLabel: "+ Add Control"
+        emptyLabel: "(no controls)"
+        itemLabel: "control"
+        defaultNamePrefix: "control"
+      - key: nickname
+        label: Nickname
+        type: text
+        helpKey: core.agent.nickname.help
+      - key: systemPrompt
+        label: System Prompt
+        type: textarea
+        rows: 8
+        supportsPort: true
+        helpKey: core.agent.systemPrompt.help
+      - key: contextControl
+        label: Context
+        type: controlTarget
+        helpKey: core.agent.contextControl.help
+      - key: historyControl
+        label: History
+        type: controlTarget
+        helpKey: core.agent.historyControl.help
+      - key: maxContextPercent
+        label: Max
+        type: range
+        minimum: 1
+        maximum: 99
+        step: 1
+        supportsPort: true
+        legacyConfigKey: replySpacePercent
+        legacyTransform: invertPercentFrom100
+        embedIn: contextControl
+        supportsPin: true
+        helpKey: core.agent.maxContextPercent.help
+      - key: providerControl
+        label: Provider
+        type: controlTarget
+        helpKey: core.agent.providerControl.help
+      - key: tools
+        label: Tools
+        type: controlTarget[]
+        helpKey: core.agent.tools.help
+      - key: maxToolRounds
+        label: Max Tool Rounds
+        type: number
+        placeholder: "250"
+        supportsPort: true
+        helpKey: core.agent.maxToolRounds.help
+      - key: timeoutSeconds
+        label: Timeout (seconds)
+        type: number
+        placeholder: Uses project timeout
+        supportsPort: true
+        helpKey: core.agent.timeoutSeconds.help
+      - key: signals
+        label: Signals
+        type: controlTarget[]
+        targetCapability: signal
+        bindingUi: list
+    info:
+      sections:
+        - title: HISTORY
+          kind: text
+          text: |
+            Context is read-only. Use History when you want Agent to append the durable conversation state itself: the initial input messages, agent tool-call messages, tool result messages, and completed final agent replies.
+        - title: SIGNALS
+          kind: text
+          text: |
+            Signals are optional. When one connected signal becomes ready, Agent probes it quietly first, then consumes the ready signal and runs On Signal on the Agent control itself. On Signal receives (signal, context), can call helper controls bound on the Agent through context.self.controls, and returns one explicit decision: ignore, queue new messages for the next reply, interrupt the current pullable task with new messages, or cancel the Agent call.

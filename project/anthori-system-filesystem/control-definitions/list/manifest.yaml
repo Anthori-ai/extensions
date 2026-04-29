@@ -1,0 +1,55 @@
+format: 1
+id: list
+name: List
+description: Lists files and directories under a workspace path.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List files and directories under a workspace path.
+        input:
+          type: object
+          description: Directory listing options.
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            pattern:
+              type: string
+              description: Optional glob pattern to filter results, for example "*.txt".
+            maxDepth:
+              type: number
+              description: Optional recursion depth. Use `0` to recurse without a depth limit.
+          additionalProperties: false
+        output:
+          type: object
+          required:
+            - files
+          properties:
+            files:
+              type: array
+              description: Files and directories that matched the listing.
+              items:
+                type: object
+                required:
+                  - path
+                  - size
+                properties:
+                  path:
+                    type: string
+                    description: Entry path anchored to the requested `path`. Relative requests return relative entry paths, absolute requests return absolute entry paths. Directory paths end with `/`.
+                  size:
+                    type: number
+                    description: Entry size in bytes.
+                additionalProperties: false
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list

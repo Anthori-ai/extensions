@@ -1,0 +1,26 @@
+format: 1
+id: ui-automation-base
+name: UI Automation Base
+description: Hidden shared base for app UI automation controls that act on a selected desktop client.
+baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
+control:
+  visible: false
+  configSchema:
+    clientId:
+      type: string
+      required: false
+      description: Desktop client id to target. Leave empty to auto-select one.
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 20
+      description: Timeout in seconds for the automation request.
+  ui:
+    fields:
+      - key: clientId
+        label: Client ID
+        type: text
+        placeholder: auto
+      - key: timeoutSeconds
+        label: Timeout (s)
+        type: number

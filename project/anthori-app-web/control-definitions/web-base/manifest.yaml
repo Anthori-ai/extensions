@@ -1,0 +1,46 @@
+format: 1
+id: web-base
+name: Web Base
+description: Hidden shared base for browser automation and inspection controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/web
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-web-runtime
+    clientId:
+      type: string
+      required: false
+      description: Browser client id to target. Leave empty to auto-select one.
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 20
+      description: Default timeout in seconds for browser actions.
+    maxWindows:
+      type: number
+      required: false
+      default: 1
+      description: Maximum number of windows to include in list and snapshot results.
+    maxElements:
+      type: number
+      required: false
+      default: 200
+      description: Maximum number of elements to include in structured page snapshots.
+    maxTextBlocks:
+      type: number
+      required: false
+      default: 120
+      description: Maximum number of text blocks to include in extracted page text.
+    maxSnapshotBytes:
+      type: number
+      required: false
+      default: 200000
+      description: Maximum serialized size for structured page snapshots, in bytes.
+    maxHtmlBytes:
+      type: number
+      required: false
+      default: 200000
+      description: Maximum HTML response size, in bytes.

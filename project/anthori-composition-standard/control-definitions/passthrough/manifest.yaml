@@ -1,0 +1,7 @@
+format: 1
+id: passthrough
+name: Passthrough
+description: Exposes connected controls to supported hosts as if they were attached directly, while still invoking through one extra control boundary.
+baseControlRef: controls/1/extensions/anthori.composition.standard/definitions/passthrough-base
+control:
+  visible: true

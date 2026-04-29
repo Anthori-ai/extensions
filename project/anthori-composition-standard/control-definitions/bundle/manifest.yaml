@@ -1,0 +1,10 @@
+format: 1
+id: bundle
+name: Bundle
+description: >-
+  Groups controls behind one tool boundary. Start with `action: "list"` to
+  discover bundled controls, use `action: "inspect"` to fetch one control's
+  full info, and then use `action: "invoke"` to call it.
+baseControlRef: controls/1/extensions/anthori.composition.standard/definitions/bundle-base
+control:
+  visible: true

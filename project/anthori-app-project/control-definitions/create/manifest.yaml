@@ -1,0 +1,88 @@
+format: 1
+id: create
+name: Create
+description: Creates a new project from a template.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create
+        description: Creates a new project from a template.
+        input:
+          type: object
+          description: Project details used to create a new project.
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+              description: Display name for the new project.
+            templateRef:
+              type: string
+              description: Template manifest to copy when creating the project.
+            workspaceDir:
+              type: string
+              description: Workspace directory assigned to the new project.
+          required:
+            - name
+            - templateRef
+            - workspaceDir
+        output:
+          type: object
+          description: Created project result.
+          additionalProperties: false
+          required:
+            - project
+          properties:
+            project:
+              type: object
+              description: Created project summary.
+              additionalProperties: false
+              required:
+                - id
+                - name
+                - graphRef
+              properties:
+                id:
+                  type: string
+                  description: New project id.
+                name:
+                  type: string
+                  description: New project name.
+                graphRef:
+                  type: string
+                  description: Main graph reference created for the new project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create
+    name:
+      type: string
+      required: false
+    templateRef:
+      type: string
+      required: false
+    workspaceDir:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: name
+        label: Name
+        type: text
+        placeholder: New Project
+      - key: templateRef
+        label: Template
+        type: text
+        placeholder: templates/basic-project/project.yaml
+      - key: workspaceDir
+        label: Workspace
+        type: text
+        placeholder: /absolute/path/to/workspace
+        pickerSelection: directory
+        pickerTitle: Choose Workspace Folder
+        pickerMessage: Browse the server filesystem for the new project's workspace directory.
+        pickerSelectLabel: Use Folder
+        pickerShowFiles: false

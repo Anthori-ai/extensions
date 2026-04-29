@@ -1,0 +1,65 @@
+format: 1
+id: import
+name: Import
+description: Imports a project from a zip archive in the current workspace.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Import
+        description: Imports a project from a zip archive in the current workspace.
+        input:
+          type: object
+          description: Import request.
+          additionalProperties: false
+          properties:
+            archivePath:
+              type: string
+              description: Archive path relative to the current project workspace.
+          required:
+            - archivePath
+        output:
+          type: object
+          description: Imported project result.
+          additionalProperties: false
+          required:
+            - project
+          properties:
+            project:
+              type: object
+              description: Imported project summary.
+              additionalProperties: false
+              required:
+                - id
+                - name
+                - graphRef
+              properties:
+                id:
+                  type: string
+                  description: New project id assigned to the imported project.
+                name:
+                  type: string
+                  description: Imported project name.
+                graphRef:
+                  type: string
+                  description: Main graph reference created for the imported project.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: import
+    archivePath:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: archivePath
+        label: Archive Path
+        type: text
+        placeholder: exports/project.zip
+        pickerSelection: file
+        pickerTitle: Choose Project Archive
+        pickerMessage: Browse the server filesystem for a project archive to import.
+        pickerSelectLabel: Use Archive

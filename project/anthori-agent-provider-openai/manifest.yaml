@@ -1,0 +1,31 @@
+format: 1
+id: anthori.agent.provider.openai
+name: OpenAI Provider
+version: 1.0.0
+description: Extension that bundles a library-backed OpenAI provider definition.
+availability:
+  buildTypes:
+    - production
+variant:
+  kind: production
+  replaces: anthori.agent.provider.openai
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - OpenAI
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+localizationPaths:
+  - i18n/{locale}.yaml
+externalLibraries:
+  - external-libraries/openai-provider-runtime
+providers:
+  - providers/openai
+controlDefinitions:
+  - control-definitions/openai

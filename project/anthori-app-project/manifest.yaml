@@ -1,0 +1,23 @@
+format: 1
+id: anthori.app.project
+name: Project
+scope: project
+version: 1.0.0
+description: First-party project management, inspection, import/export, and settings controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - Project
+externalLibraries:
+  - external-libraries/anthori-project-runtime
+controlDefinitions:
+  - control-definitions/project-base
+  - control-definitions/create
+  - control-definitions/copy
+  - control-definitions/delete
+  - control-definitions/export
+  - control-definitions/import
+  - control-definitions/list
+  - control-definitions/rename
+  - control-definitions/workspace
+  - control-definitions/settings
