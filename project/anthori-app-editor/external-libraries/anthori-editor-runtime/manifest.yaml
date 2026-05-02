@@ -1,0 +1,15 @@
+format: 1
+id: anthori-editor-runtime
+name: Editor Runtime
+version: 1.0.0
+entry: runtime/anthori-editor-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: list-scripts
+  - id: create-script
+  - id: update-script
+  - id: delete-script

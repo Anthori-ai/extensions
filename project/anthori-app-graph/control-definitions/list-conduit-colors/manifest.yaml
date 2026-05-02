@@ -1,0 +1,51 @@
+format: 1
+id: list-conduit-colors
+name: List
+description: Lists conduit colors configured for the current project.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List conduit colors configured for the current project.
+        input:
+          type: void
+          description: No input.
+        output:
+          type: array
+          description: Configured conduit colors.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - name
+            propertyOrder:
+              - id
+              - name
+              - palette
+            properties:
+              id:
+                type: string
+                description: Color id used by conduit colorId.
+              name:
+                type: string
+                description: Color display name.
+              palette:
+                type: string
+                enum:
+                  - blue
+                  - cyan
+                  - green
+                  - amber
+                  - rose
+                  - violet
+                description: "Palette token: blue, cyan, green, amber, rose, or violet."
+control:
+  visible: true
+  libraryPath: app/project/graph/conduit/colors
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-conduit-colors

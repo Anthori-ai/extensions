@@ -1,0 +1,55 @@
+format: 1
+id: create-conduit-color
+name: Create
+description: Creates a conduit color for the current project.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create
+        description: Create a conduit color for the current project.
+        input:
+          type: object
+          description: Conduit color to create.
+          additionalProperties: false
+          required:
+            - name
+            - palette
+          propertyOrder:
+            - name
+            - palette
+            - id
+          properties:
+            name:
+              type: string
+              description: Color display name.
+            palette:
+              type: string
+              enum:
+                - blue
+                - cyan
+                - green
+                - amber
+                - rose
+                - violet
+              description: "Palette token: blue, cyan, green, amber, rose, or violet."
+            id:
+              type: string
+              description: Optional color id; generated from name if omitted.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Created color id.
+control:
+  visible: true
+  libraryPath: app/project/graph/conduit/colors
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-conduit-color

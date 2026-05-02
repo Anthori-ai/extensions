@@ -17,41 +17,38 @@ contracts:
             name:
               type: string
               description: Display name for the new project.
-            templateRef:
+            templateId:
               type: string
-              description: Template manifest to copy when creating the project.
+              description: Template id to copy when creating the project.
             workspaceDir:
               type: string
               description: Workspace directory assigned to the new project.
           required:
             - name
-            - templateRef
+            - templateId
             - workspaceDir
         output:
           type: object
           description: Created project result.
           additionalProperties: false
           required:
-            - project
+            - id
+            - name
+            - graphId
+          propertyOrder:
+            - id
+            - name
+            - graphId
           properties:
-            project:
-              type: object
-              description: Created project summary.
-              additionalProperties: false
-              required:
-                - id
-                - name
-                - graphRef
-              properties:
-                id:
-                  type: string
-                  description: New project id.
-                name:
-                  type: string
-                  description: New project name.
-                graphRef:
-                  type: string
-                  description: Main graph reference created for the new project.
+            id:
+              type: string
+              description: New project id.
+            name:
+              type: string
+              description: New project name.
+            graphId:
+              type: string
+              description: Main graph id for the new project.
 control:
   visible: true
   configSchema:
@@ -61,7 +58,7 @@ control:
     name:
       type: string
       required: false
-    templateRef:
+    templateId:
       type: string
       required: false
     workspaceDir:
@@ -73,7 +70,7 @@ control:
         label: Name
         type: text
         placeholder: New Project
-      - key: templateRef
+      - key: templateId
         label: Template
         type: text
         placeholder: templates/basic-project/project.yaml

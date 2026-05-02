@@ -1,0 +1,25 @@
+format: 1
+id: anthori.agent.provider.deepseek
+name: DeepSeek Provider
+version: 1.0.0
+description: Extension that bundles a hosted DeepSeek provider definition.
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - DeepSeek
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+  - id: anthori.agent.provider.openai-compatible-runtime
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+localizationPaths:
+  - i18n/{locale}.yaml
+providers:
+  - providers/deepseek
+controlDefinitions:
+  - control-definitions/deepseek

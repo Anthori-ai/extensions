@@ -14,33 +14,26 @@ contracts:
           description: Delete request.
           additionalProperties: false
           properties:
-            projectId:
+            id:
               type: string
               description: Project id to delete.
           required:
-            - projectId
+            - id
         output:
-          type: object
-          description: Delete result.
-          additionalProperties: false
-          required:
-            - status
-          properties:
-            status:
-              type: string
-              description: Always `deleted` when the project was removed.
+          type: void
+          description: No structured result.
 control:
   visible: true
   configSchema:
     runtimeActionForward:
       type: string
       default: delete
-    projectId:
+    id:
       type: string
       required: false
   ui:
     fields:
-      - key: projectId
+      - key: id
         label: Project
         type: select
         dataSource:

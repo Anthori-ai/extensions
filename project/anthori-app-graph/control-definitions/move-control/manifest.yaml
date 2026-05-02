@@ -1,19 +1,20 @@
 format: 1
 id: move-control
-name: Move Control
+name: Move
 description: Moves a control to a new position in the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Move Control
+        name: Move
         description: Move a control to a new position in the current graph.
         input:
           type: object
           description: Control position update.
+          additionalProperties: false
           properties:
-            controlId:
+            id:
               type: string
               description: Control id to move.
             x:
@@ -23,17 +24,15 @@ contracts:
               type: number
               description: New Y position on the graph canvas.
           required:
-            - controlId
+            - id
+            - x
+            - y
         output:
-          type: object
-          required:
-            - status
-          properties:
-            status:
-              type: string
-              description: Move confirmation.
+          type: void
+          description: No structured result.
 control:
   visible: true
+  libraryPath: app/project/graph/control
   configSchema:
     runtimeActionForward:
       type: string

@@ -6,22 +6,23 @@ baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/file
 contracts:
   caller:
     contracts:
-      - id: default
-        name: Create
-        description: Create an empty file or directory at a workspace path.
+      - id: file
+        name: Create File
+        description: Create an empty file at a workspace path.
         input:
           type: object
-          description: File or directory creation request.
+          description: File creation request.
           required:
             - path
+            - type
           properties:
             path:
               type: string
               description: Path relative to the project workspace, or an absolute path.
             type:
               type: string
-              enum: [file, directory]
-              description: Create a file or a directory. Defaults to `file`.
+              enum: [file]
+              description: Create a file.
             createDirs:
               type: boolean
               description: Create missing parent directories first.
@@ -31,14 +32,41 @@ contracts:
           additionalProperties: false
         output:
           type: object
-          description: Creation result. File creation returns the new empty file's current hash; directory creation returns an empty fileHash.
+          description: Creation result. Returns the new empty file's current hash.
           required:
             - fileHash
           properties:
             fileHash:
               type: string
-              description: Current full-file XXH3-128 version token for created files. Empty for directories.
+              description: Current full-file XXH3-128 version token for the created file.
           additionalProperties: false
+      - id: directory
+        name: Create Directory
+        description: Create an empty directory at a workspace path.
+        input:
+          type: object
+          description: Directory creation request.
+          required:
+            - path
+            - type
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            type:
+              type: string
+              enum: [directory]
+              description: Create a directory.
+            createDirs:
+              type: boolean
+              description: Create missing parent directories first.
+            mode:
+              type: string
+              description: Optional octal file mode such as `0644` for files or `0755` for directories.
+          additionalProperties: false
+        output:
+          type: void
+          description: Directory creation has no output value.
 control:
   visible: true
   configSchema:

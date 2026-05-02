@@ -1,0 +1,144 @@
+format: 1
+id: list-scripts
+name: List
+description: Lists editor scripts for a control.
+baseControlRef: controls/1/extensions/anthori.app.editor/definitions/editor-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List editor scripts for a control.
+        input:
+          type: object
+          description: Control identifier.
+          additionalProperties: false
+          required:
+            - controlId
+          properties:
+            controlId:
+              type: string
+              description: Control id.
+        output:
+          type: array
+          description: Editor scripts.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - name
+              - enabled
+              - code
+            propertyOrder:
+              - id
+              - name
+              - enabled
+              - priority
+              - runOn
+              - code
+            properties:
+              id:
+                type: string
+                description: Editor script id.
+              name:
+                type: string
+                description: Editor script name.
+              enabled:
+                type: boolean
+                description: Whether the script is enabled.
+              priority:
+                type: integer
+                description: Execution priority.
+              runOn:
+                type: array
+                description: Editor events that run the script.
+                items:
+                  anyOf:
+                    - type: object
+                      description: Runs when the editor script loads.
+                      additionalProperties: false
+                      required: [kind]
+                      propertyOrder: [kind]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [load]
+                          description: Load trigger.
+                    - type: object
+                      description: Runs when a config field changes.
+                      additionalProperties: false
+                      required: [kind, fieldKey]
+                      propertyOrder: [kind, fieldKey]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [fieldChange]
+                          description: Field-change trigger.
+                        fieldKey:
+                          type: string
+                          description: Config field key to watch.
+                    - type: object
+                      description: Runs when a config field UI gesture occurs.
+                      additionalProperties: false
+                      required: [kind, fieldKey]
+                      propertyOrder: [kind, fieldKey, interaction]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [uiEvent]
+                          description: UI-event trigger.
+                        fieldKey:
+                          type: string
+                          description: Config field key to match.
+                        interaction:
+                          type: string
+                          enum: [click, doubleClick, contextMenu]
+                          description: UI gesture to match.
+                    - type: object
+                      description: Runs when an editor action occurs.
+                      additionalProperties: false
+                      required: [kind, actionId]
+                      propertyOrder: [kind, actionId, interaction]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [uiEvent]
+                          description: UI-event trigger.
+                        actionId:
+                          type: string
+                          description: Editor action or button id to match.
+                        interaction:
+                          type: string
+                          enum: [click, doubleClick, contextMenu]
+                          description: UI gesture to match.
+                    - type: object
+                      description: Runs when a specific editor action occurs on a config field.
+                      additionalProperties: false
+                      required: [kind, fieldKey, actionId]
+                      propertyOrder: [kind, fieldKey, actionId, interaction]
+                      properties:
+                        kind:
+                          type: string
+                          enum: [uiEvent]
+                          description: UI-event trigger.
+                        fieldKey:
+                          type: string
+                          description: Config field key to match.
+                        actionId:
+                          type: string
+                          description: Editor action or button id to match.
+                        interaction:
+                          type: string
+                          enum: [click, doubleClick, contextMenu]
+                          description: UI gesture to match.
+              code:
+                type: string
+                description: Script code.
+control:
+  visible: true
+  libraryPath: app/project/editor/scripts
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-scripts

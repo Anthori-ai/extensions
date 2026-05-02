@@ -1,61 +1,60 @@
 format: 1
 id: list-controls
-name: List Controls
+name: List
 description: Lists all controls in the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: List Controls
+        name: List
         description: List controls in the current graph.
         input:
-          type: object
+          type: void
           description: No input.
         output:
-          type: object
-          required:
-            - controls
-          properties:
-            controls:
-              type: array
-              description: Controls in the current graph.
-              items:
+          type: array
+          description: Controls in the current graph.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - type
+              - title
+              - position
+              - config
+            properties:
+              id:
+                type: string
+                description: Control id.
+              type:
+                type: string
+                description: Control type.
+              title:
+                type: string
+                description: Control title.
+              position:
                 type: object
+                description: Control position.
+                additionalProperties: false
                 required:
-                  - id
-                  - type
-                  - title
-                  - position
-                  - config
+                  - x
+                  - y
                 properties:
-                  id:
-                    type: string
-                    description: Control id.
-                  type:
-                    type: string
-                    description: Control type.
-                  title:
-                    type: string
-                    description: Control title.
-                  position:
-                    type: object
-                    description: Control position.
-                    required:
-                      - x
-                      - y
-                    properties:
-                      x:
-                        type: integer
-                        description: Horizontal position.
-                      y:
-                        type: integer
-                        description: Vertical position.
-                  config:
-                    type: object
-                    description: Control configuration.
+                  x:
+                    type: integer
+                    description: Horizontal position.
+                  y:
+                    type: integer
+                    description: Vertical position.
+              config:
+                type: object
+                description: Control configuration.
+                additionalProperties: true
 control:
   visible: true
+  libraryPath: app/project/graph/control
   configSchema:
     runtimeActionForward:
       type: string

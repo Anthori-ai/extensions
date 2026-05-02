@@ -14,50 +14,57 @@ contracts:
           description: Copy request.
           additionalProperties: false
           properties:
-            projectId:
+            id:
               type: string
               description: Project id to duplicate.
+            name:
+              type: string
+              description: Optional display name for the copied project.
           required:
-            - projectId
+            - id
         output:
           type: object
           description: Copied project result.
           additionalProperties: false
           required:
-            - project
+            - id
+            - name
+            - graphId
+          propertyOrder:
+            - id
+            - name
+            - graphId
           properties:
-            project:
-              type: object
-              description: Copied project summary.
-              additionalProperties: false
-              required:
-                - id
-                - name
-                - graphRef
-              properties:
-                id:
-                  type: string
-                  description: New project id for the copy.
-                name:
-                  type: string
-                  description: Display name assigned to the copy.
-                graphRef:
-                  type: string
-                  description: Main graph reference for the copied project.
+            id:
+              type: string
+              description: New project id for the copy.
+            name:
+              type: string
+              description: Display name assigned to the copy.
+            graphId:
+              type: string
+              description: Main graph id for the copied project.
 control:
   visible: true
   configSchema:
     runtimeActionForward:
       type: string
       default: copy
-    projectId:
+    id:
+      type: string
+      required: false
+    name:
       type: string
       required: false
   ui:
     fields:
-      - key: projectId
+      - key: id
         label: Project
         type: select
         dataSource:
           kind: resource
           resource: projects
+      - key: name
+        label: Name
+        type: text
+        placeholder: Project Copy

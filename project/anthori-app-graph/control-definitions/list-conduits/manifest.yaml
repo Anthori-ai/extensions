@@ -1,47 +1,44 @@
 format: 1
 id: list-conduits
-name: List Conduits
+name: List
 description: Lists all conduits in the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: List Conduits
+        name: List
         description: List conduits in the current graph.
         input:
-          type: object
+          type: void
           description: No input.
         output:
-          type: object
-          required:
-            - conduits
-          properties:
-            conduits:
-              type: array
-              description: Conduits in the current graph.
-              items:
-                type: object
-                required:
-                  - id
-                  - from
-                  - to
-                  - fromPort
-                properties:
-                  id:
-                    type: string
-                    description: Conduit id.
-                  from:
-                    type: string
-                    description: Source control id.
-                  to:
-                    type: string
-                    description: Target control id.
-                  fromPort:
-                    type: string
-                    description: Source port name.
+          type: array
+          description: Conduits in the current graph.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - fromControlId
+              - fromControlPortId
+              - toControlId
+            properties:
+              id:
+                type: string
+                description: Conduit id.
+              fromControlId:
+                type: string
+                description: Source control id.
+              fromControlPortId:
+                type: string
+                description: Source port id.
+              toControlId:
+                type: string
+                description: Target control id.
 control:
   visible: true
+  libraryPath: app/project/graph/conduit
   configSchema:
     runtimeActionForward:
       type: string

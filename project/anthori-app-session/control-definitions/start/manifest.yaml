@@ -20,9 +20,6 @@ contracts:
             sessionId:
               type: string
               description: Optional existing session id to reuse in the child project.
-            executionKey:
-              type: string
-              description: Optional alias that can be used later to stop the child runtime.
             bindings:
               type: array
               description: Optional channel bindings between the parent and child runtimes.
@@ -58,29 +55,13 @@ contracts:
           description: Child runtime handle.
           additionalProperties: false
           required:
-            - runtimeId
+            - executionId
+          propertyOrder:
+            - executionId
           properties:
-            runtimeId:
-              type: string
-              description: Child runtime id.
-            executionKey:
-              type: string
-              description: Execution key associated with the child runtime.
-            projectId:
-              type: string
-              description: Started child project id.
-            graphRef:
-              type: string
-              description: Child project graph reference.
-            sessionId:
-              type: string
-              description: Child session id.
             executionId:
               type: string
               description: Child execution id.
-            ownerExecId:
-              type: string
-              description: Parent execution id when the child was started from another runtime.
 control:
   visible: true
   configSchema:
@@ -89,11 +70,8 @@ control:
       default: start
     projectId:
       type: string
-      required: false
+      required: true
     sessionId:
-      type: string
-      required: false
-    executionKey:
       type: string
       required: false
     bindings:
@@ -132,14 +110,6 @@ control:
           resource: projectSessions
           filters:
             projectId: "{{projectId}}"
-      - key: executionKey
-        label: Execution Key
-        type: text
-        childOf: projectId
-        showWhen:
-          key: projectId
-          isEmpty: false
-        placeholder: Optional runtime alias
       - key: bindings
         label: Bindings
         type: textarea

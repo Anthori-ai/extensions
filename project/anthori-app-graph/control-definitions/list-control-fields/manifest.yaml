@@ -1,0 +1,118 @@
+format: 1
+id: list-control-fields
+name: List
+description: Lists fields for a control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List control fields.
+        input:
+          type: object
+          description: Control field list request.
+          additionalProperties: false
+          required:
+            - id
+          propertyOrder:
+            - id
+          properties:
+            id:
+              type: string
+              description: Control id.
+        output:
+          type: array
+          description: Control fields.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - key
+              - kind
+              - type
+              - label
+            propertyOrder:
+              - key
+              - kind
+              - type
+              - label
+              - value
+              - required
+              - helpText
+              - helpTextFormat
+              - placeholder
+              - default
+              - supportsPort
+              - supportsPin
+              - options
+            properties:
+              key:
+                type: string
+                description: Field key.
+              kind:
+                type: string
+                enum:
+                  - system
+                  - schema
+                  - custom
+                description: Field kind.
+              type:
+                type: string
+                description: Field type.
+              label:
+                type: string
+                description: Field label.
+              value:
+                type: any
+                description: Stored field value.
+              required:
+                type: boolean
+                description: Whether a value is required.
+              helpText:
+                type: string
+                description: Field help text.
+              helpTextFormat:
+                type: string
+                enum:
+                  - text
+                  - html
+                description: Field help text format.
+              placeholder:
+                type: string
+                description: Field placeholder text.
+              default:
+                type: any
+                description: Default field value.
+              supportsPort:
+                type: boolean
+                description: Whether the field can be exposed as a port.
+              supportsPin:
+                type: boolean
+                description: Whether the field can be pinned.
+              options:
+                type: array
+                description: Field options.
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    - label
+                    - value
+                  propertyOrder:
+                    - label
+                    - value
+                  properties:
+                    label:
+                      type: string
+                      description: Option label.
+                    value:
+                      type: string
+                      description: Option value.
+control:
+  visible: true
+  libraryPath: app/project/graph/control/fields
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-control-fields

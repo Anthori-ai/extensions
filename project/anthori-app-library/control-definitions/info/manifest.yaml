@@ -1,0 +1,66 @@
+format: 1
+id: info
+name: Info
+description: Returns info data for a project library control.
+baseControlRef: controls/1/extensions/anthori.app.library/definitions/library-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Info
+        description: Return info data for a project library control.
+        input:
+          type: object
+          description: Library control info request.
+          additionalProperties: false
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Library control id returned by List.
+        output:
+          type: object
+          description: Library control info.
+          additionalProperties: false
+          required:
+            - id
+            - name
+          propertyOrder:
+            - id
+            - name
+            - baseId
+            - category
+            - description
+            - libraryPath
+            - info
+          properties:
+            id:
+              type: string
+              description: Library control id.
+            name:
+              type: string
+              description: Control display name.
+            baseId:
+              type: string
+              description: Base library control id.
+            category:
+              type: string
+              description: Control category.
+            description:
+              type: string
+              description: Control description.
+            libraryPath:
+              type: string
+              description: Library path.
+            info:
+              type: object
+              description: Control info data.
+              additionalProperties: true
+control:
+  visible: true
+  libraryPath: app/project/library
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: info

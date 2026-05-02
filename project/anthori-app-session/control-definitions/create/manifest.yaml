@@ -1,46 +1,44 @@
 format: 1
 id: create
 name: Create
-description: Creates a new session for the current or selected project.
+description: Creates a new session for a project.
 baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Create
-        description: Creates a new session for the current or selected project.
+        description: Creates a new session for a project.
         input:
           type: object
           description: Session creation request.
           additionalProperties: false
+          required:
+            - projectId
+          propertyOrder:
+            - projectId
+            - name
           properties:
             projectId:
               type: string
-              description: Optional project id. Defaults to the current project.
+              description: Project id.
             name:
               type: string
               description: Display name for the new session.
         output:
           type: object
-          description: Created session result.
+          description: Created session record.
           additionalProperties: false
           required:
-            - session
+            - id
+            - name
           properties:
-            session:
-              type: object
-              description: Created session record.
-              additionalProperties: false
-              required:
-                - id
-                - name
-              properties:
-                id:
-                  type: string
-                  description: New session id.
-                name:
-                  type: string
-                  description: Session name.
+            id:
+              type: string
+              description: New session id.
+            name:
+              type: string
+              description: Session name.
 control:
   visible: true
   configSchema:
@@ -49,7 +47,7 @@ control:
       default: create
     projectId:
       type: string
-      required: false
+      required: true
     name:
       type: string
       required: false

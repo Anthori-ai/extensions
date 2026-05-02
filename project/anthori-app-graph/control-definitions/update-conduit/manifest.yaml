@@ -1,0 +1,233 @@
+format: 1
+id: update-conduit
+name: Update
+description: Updates a conduit in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: color
+        name: Color
+        description: Update a conduit color.
+        input:
+          type: object
+          description: Conduit color update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - colorId
+          propertyOrder:
+            - action
+            - id
+            - colorId
+          properties:
+            action:
+              type: string
+              enum:
+                - color
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            colorId:
+              type: string
+              description: Conduit color id.
+        output:
+          type: void
+          description: No structured result.
+      - id: hidden
+        name: Hidden
+        description: Update conduit visibility.
+        input:
+          type: object
+          description: Conduit visibility update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - hidden
+          propertyOrder:
+            - action
+            - id
+            - hidden
+          properties:
+            action:
+              type: string
+              enum:
+                - hidden
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            hidden:
+              type: boolean
+              description: Whether the conduit is hidden.
+        output:
+          type: void
+          description: No structured result.
+      - id: from-port
+        name: From Port
+        description: Update a conduit source port.
+        input:
+          type: object
+          description: Conduit source port update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - fromControlPortId
+          propertyOrder:
+            - action
+            - id
+            - fromControlPortId
+          properties:
+            action:
+              type: string
+              enum:
+                - fromPort
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            fromControlPortId:
+              type: string
+              description: Source port id.
+        output:
+          type: void
+          description: No structured result.
+      - id: anchors
+        name: Anchors
+        description: Update conduit anchors.
+        input:
+          type: object
+          description: Conduit anchor update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+          propertyOrder:
+            - action
+            - id
+            - fromAnchor
+            - toAnchor
+          properties:
+            action:
+              type: string
+              enum:
+                - anchors
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            fromAnchor:
+              type: object
+              description: Source anchor.
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Horizontal anchor.
+                y:
+                  type: number
+                  description: Vertical anchor.
+            toAnchor:
+              type: object
+              description: Target anchor.
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Horizontal anchor.
+                y:
+                  type: number
+                  description: Vertical anchor.
+        output:
+          type: void
+          description: No structured result.
+      - id: points
+        name: Points
+        description: Update conduit route points.
+        input:
+          type: object
+          description: Conduit route point update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - points
+          propertyOrder:
+            - action
+            - id
+            - points
+          properties:
+            action:
+              type: string
+              enum:
+                - points
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            points:
+              type: array
+              description: Route points.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - x
+                  - y
+                properties:
+                  x:
+                    type: integer
+                    description: Horizontal position.
+                  y:
+                    type: integer
+                    description: Vertical position.
+        output:
+          type: void
+          description: No structured result.
+      - id: order
+        name: Order
+        description: Update conduit order.
+        input:
+          type: object
+          description: Move a conduit within its source port order.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - offset
+          propertyOrder:
+            - action
+            - id
+            - offset
+          properties:
+            action:
+              type: string
+              enum:
+                - order
+              description: Update action.
+            id:
+              type: string
+              description: Conduit id.
+            offset:
+              type: integer
+              description: Relative order offset.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/conduit
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-conduit

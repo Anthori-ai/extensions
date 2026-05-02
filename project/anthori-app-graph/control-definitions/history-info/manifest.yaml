@@ -1,0 +1,84 @@
+format: 1
+id: history-info
+name: Info
+description: Returns info for a saved graph history revision.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Info
+        description: Return info for a saved graph history revision.
+        input:
+          type: object
+          description: Graph history revision request.
+          additionalProperties: false
+          required:
+            - revision
+          properties:
+            revision:
+              type: integer
+              description: Graph revision.
+        output:
+          type: object
+          description: Graph history revision info.
+          additionalProperties: false
+          required:
+            - yaml
+            - diff
+            - additions
+            - removals
+          propertyOrder:
+            - savedAt
+            - savedBy
+            - previousRevision
+            - yaml
+            - diff
+            - additions
+            - removals
+          properties:
+            savedAt:
+              type: string
+              description: Time the revision was saved.
+            savedBy:
+              type: string
+              description: User that saved the revision.
+            previousRevision:
+              type: integer
+              description: Previous saved revision used for the diff.
+            yaml:
+              type: string
+              description: Cleaned revision snapshot.
+            diff:
+              type: array
+              description: Line diff from previousRevision to revision.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - type
+                  - text
+                properties:
+                  type:
+                    type: string
+                    enum:
+                      - add
+                      - remove
+                      - context
+                    description: Diff line type.
+                  text:
+                    type: string
+                    description: Diff line text.
+            additions:
+              type: integer
+              description: Added diff line count.
+            removals:
+              type: integer
+              description: Removed diff line count.
+control:
+  visible: true
+  libraryPath: app/project/graph/history
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: history-info

@@ -1,0 +1,547 @@
+format: 1
+id: create-control-field
+name: Create
+description: Creates a custom field for a control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: text
+        name: Text
+        description: Create a text custom field.
+        input:
+          type: object
+          description: Text field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - text
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: string
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: textarea
+        name: Textarea
+        description: Create a textarea custom field.
+        input:
+          type: object
+          description: Textarea field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - textarea
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: string
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: number
+        name: Number
+        description: Create a number custom field.
+        input:
+          type: object
+          description: Number field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - number
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: number
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: range
+        name: Range
+        description: Create a range custom field.
+        input:
+          type: object
+          description: Range field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - range
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            default:
+              type: number
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: checkbox
+        name: Checkbox
+        description: Create a checkbox custom field.
+        input:
+          type: object
+          description: Checkbox field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - default
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - checkbox
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            default:
+              type: boolean
+              description: Default field value.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: select
+        name: Select
+        description: Create a select custom field.
+        input:
+          type: object
+          description: Select field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+            - options
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - options
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - select
+              description: Field type.
+            options:
+              type: array
+              description: Select options.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - label
+                  - value
+                propertyOrder:
+                  - label
+                  - value
+                properties:
+                  label:
+                    type: string
+                    description: Option label.
+                  value:
+                    type: string
+                    description: Option value.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: string
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+        output:
+          type: void
+          description: No structured result.
+      - id: multiselect
+        name: Multiselect
+        description: Create a multiselect custom field.
+        input:
+          type: object
+          description: Multiselect field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+            - options
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - options
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - multiselect
+              description: Field type.
+            options:
+              type: array
+              description: Multiselect options.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - label
+                  - value
+                propertyOrder:
+                  - label
+                  - value
+                properties:
+                  label:
+                    type: string
+                    description: Option label.
+                  value:
+                    type: string
+                    description: Option value.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: array
+              description: Default selected option values.
+              items:
+                type: string
+            required:
+              type: boolean
+              description: Whether a value is required.
+        output:
+          type: void
+          description: No structured result.
+      - id: button
+        name: Button
+        description: Create a button custom field.
+        input:
+          type: object
+          description: Button field definition.
+          additionalProperties: false
+          required:
+            - id
+            - key
+            - label
+            - type
+          propertyOrder:
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - button
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/control/fields
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-control-field

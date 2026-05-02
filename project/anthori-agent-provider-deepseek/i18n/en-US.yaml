@@ -1,0 +1,21 @@
+bundle:
+  namespace: anthori.agent.provider.deepseek
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.deepseek.config.apiKey.help
+    kind: field_tip
+    target: providers.deepseek.config.apiKey
+    format: text
+    text: API key used for DeepSeek requests.
+  - key: provider.deepseek.config.model.help
+    kind: field_tip
+    target: providers.deepseek.config.model
+    format: text
+    text: Optional default model ID for controls and assistant requests that do not override it.
+  - key: provider.deepseek.config.reasoning.help
+    kind: field_tip
+    target: providers.deepseek.config.reasoning
+    format: text
+    text: Optional default reasoning hint for requests from this provider config.

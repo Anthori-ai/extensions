@@ -1,0 +1,18 @@
+format: 1
+id: anthori.app.editor
+name: Editor
+scope: project
+version: 1.0.0
+description: First-party project editor controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - Editor
+externalLibraries:
+  - external-libraries/anthori-editor-runtime
+controlDefinitions:
+  - control-definitions/editor-base
+  - control-definitions/list-scripts
+  - control-definitions/create-script
+  - control-definitions/update-script
+  - control-definitions/delete-script

@@ -1,0 +1,16 @@
+format: 1
+id: anthori.app.library
+name: Library
+scope: project
+version: 1.0.0
+description: First-party project library controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - App
+  - Library
+externalLibraries:
+  - external-libraries/anthori-library-runtime
+controlDefinitions:
+  - control-definitions/library-base
+  - control-definitions/list
+  - control-definitions/info

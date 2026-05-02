@@ -1,0 +1,44 @@
+format: 1
+id: list-templates
+name: List
+description: Lists project templates available for project creation.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: Lists project templates available for project creation.
+        input:
+          type: void
+          description: No input required.
+        output:
+          type: array
+          description: Available project templates.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - name
+            propertyOrder:
+              - id
+              - name
+              - description
+            properties:
+              id:
+                type: string
+                description: Template id used by Project Create.
+              name:
+                type: string
+                description: Template display name.
+              description:
+                type: string
+                description: Template description.
+control:
+  visible: true
+  libraryPath: app/project/template
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: listTemplates

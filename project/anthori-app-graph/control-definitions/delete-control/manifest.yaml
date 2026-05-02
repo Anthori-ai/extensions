@@ -1,33 +1,30 @@
 format: 1
 id: delete-control
-name: Delete Control
+name: Delete
 description: Deletes a control from the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Delete Control
+        name: Delete
         description: Delete a control from the current graph.
         input:
           type: object
           description: Control identifier to remove.
+          additionalProperties: false
           properties:
-            controlId:
+            id:
               type: string
               description: Control id to delete.
           required:
-            - controlId
+            - id
         output:
-          type: object
-          required:
-            - status
-          properties:
-            status:
-              type: string
-              description: Deletion confirmation.
+          type: void
+          description: No structured result.
 control:
   visible: true
+  libraryPath: app/project/graph/control
   configSchema:
     runtimeActionForward:
       type: string

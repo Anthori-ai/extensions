@@ -1,0 +1,32 @@
+format: 1
+id: openrouter
+name: OpenRouter
+description: OpenRouter text provider control.
+baseControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+control:
+  configSchema:
+    providerDefinitionId:
+      type: string
+      default: openrouter-provider
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.agent-text.v1
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        supportsPin: true
+        helpKey: core.textProvider.providerRef.help
+        dataSource:
+          filters:
+            interface: anthori.agent-text.v1
+            definitionId: openrouter-provider
+      - key: llmModel
+        label: Model
+        type: select
+        supportsPin: true
+        helpKey: core.textProvider.llmModel.help
+        dataSource:
+          kind: providerModels
+          emptyLabel: Inherit provider model

@@ -1,0 +1,223 @@
+format: 1
+id: update-control
+name: Update
+description: Updates a control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: title
+        name: Title
+        description: Update a control title.
+        input:
+          type: object
+          description: Control title update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - title
+          propertyOrder:
+            - action
+            - id
+            - title
+          properties:
+            action:
+              type: string
+              enum:
+                - title
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            title:
+              type: string
+              description: Control title.
+        output:
+          type: void
+          description: No structured result.
+      - id: description
+        name: Description
+        description: Update control description text.
+        input:
+          type: object
+          description: Control description update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - description
+          propertyOrder:
+            - action
+            - id
+            - description
+          properties:
+            action:
+              type: string
+              enum:
+                - description
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            description:
+              type: string
+              description: Control description text.
+        output:
+          type: void
+          description: No structured result.
+      - id: collapsed
+        name: Collapsed
+        description: Update collapsed state.
+        input:
+          type: object
+          description: Collapsed state update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - collapsed
+          propertyOrder:
+            - action
+            - id
+            - collapsed
+          properties:
+            action:
+              type: string
+              enum:
+                - collapsed
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            collapsed:
+              type: boolean
+              description: Whether the control is collapsed.
+        output:
+          type: void
+          description: No structured result.
+      - id: size
+        name: Size
+        description: Update control size fields.
+        input:
+          type: object
+          description: Control size update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+          propertyOrder:
+            - action
+            - id
+            - collapsedWidth
+            - collapsedHeight
+            - noteWidth
+            - noteHeight
+            - groupWidth
+            - groupHeight
+          properties:
+            action:
+              type: string
+              enum:
+                - size
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            collapsedWidth:
+              type: integer
+              description: Collapsed control width.
+            collapsedHeight:
+              type: integer
+              description: Collapsed control height.
+            noteWidth:
+              type: integer
+              description: Note width.
+            noteHeight:
+              type: integer
+              description: Note height.
+            groupWidth:
+              type: integer
+              description: Group width.
+            groupHeight:
+              type: integer
+              description: Group height.
+        output:
+          type: void
+          description: No structured result.
+      - id: breakpoints
+        name: Breakpoints
+        description: Update control breakpoints.
+        input:
+          type: object
+          description: Control breakpoint update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - entry
+            - return
+          propertyOrder:
+            - action
+            - id
+            - entry
+            - return
+          properties:
+            action:
+              type: string
+              enum:
+                - breakpoints
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            entry:
+              type: boolean
+              description: Break on control entry.
+            return:
+              type: boolean
+              description: Break on control return.
+        output:
+          type: void
+          description: No structured result.
+      - id: script-breakpoints
+        name: Script Breakpoints
+        description: Update script breakpoints.
+        input:
+          type: object
+          description: Script breakpoint update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - breakpoints
+          propertyOrder:
+            - action
+            - id
+            - breakpoints
+          properties:
+            action:
+              type: string
+              enum:
+                - scriptBreakpoints
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            breakpoints:
+              type: object
+              description: Script breakpoint lines by script id.
+              additionalProperties:
+                type: array
+                items:
+                  type: integer
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/control
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-control

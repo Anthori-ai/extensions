@@ -1,0 +1,42 @@
+format: 1
+id: delete-control-field
+name: Delete
+description: Deletes a custom field from a control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete
+        description: Delete a custom control field.
+        input:
+          type: object
+          description: Custom field delete request.
+          additionalProperties: false
+          required:
+            - id
+            - key
+          propertyOrder:
+            - id
+            - key
+            - clearValue
+          properties:
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            clearValue:
+              type: boolean
+              description: Whether to clear the stored field value.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/control/fields
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete-control-field

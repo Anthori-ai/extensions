@@ -1,0 +1,13 @@
+format: 1
+id: anthori-library-runtime
+name: Library Runtime
+version: 1.0.0
+entry: runtime/anthori-library-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: list
+  - id: info

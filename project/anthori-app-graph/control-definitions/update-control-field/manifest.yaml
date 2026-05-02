@@ -1,0 +1,148 @@
+format: 1
+id: update-control-field
+name: Update
+description: Updates a field for a control in the current graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: value
+        name: Value
+        description: Update a control field value.
+        input:
+          type: object
+          description: Field value update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - key
+            - value
+          propertyOrder:
+            - action
+            - id
+            - key
+            - value
+          properties:
+            action:
+              type: string
+              enum:
+                - value
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            value:
+              type: any
+              description: Field value. Null clears the stored value.
+        output:
+          type: void
+          description: No structured result.
+      - id: field
+        name: Field
+        description: Update a custom field definition.
+        input:
+          type: object
+          description: Custom field definition update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - key
+          propertyOrder:
+            - action
+            - id
+            - key
+            - label
+            - type
+            - helpText
+            - helpTextFormat
+            - placeholder
+            - default
+            - required
+            - supportsPort
+            - supportsPin
+            - options
+          properties:
+            action:
+              type: string
+              enum:
+                - field
+              description: Update action.
+            id:
+              type: string
+              description: Control id.
+            key:
+              type: string
+              description: Field key.
+            label:
+              type: string
+              description: Field label.
+            type:
+              type: string
+              enum:
+                - text
+                - textarea
+                - number
+                - range
+                - checkbox
+                - select
+                - multiselect
+                - button
+              description: Field type.
+            helpText:
+              type: string
+              description: Field help text.
+            helpTextFormat:
+              type: string
+              enum:
+                - text
+                - html
+              description: Field help text format.
+            placeholder:
+              type: string
+              description: Field placeholder text.
+            default:
+              type: any
+              description: Default field value.
+            required:
+              type: boolean
+              description: Whether a value is required.
+            supportsPort:
+              type: boolean
+              description: Whether the field can be exposed as a port.
+            supportsPin:
+              type: boolean
+              description: Whether the field can be pinned.
+            options:
+              type: array
+              description: Options for select and multiselect fields.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - label
+                  - value
+                propertyOrder:
+                  - label
+                  - value
+                properties:
+                  label:
+                    type: string
+                    description: Option label.
+                  value:
+                    type: string
+                    description: Option value.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/control/fields
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-control-field

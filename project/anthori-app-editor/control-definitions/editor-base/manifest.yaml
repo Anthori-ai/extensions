@@ -1,0 +1,12 @@
+format: 1
+id: editor-base
+name: Editor Base
+description: Hidden shared base for controls that edit project authoring metadata.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/project/editor
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-editor-runtime

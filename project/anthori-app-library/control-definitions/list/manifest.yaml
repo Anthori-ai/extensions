@@ -1,0 +1,55 @@
+format: 1
+id: list
+name: List
+description: Lists control definitions available in the project library.
+baseControlRef: controls/1/extensions/anthori.app.library/definitions/library-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List controls available in the project library.
+        input:
+          type: void
+        output:
+          type: array
+          description: Available controls.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - name
+            propertyOrder:
+              - id
+              - name
+              - baseId
+              - category
+              - description
+              - libraryPath
+            properties:
+              id:
+                type: string
+                description: Library control id.
+              name:
+                type: string
+                description: Control display name.
+              baseId:
+                type: string
+                description: Base library control id.
+              category:
+                type: string
+                description: Control category.
+              description:
+                type: string
+                description: Control description.
+              libraryPath:
+                type: string
+                description: Library path.
+control:
+  visible: true
+  libraryPath: app/project/library
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list

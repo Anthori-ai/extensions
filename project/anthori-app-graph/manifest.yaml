@@ -12,11 +12,22 @@ externalLibraries:
   - external-libraries/anthori-graph-runtime
 controlDefinitions:
   - control-definitions/graph-base
-  - control-definitions/actions
   - control-definitions/create-control
   - control-definitions/delete-control
   - control-definitions/list-controls
+  - control-definitions/update-control
+  - control-definitions/list-control-fields
+  - control-definitions/create-control-field
+  - control-definitions/update-control-field
+  - control-definitions/delete-control-field
   - control-definitions/create-conduit
   - control-definitions/delete-conduit
   - control-definitions/list-conduits
+  - control-definitions/update-conduit
+  - control-definitions/create-conduit-color
+  - control-definitions/delete-conduit-color
+  - control-definitions/list-conduit-colors
   - control-definitions/move-control
+  - control-definitions/list-history
+  - control-definitions/history-info
+  - control-definitions/revert

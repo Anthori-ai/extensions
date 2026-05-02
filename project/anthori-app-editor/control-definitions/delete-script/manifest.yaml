@@ -1,0 +1,31 @@
+format: 1
+id: delete-script
+name: Delete
+description: Deletes an editor script.
+baseControlRef: controls/1/extensions/anthori.app.editor/definitions/editor-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete
+        description: Delete an editor script.
+        input:
+          type: object
+          description: Editor script identifier.
+          additionalProperties: false
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              description: Editor script id.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/editor/scripts
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete-script

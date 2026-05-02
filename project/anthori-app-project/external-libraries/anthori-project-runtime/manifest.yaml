@@ -14,7 +14,7 @@ actions:
   - id: delete
   - id: export
   - id: import
+  - id: info
   - id: list
-  - id: rename
-  - id: workspace
-  - id: settings
+  - id: listTemplates
+  - id: update

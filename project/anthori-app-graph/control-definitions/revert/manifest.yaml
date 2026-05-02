@@ -1,0 +1,31 @@
+format: 1
+id: revert
+name: Revert
+description: Reverts the current graph to a saved revision.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Revert
+        description: Revert the current graph to a saved revision.
+        input:
+          type: object
+          description: Revision to restore.
+          additionalProperties: false
+          required:
+            - revision
+          properties:
+            revision:
+              type: integer
+              description: Graph revision.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/history
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: revert

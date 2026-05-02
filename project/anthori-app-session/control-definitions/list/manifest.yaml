@@ -13,45 +13,41 @@ contracts:
           type: object
           description: Session list request.
           additionalProperties: false
+          required:
+            - projectId
           properties:
             projectId:
               type: string
-              description: Optional project id. Defaults to the current project.
+              description: Project id.
         output:
-          type: object
-          description: Session list result.
-          additionalProperties: false
-          required:
-            - sessions
-            - activeSessionId
-          properties:
-            sessions:
-              type: array
-              description: Sessions saved for the selected project.
-              items:
-                type: object
-                additionalProperties: false
-                required:
-                  - id
-                  - name
-                  - createdAt
-                  - updatedAt
-                properties:
-                  id:
-                    type: string
-                    description: Session id.
-                  name:
-                    type: string
-                    description: Session name.
-                  createdAt:
-                    type: string
-                    description: Session creation time in UTC.
-                  updatedAt:
-                    type: string
-                    description: Last saved update time in UTC.
-            activeSessionId:
-              type: string
-              description: Active session id for the selected project.
+          type: array
+          description: Sessions saved for the selected project.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - name
+              - createdAt
+              - updatedAt
+            propertyOrder:
+              - id
+              - name
+              - createdAt
+              - updatedAt
+            properties:
+              id:
+                type: string
+                description: Session id.
+              name:
+                type: string
+                description: Session name.
+              createdAt:
+                type: string
+                description: Session creation time in UTC.
+              updatedAt:
+                type: string
+                description: Last saved update time in UTC.
 control:
   visible: true
   configSchema:
@@ -60,7 +56,7 @@ control:
       default: list
     projectId:
       type: string
-      required: false
+      required: true
   ui:
     fields:
       - key: projectId

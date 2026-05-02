@@ -1,0 +1,111 @@
+format: 1
+id: update
+name: Update
+description: Updates an existing project.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: name
+        name: Name
+        description: Updates a project display name.
+        input:
+          type: object
+          description: Project name update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - name
+          propertyOrder:
+            - action
+            - id
+            - name
+          properties:
+            action:
+              type: string
+              enum:
+                - name
+              description: Update action.
+            id:
+              type: string
+              description: Project id.
+            name:
+              type: string
+              description: Project display name.
+        output:
+          type: void
+          description: No structured result.
+      - id: workspace
+        name: Workspace
+        description: Updates a project workspace directory.
+        input:
+          type: object
+          description: Project workspace update.
+          additionalProperties: false
+          required:
+            - action
+            - id
+            - path
+          propertyOrder:
+            - action
+            - id
+            - path
+          properties:
+            action:
+              type: string
+              enum:
+                - workspace
+              description: Update action.
+            id:
+              type: string
+              description: Project id.
+            path:
+              type: string
+              description: Workspace directory path.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update
+    action:
+      type: string
+      required: false
+    id:
+      type: string
+      required: false
+    name:
+      type: string
+      required: false
+    path:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: action
+        label: Action
+        type: text
+        placeholder: name or workspace
+      - key: id
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: name
+        label: Name
+        type: text
+        placeholder: Renamed Project
+      - key: path
+        label: Workspace
+        type: text
+        placeholder: /absolute/path/to/workspace
+        pickerSelection: directory
+        pickerTitle: Choose Workspace Folder
+        pickerMessage: Browse the server filesystem for the project workspace directory.
+        pickerSelectLabel: Use Folder
+        pickerShowFiles: false

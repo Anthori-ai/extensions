@@ -30,8 +30,8 @@ module.exports = {
   "delete": function (payload, host) { return callProject("delete", payload, host); },
   "export": function (payload, host) { return callProject("export", payload, host); },
   "import": function (payload, host) { return callProject("import", payload, host); },
+  "info": function (payload, host) { return callProject("info", payload, host); },
   "list": function (payload, host) { return callProject("list", payload, host); },
-  "rename": function (payload, host) { return callProject("rename", payload, host); },
-  "workspace": function (payload, host) { return callProject("workspace", payload, host); },
-  "settings": function (payload, host) { return callProject("settings", payload, host); },
+  "listTemplates": function (payload, host) { return callProject("listTemplates", payload, host); },
+  "update": function (payload, host) { return callProject("update", payload, host); },
 };

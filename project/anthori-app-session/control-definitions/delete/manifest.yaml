@@ -1,0 +1,63 @@
+format: 1
+id: delete
+name: Delete
+description: Deletes a session for a project.
+baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete
+        description: Deletes a session for a project.
+        input:
+          type: object
+          description: Session delete request.
+          additionalProperties: false
+          required:
+            - projectId
+            - sessionId
+          propertyOrder:
+            - projectId
+            - sessionId
+          properties:
+            projectId:
+              type: string
+              description: Project id.
+            sessionId:
+              type: string
+              description: Session id to delete.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete
+    sessionId:
+      type: string
+      required: false
+    projectId:
+      type: string
+      required: true
+  ui:
+    fields:
+      - key: projectId
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects
+      - key: sessionId
+        label: Session
+        type: select
+        childOf: projectId
+        showWhen:
+          key: projectId
+          isEmpty: false
+        dataSource:
+          kind: resource
+          resource: projectSessions
+          filters:
+            projectId: "{{projectId}}"

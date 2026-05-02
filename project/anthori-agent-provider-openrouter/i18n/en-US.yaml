@@ -1,0 +1,16 @@
+bundle:
+  namespace: anthori.agent.provider.openrouter
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.openrouter.config.apiKey.help
+    kind: field_tip
+    target: providers.openrouter.config.apiKey
+    format: text
+    text: OpenRouter API key used for requests.
+  - key: provider.openrouter.config.model.help
+    kind: field_tip
+    target: providers.openrouter.config.model
+    format: text
+    text: Optional default model ID for controls and assistant requests that do not override it.

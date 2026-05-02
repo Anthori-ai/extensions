@@ -85,6 +85,25 @@ var PROVIDER_DEFAULTS = {
       { id: "glm-4.5v", maxContextTokens: 128000 }
     ]
   },
+  "openrouter-provider": {
+    providerKey: "openrouter",
+    providerLabel: "OpenRouter",
+    apiBaseUrl: "https://openrouter.ai/api/v1",
+    defaultModel: "openai/gpt-4o-mini",
+    models: []
+  },
+  "deepseek-provider": {
+    providerKey: "deepseek",
+    providerLabel: "DeepSeek",
+    apiBaseUrl: "https://api.deepseek.com",
+    defaultModel: "deepseek-v4-flash",
+    supportsReasoningEffort: true,
+    supportsThinkingType: true,
+    models: [
+      { id: "deepseek-v4-flash", maxContextTokens: 1000000 },
+      { id: "deepseek-v4-pro", maxContextTokens: 1000000 }
+    ]
+  },
   "alibaba-provider": {
     providerKey: "alibaba",
     providerLabel: "Alibaba",
@@ -3005,6 +3024,38 @@ function parseGoogleNativeModelItems(settings, parsed)
   return items;
 }
 
+function sortModelItemsById(items)
+{
+  if (!Array.isArray(items))
+  {
+    return [];
+  }
+  var sorted = [];
+  for (var i = 0; i < items.length; i += 1)
+  {
+    var next = items[i];
+    if (next && typeof next === "object" && !Array.isArray(next))
+    {
+      sorted.push(next);
+    }
+  }
+  sorted.sort(function(left, right)
+  {
+    var leftId = trim(left && left.id).toLowerCase();
+    var rightId = trim(right && right.id).toLowerCase();
+    if (leftId < rightId)
+    {
+      return -1;
+    }
+    if (leftId > rightId)
+    {
+      return 1;
+    }
+    return 0;
+  });
+  return sorted;
+}
+
 function mergeModelItems(liveItems, fallbackItems)
 {
   var items = [];
@@ -3449,7 +3500,15 @@ function handleModels(input, host)
   var adapter = providerAdapter(settings);
   if (typeof adapter.handleModels === "function")
   {
-    return adapter.handleModels(settings, host, fallbackItems);
+    var adapterResult = adapter.handleModels(settings, host, fallbackItems);
+    if (trim(settings.providerKey).toLowerCase() === "openrouter" &&
+      adapterResult &&
+      adapterResult.output &&
+      Array.isArray(adapterResult.output.items))
+    {
+      adapterResult.output.items = sortModelItemsById(adapterResult.output.items);
+    }
+    return adapterResult;
   }
   var response;
   try
@@ -3495,9 +3554,14 @@ function handleModels(input, host)
       }
     };
   }
+  var mergedItems = mergeModelItems(liveItems, fallbackItems);
+  if (trim(settings.providerKey).toLowerCase() === "openrouter")
+  {
+    mergedItems = sortModelItemsById(mergedItems);
+  }
   return {
     output: {
-      items: mergeModelItems(liveItems, fallbackItems),
+      items: mergedItems,
       defaultModel: trim(settings && settings.defaultModel),
       reachable: true
     }

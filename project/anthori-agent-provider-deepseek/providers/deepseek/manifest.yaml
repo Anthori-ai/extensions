@@ -1,0 +1,46 @@
+format: 1
+id: deepseek-provider
+name: DeepSeek
+version: 1.0.0
+description: DeepSeek text provider using DeepSeek's OpenAI-compatible chat API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiKey:
+      type: secretString
+      label: API Key
+      required: true
+      placeholder: DeepSeek API key
+      helpKey: provider.deepseek.config.apiKey.help
+    llmModel:
+      type: select
+      label: Model
+      placeholder: Use provider default
+      dataSource:
+        kind: providerModels
+        emptyLabel: Use provider default
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      helpKey: provider.deepseek.config.reasoning.help
+      enum:
+        - ""
+        - low
+        - medium
+        - high
+        - xhigh
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+control:
+  visible: false

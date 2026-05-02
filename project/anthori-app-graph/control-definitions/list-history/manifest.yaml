@@ -1,0 +1,43 @@
+format: 1
+id: list-history
+name: List
+description: Lists saved graph history revisions.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List
+        description: List saved graph history revisions.
+        input:
+          type: void
+          description: No input.
+        output:
+          type: array
+          description: Saved graph history revisions.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - revision
+            propertyOrder:
+              - revision
+              - savedAt
+              - savedBy
+            properties:
+              revision:
+                type: integer
+                description: Graph revision.
+              savedAt:
+                type: string
+                description: Time the revision was saved.
+              savedBy:
+                type: string
+                description: User that saved the revision.
+control:
+  visible: true
+  libraryPath: app/project/graph/history
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-history

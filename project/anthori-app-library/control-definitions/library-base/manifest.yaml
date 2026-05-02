@@ -1,0 +1,12 @@
+format: 1
+id: library-base
+name: Library Base
+description: Hidden shared base for controls that inspect the project library.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/project/library
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-library-runtime

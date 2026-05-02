@@ -12,9 +12,5 @@ actions:
   - id: start
   - id: stop
   - id: list
-  - id: load
   - id: create
-  - id: select
-  - id: log
-  - id: log-latest
-  - id: log-detail
+  - id: delete

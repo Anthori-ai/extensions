@@ -12,17 +12,10 @@ localizationPaths:
   - i18n/{locale}.yaml
 externalLibraries:
   - external-libraries/anthori-session-runtime
-extensionDependencies:
-  - id: anthori.standard
-    version: ^1.0.0
 controlDefinitions:
   - control-definitions/session-base
   - control-definitions/start
   - control-definitions/stop
   - control-definitions/list
-  - control-definitions/load
   - control-definitions/create
-  - control-definitions/select
-  - control-definitions/log
-  - control-definitions/log-latest
-  - control-definitions/log-detail
+  - control-definitions/delete

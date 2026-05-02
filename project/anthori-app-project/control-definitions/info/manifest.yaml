@@ -1,0 +1,119 @@
+format: 1
+id: info
+name: Info
+description: Returns details for one project.
+baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Info
+        description: Returns details for one project.
+        input:
+          type: object
+          description: Project info request.
+          additionalProperties: false
+          required:
+            - id
+          propertyOrder:
+            - id
+          properties:
+            id:
+              type: string
+              description: Project id.
+        output:
+          type: object
+          description: Project details.
+          additionalProperties: false
+          required:
+            - name
+            - description
+            - graphId
+            - workspacePath
+          propertyOrder:
+            - name
+            - description
+            - graphId
+            - workspacePath
+            - channels
+          properties:
+            name:
+              type: string
+              description: Project name.
+            description:
+              type: string
+              description: Project description.
+            graphId:
+              type: string
+              description: Main graph id for the project.
+            workspacePath:
+              type: string
+              description: Project workspace path.
+            channels:
+              type: array
+              description: Project channels.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                propertyOrder:
+                  - id
+                  - contracts
+                properties:
+                  id:
+                    type: string
+                    description: Channel id.
+                  contracts:
+                    type: array
+                    description: Channel contracts.
+                    items:
+                      type: object
+                      description: Channel contract.
+                      additionalProperties: false
+                      propertyOrder:
+                        - id
+                        - name
+                        - description
+                        - mode
+                        - formatText
+                        - format
+                      properties:
+                        id:
+                          type: string
+                          description: Contract id.
+                        name:
+                          type: string
+                          description: Contract name.
+                        description:
+                          type: string
+                          description: Contract description.
+                        mode:
+                          type: string
+                          enum:
+                            - in
+                            - out
+                          description: Contract direction.
+                        formatText:
+                          type: string
+                          description: Contract format reference or text.
+                        format:
+                          type: any
+                          description: Contract format schema.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: info
+    id:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: id
+        label: Project
+        type: select
+        dataSource:
+          kind: resource
+          resource: projects

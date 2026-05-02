@@ -1,51 +1,26 @@
 format: 1
 id: stop
 name: Stop
-description: Stop a child runtime by returned handle or execution key, with optional graceful shutdown and reason.
+description: Stop a child runtime by execution id, with optional graceful shutdown and reason.
 baseControlRef: controls/1/extensions/anthori.app.session/definitions/session-base
 contracts:
   caller:
     contracts:
-      - id: handle
-        input:
-          type: object
-          additionalProperties: false
-          properties:
-            runtimeId:
-              type: string
-              description: Child runtime id returned by Start.
-            executionKey:
-              type: string
-              description: Optional execution key returned or configured on Start.
-            shutdown:
-              type: boolean
-              description: Use graceful shutdown. Defaults to true.
-            reason:
-              type: string
-              description: Optional stop or cancel reason recorded on the child runtime.
-        output:
-          type: boolean
-          description: True when the child runtime stop completed.
-      - id: execution-key
-        input:
-          type: string
-        output:
-          type: boolean
-          description: True when the child runtime stop completed.
       - id: default
         name: Stop
-        description: Stop a child runtime by returned handle or execution key, with optional graceful shutdown and reason.
+        description: Stop a child runtime by execution id, with optional graceful shutdown and reason.
         input:
           type: object
           description: Child runtime stop request.
           additionalProperties: false
+          propertyOrder:
+            - executionId
+            - shutdown
+            - reason
           properties:
-            runtimeId:
+            executionId:
               type: string
-              description: Child runtime id returned by Start.
-            executionKey:
-              type: string
-              description: Optional execution key returned or configured on Start.
+              description: Child execution id returned by Start.
             shutdown:
               type: boolean
               description: Use graceful shutdown. Defaults to true.
@@ -61,7 +36,7 @@ control:
     runtimeActionForward:
       type: string
       default: stop
-    executionKey:
+    executionId:
       type: string
       required: false
     shutdown:
@@ -73,10 +48,10 @@ control:
       required: false
   ui:
     fields:
-      - key: executionKey
-        label: Execution Key
+      - key: executionId
+        label: Execution ID
         type: text
-        placeholder: Optional runtime alias
+        placeholder: Optional child execution id
       - key: shutdown
         label: Shutdown
         type: checkbox

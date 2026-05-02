@@ -1,40 +1,98 @@
 format: 1
 id: create-conduit
-name: Create Conduit
+name: Create
 description: Creates a conduit between two controls in the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Create Conduit
+        name: Create
         description: Create a conduit between two controls in the current graph.
         input:
           type: object
           description: Conduit endpoints to connect.
+          additionalProperties: false
           properties:
-            from:
+            fromControlId:
               type: string
               description: Source control id.
-            to:
+            fromControlPortId:
+              type: string
+              description: Source port id.
+            toControlId:
               type: string
               description: Target control id.
-            fromPort:
+            colorId:
               type: string
-              description: Optional source port id on the source control.
+              description: Conduit color id.
+            points:
+              type: array
+              description: Route points.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - x
+                  - y
+                properties:
+                  x:
+                    type: integer
+                    description: Horizontal position.
+                  y:
+                    type: integer
+                    description: Vertical position.
+            fromAnchor:
+              type: object
+              description: Source anchor.
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Horizontal anchor.
+                y:
+                  type: number
+                  description: Vertical anchor.
+            toAnchor:
+              type: object
+              description: Target anchor.
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Horizontal anchor.
+                y:
+                  type: number
+                  description: Vertical anchor.
           required:
-            - from
-            - to
+            - fromControlId
+            - toControlId
+          propertyOrder:
+            - fromControlId
+            - toControlId
+            - fromControlPortId
+            - colorId
+            - points
+            - fromAnchor
+            - toAnchor
         output:
           type: object
+          additionalProperties: false
           required:
-            - conduitId
+            - id
           properties:
-            conduitId:
+            id:
               type: string
               description: Created conduit id.
 control:
   visible: true
+  libraryPath: app/project/graph/conduit
   configSchema:
     runtimeActionForward:
       type: string

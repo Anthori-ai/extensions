@@ -1,45 +1,38 @@
 format: 1
 id: export
 name: Export
-description: Exports a project archive to a zip file path in the current workspace.
+description: Exports the current project archive to a zip file.
 baseControlRef: controls/1/extensions/anthori.app.project/definitions/project-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Export
-        description: Exports a project archive to a zip file path in the current workspace.
+        description: Exports the current project archive to a zip file.
         input:
           type: object
           description: Export options.
           additionalProperties: false
           properties:
-            projectId:
+            path:
               type: string
-              description: Optional project id. Defaults to the current project.
-            outputPath:
-              type: string
-              description: Archive path relative to the current project workspace.
-            includeSessions:
-              type: boolean
-              description: Include saved session files in the archive.
+              description: Archive path relative to the project workspace, or an absolute path.
           required:
-            - outputPath
+            - path
         output:
           type: object
           description: Export result.
           additionalProperties: false
           required:
             - filename
-            - outputPath
+            - bytes
+          propertyOrder:
+            - filename
             - bytes
           properties:
             filename:
               type: string
               description: Archive file name written to disk.
-            outputPath:
-              type: string
-              description: Absolute server path where the archive was written.
             bytes:
               type: integer
               description: Archive size in bytes.
@@ -49,28 +42,12 @@ control:
     runtimeActionForward:
       type: string
       default: export
-    projectId:
+    path:
       type: string
       required: false
-    outputPath:
-      type: string
-      required: false
-    includeSessions:
-      type: boolean
-      required: false
-      default: false
   ui:
     fields:
-      - key: projectId
-        label: Project
-        type: select
-        dataSource:
-          kind: resource
-          resource: projects
-      - key: outputPath
-        label: Output Path
+      - key: path
+        label: Path
         type: text
         placeholder: exports/project.zip
-      - key: includeSessions
-        label: Include Sessions
-        type: checkbox

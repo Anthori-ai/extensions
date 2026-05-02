@@ -9,11 +9,22 @@ supportedOs:
   - linux
 timeoutSeconds: 30
 actions:
-  - id: actions
   - id: create-control
   - id: delete-control
   - id: list-controls
+  - id: update-control
+  - id: list-control-fields
+  - id: create-control-field
+  - id: update-control-field
+  - id: delete-control-field
   - id: create-conduit
   - id: delete-conduit
   - id: list-conduits
+  - id: update-conduit
+  - id: create-conduit-color
+  - id: delete-conduit-color
+  - id: list-conduit-colors
   - id: move-control
+  - id: list-history
+  - id: history-info
+  - id: revert

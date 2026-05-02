@@ -28,10 +28,6 @@ module.exports = {
   "start": function (payload, host) { return callSession("start", payload, host); },
   "stop": function (payload, host) { return callSession("stop", payload, host); },
   "list": function (payload, host) { return callSession("list", payload, host); },
-  "load": function (payload, host) { return callSession("load", payload, host); },
   "create": function (payload, host) { return callSession("create", payload, host); },
-  "select": function (payload, host) { return callSession("select", payload, host); },
-  "log": function (payload, host) { return callSession("log", payload, host); },
-  "log-latest": function (payload, host) { return callSession("logLatest", payload, host); },
-  "log-detail": function (payload, host) { return callSession("logDetail", payload, host); },
+  "delete": function (payload, host) { return callSession("delete", payload, host); },
 };

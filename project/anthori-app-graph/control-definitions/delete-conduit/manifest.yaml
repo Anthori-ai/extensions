@@ -1,33 +1,30 @@
 format: 1
 id: delete-conduit
-name: Delete Conduit
+name: Delete
 description: Deletes a conduit from the current graph.
 baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Delete Conduit
+        name: Delete
         description: Delete a conduit from the current graph.
         input:
           type: object
           description: Conduit identifier to remove.
+          additionalProperties: false
           properties:
-            conduitId:
+            id:
               type: string
               description: Conduit id to delete.
           required:
-            - conduitId
+            - id
         output:
-          type: object
-          required:
-            - status
-          properties:
-            status:
-              type: string
-              description: Deletion confirmation.
+          type: void
+          description: No structured result.
 control:
   visible: true
+  libraryPath: app/project/graph/conduit
   configSchema:
     runtimeActionForward:
       type: string

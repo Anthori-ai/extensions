@@ -1,0 +1,36 @@
+format: 1
+id: openrouter-provider
+name: OpenRouter
+version: 1.0.0
+description: OpenRouter text provider using OpenRouter's OpenAI-compatible chat API.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiKey:
+      type: secretString
+      label: API Key
+      required: true
+      placeholder: OpenRouter API key
+      helpKey: provider.openrouter.config.apiKey.help
+    llmModel:
+      type: select
+      label: Model
+      placeholder: Use provider default
+      dataSource:
+        kind: providerModels
+        emptyLabel: Use provider default
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+control:
+  visible: false

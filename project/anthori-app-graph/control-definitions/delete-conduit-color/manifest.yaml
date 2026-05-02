@@ -1,0 +1,33 @@
+format: 1
+id: delete-conduit-color
+name: Delete
+description: Deletes a conduit color from the current project.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete
+        description: Delete a conduit color from the current project.
+        input:
+          type: object
+          description: Conduit color identifier to remove.
+          additionalProperties: false
+          required:
+            - id
+          propertyOrder:
+            - id
+          properties:
+            id:
+              type: string
+              description: Color id to delete.
+        output:
+          type: void
+          description: No structured result.
+control:
+  visible: true
+  libraryPath: app/project/graph/conduit/colors
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete-conduit-color
