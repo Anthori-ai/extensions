@@ -7,7 +7,7 @@ contracts:
   caller:
     contracts:
       - id: default
-        name: Read Lines Text
+        name: Text
         description: Read a line range from a text file as LLM-readable templated text. This is the default output. For large files, use Find to locate anchors when possible; otherwise first scan only a narrow or estimated range with a compact format, then read the exact target range before editing.
         input:
           description: Line read request.
@@ -89,7 +89,7 @@ contracts:
           type: string
           description: Text rendered from the `format` template. The default format includes effective `startLine`, effective `endLine`, `fileLineCount`, `fileHash`, optional `rangeKey`, and line-number-prefixed content. Empty results use `startLine:-1` and `endLine:-1`; `{rangeKey}` renders empty when no lines are returned. The `rangeKey` is an opaque base62 token and edits the entire returned range; read the exact subset you intend to modify before calling Write Lines. For extraction tasks, use a compact format to copy only the needed content, then replace only the source block with Write Lines.
       - id: json
-        name: Read Lines JSON
+        name: JSON
         description: Read a line range from a text file as structured JSON.
         input:
           description: Line read request.

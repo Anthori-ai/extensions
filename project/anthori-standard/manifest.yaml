@@ -180,7 +180,7 @@ typeDefinitions:
     description: One structured conversation message object.
   Usage:
     type: object
-    description: Optional usage details such as token counts.
+    description: Optional usage details such as token counts and timing.
     properties:
       inputTokens:
         type: number
@@ -200,4 +200,19 @@ typeDefinitions:
       totalTokens:
         type: number
         description: Total token count when available.
+      timeToFirstTokenMs:
+        type: number
+        description: Milliseconds from provider request start to first streamed output chunk when available.
+      generationDurationMs:
+        type: number
+        description: Milliseconds from first streamed output chunk to provider completion when available.
+      totalDurationMs:
+        type: number
+        description: Milliseconds from provider request start to provider completion when available.
+      outputTokensPerSecond:
+        type: number
+        description: Generated output tokens per second, computed from outputTokens and generationDurationMs when available.
+      endToEndTokensPerSecond:
+        type: number
+        description: Generated output tokens per second over the full provider request duration when available.
     additionalProperties: false

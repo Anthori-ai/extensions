@@ -6,8 +6,8 @@ baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/file
 contracts:
   caller:
     contracts:
-      - id: default
-        name: Find Text
+      - id: text
+        name: Text
         description: Find regex matches in a file or directory tree as compact text.
         input:
           type: object
@@ -45,7 +45,7 @@ contracts:
           type: string
           description: Text rendered from the `format` template. The default format returns one row per match as `path<TAB>startLine<TAB>startOffset<TAB>endOffset<TAB>text`. If Find hits the match limit, the default format includes `truncated:true`.
       - id: json
-        name: Find JSON
+        name: JSON
         description: Find regex matches in a file or directory tree as structured JSON.
         input:
           type: object

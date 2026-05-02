@@ -6,8 +6,8 @@ baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/file
 contracts:
   caller:
     contracts:
-      - id: default
-        name: List Text
+      - id: text
+        name: Text
         description: List workspace paths under a directory as compact text.
         input:
           type: object
@@ -49,7 +49,7 @@ contracts:
           type: string
           description: Text rendered from the `format` template. The default format returns one row per entry as `path<TAB>size`. If more entries are available, the default format includes `nextOffset:<offset>`.
       - id: json
-        name: List JSON
+        name: JSON
         description: List workspace paths under a directory as structured JSON.
         input:
           type: object

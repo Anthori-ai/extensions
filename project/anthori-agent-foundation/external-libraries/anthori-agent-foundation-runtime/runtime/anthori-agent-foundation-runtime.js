@@ -1964,7 +1964,7 @@ function callerContractKey(variant, index) {
   if (lifecycle) {
     return lifecycle.transport + "_" + lifecycle.phase;
   }
-  return normalizeToolName((variant && (variant.id || variant.name)) || "") || ("variant_" + String(index + 1));
+  return normalizeToolName((variant && (variant.name || variant.id)) || "") || ("variant_" + String(index + 1));
 }
 
 function callerContractLabel(variant, index) {
@@ -2556,9 +2556,9 @@ function buildLoadToolsDefinition(entries) {
     title: AGENT_TOOL_LOADER_TITLE,
     name: AGENT_TOOL_LOADER_NAME,
     description: [
-      "Load tool schemas before calling tools.",
-      "Use the loadId values below; do not call load_tools and another tool in the same response.",
-      "After this tool returns, the loaded tool schemas are available on the next provider turn.",
+      "Load tool details before calling tools.",
+      "Use the loadId values below; call only load_tools in this response.",
+      "After this tool returns, call the loaded tools on the next response.",
       "Available tools:",
       catalogText || "No unloaded tools are available.",
     ].join("\n"),
@@ -2752,15 +2752,6 @@ function applyLoadToolsToolCalls(toolCalls, currentControlId, config, host, load
 }
 
 function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
-  const agentMessage = buildAgentMessage({
-    text: response.text,
-    reasoningText: response.reasoningText,
-    parts: response.parts,
-    toolCalls: loadToolCalls,
-    usage: response.usage,
-    finishReason: response.finishReason,
-    model: response.model,
-  });
   const currentToolCalls = [];
   loadToolCalls.forEach((toolCall, index) => {
     currentToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(index + 1), {
@@ -2768,7 +2759,10 @@ function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
       status: "complete",
     }));
   });
-  agentMessage.parts = setToolCallParts(agentMessage.parts, currentToolCalls);
+  const agentMessage = {
+    role: "agent",
+    parts: setToolCallParts([], currentToolCalls),
+  };
   return [agentMessage, ...clone(loadResult.messages)];
 }
 
@@ -3190,6 +3184,62 @@ function normalizeProviderResponse(result) {
   };
 }
 
+const AGENT_PROVIDER_USAGE_TOKEN_KEYS = [
+  "inputTokens",
+  "outputTokens",
+  "reasoningTokens",
+  "cacheReadTokens",
+  "cacheWriteTokens",
+];
+
+function normalizeAgentProviderUsage(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return null;
+  }
+  const next = {};
+  for (const key of AGENT_PROVIDER_USAGE_TOKEN_KEYS) {
+    const value = Number(usage[key]);
+    if (Number.isFinite(value) && value > 0) {
+      next[key] = value;
+    }
+  }
+  const explicitTotal = Number(usage.totalTokens);
+  if (Number.isFinite(explicitTotal) && explicitTotal > 0) {
+    next.totalTokens = explicitTotal;
+  } else {
+    const input = Number(next.inputTokens);
+    const output = Number(next.outputTokens);
+    if (Number.isFinite(input) || Number.isFinite(output)) {
+      next.totalTokens = (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
+    }
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+function mergeAgentProviderUsage(base, usage) {
+  const aggregate = normalizeAgentProviderUsage(base) || {};
+  const addition = normalizeAgentProviderUsage(usage);
+  if (!addition) {
+    return Object.keys(aggregate).length > 0 ? aggregate : null;
+  }
+  for (const key of [...AGENT_PROVIDER_USAGE_TOKEN_KEYS, "totalTokens"]) {
+    const value = Number(addition[key]);
+    if (!Number.isFinite(value) || value <= 0) continue;
+    aggregate[key] = (Number(aggregate[key]) || 0) + value;
+  }
+  return Object.keys(aggregate).length > 0 ? aggregate : null;
+}
+
+function responseWithAgentProviderUsage(response, usage) {
+  const normalized = normalizeAgentProviderUsage(usage);
+  if (!normalized) {
+    return response;
+  }
+  const next = clone(response);
+  next.usage = normalized;
+  return next;
+}
+
 function buildAgentMessage(response) {
   const parts = Array.isArray(response.parts) ? clone(response.parts) : [];
   const hasReasoningPart = parts.some((part) =>
@@ -3508,6 +3558,7 @@ function normalizeAgentPullTaskState(raw) {
     ? normalizeLoadedToolIds(state.loadedToolIds)
     : null;
   state.toolNameMap = normalizeToolNameMap(state.toolNameMap);
+  state.providerUsage = normalizeAgentProviderUsage(state.providerUsage);
   if (!Array.isArray(state.transientProviderMessages)) state.transientProviderMessages = [];
   if (!Array.isArray(state.pendingEvents)) state.pendingEvents = [];
   if (!Array.isArray(state.historySeedPending)) state.historySeedPending = [];
@@ -3600,6 +3651,7 @@ function createAgentPullInitialState(currentControlId, inputMessages, config, ow
     pendingToolCalls: [],
     loadedToolIds: [],
     toolNameMap: {},
+    providerUsage: null,
     transientProviderMessages: [],
     pendingEvents: [],
     historySeedPending: clone(inputMessages),
@@ -3977,8 +4029,9 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     );
   }
   const response = normalizeProviderResponse(providerResult);
+  state.providerUsage = mergeAgentProviderUsage(state.providerUsage, response.usage);
   if (!response.toolCalls.length) {
-    const finalMessage = buildAgentMessage(response);
+    const finalMessage = buildAgentMessage(responseWithAgentProviderUsage(response, state.providerUsage));
     const outputMessage = clone(finalMessage);
     if (state.trackedToolCalls.length > 0 && state.hadAgentChunk !== true) {
       outputMessage.parts = prependToolCallParts(outputMessage.parts, state.trackedToolCalls);
@@ -4347,7 +4400,12 @@ async function stepAgentPullTask(payload, pull, currentControlId, config, speake
       continue;
     }
     if (state.round >= state.maxToolRounds) {
-      return emitAgentPullFinalMessage(taskId, state, emptyAgentMessage(), speaker, host);
+      const emptyMessage = emptyAgentMessage();
+      const normalizedUsage = normalizeAgentProviderUsage(state.providerUsage);
+      if (normalizedUsage) {
+        emptyMessage.usage = normalizedUsage;
+      }
+      return emitAgentPullFinalMessage(taskId, state, emptyMessage, speaker, host);
     }
     const pendingSignalDecision = await checkpointAgentSignals(activeControlId, config, {
       phase: "before-provider-round",
@@ -4545,6 +4603,7 @@ async function agentControl(payload, host) {
     let pendingContextMessages = clone(inputMessages);
     let loadedToolIds = [];
     let toolNameMap = {};
+    let providerUsage = null;
     let transientProviderMessages = [];
     const signalState = { pendingMessages: [] };
     // Keep this fallback aligned with the Agent manifest default so unset controls
@@ -4632,8 +4691,9 @@ async function agentControl(payload, host) {
         return speaker ? { output: cancelledOutput, metadata: { speaker: speaker } } : { output: cancelledOutput };
       }
       const response = normalizeProviderResponse(providerResult);
+      providerUsage = mergeAgentProviderUsage(providerUsage, response.usage);
       if (!response.toolCalls.length) {
-        const finalMessage = buildAgentMessage(response);
+        const finalMessage = buildAgentMessage(responseWithAgentProviderUsage(response, providerUsage));
         const outputMessage = clone(finalMessage);
         if (trackedToolCalls.length > 0 && pullOutput !== true) {
           outputMessage.parts = prependToolCallParts(outputMessage.parts, trackedToolCalls);
@@ -4720,6 +4780,10 @@ async function agentControl(payload, host) {
       }
     }
     const emptyMessage = emptyAgentMessage();
+    const normalizedUsage = normalizeAgentProviderUsage(providerUsage);
+    if (normalizedUsage) {
+      emptyMessage.usage = normalizedUsage;
+    }
     return speaker ? { output: emptyMessage, metadata: { speaker: speaker } } : { output: emptyMessage };
   } catch (error) {
     if (isAgentSignalCancelError(error) || isAgentMessageCancelError(error)) {
