@@ -32,7 +32,8 @@ contracts:
                   description: Optional byte offset to start reading from.
                 limit:
                   type: number
-                  description: Optional byte limit.
+                  default: 1048576
+                  description: Optional byte limit. Defaults to `1048576`.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded file read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
@@ -55,7 +56,8 @@ contracts:
                   description: Optional byte offset to start reading from.
                 limit:
                   type: number
-                  description: Optional byte limit.
+                  default: 1048576
+                  description: Optional byte limit. Defaults to `1048576`.
               additionalProperties: false
         output:
           type: object
@@ -67,7 +69,7 @@ contracts:
             - offset
             - limit
             - bytesRead
-            - truncated
+            - nextOffset
             - rangeKey
           required:
             - content
@@ -91,13 +93,13 @@ contracts:
               description: Starting byte offset used for this read.
             limit:
               type: number
-              description: Effective byte limit used for this read, or `-1` when reading the remainder of the file.
-            truncated:
-              type: boolean
-              description: True when the read stopped before the end of the file because of the requested limit.
+              description: Effective byte limit used for this read.
             bytesRead:
               type: number
               description: Number of file bytes returned in `content`.
+            nextOffset:
+              type: number
+              description: Byte offset to pass on the next call when more content is available. Omitted when the read reached the end of the file.
             rangeKey:
               type: string
               description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.
@@ -133,7 +135,8 @@ contracts:
                   description: Optional byte offset to start reading from.
                 limit:
                   type: number
-                  description: Optional byte limit.
+                  default: 1048576
+                  description: Optional byte limit. Defaults to `1048576`.
               additionalProperties: false
             - type: object
               required: [pull, ownerInvocationId, path, dangerous, encoding]
@@ -161,7 +164,8 @@ contracts:
                   description: Optional byte offset to start reading from.
                 limit:
                   type: number
-                  description: Optional byte limit.
+                  default: 1048576
+                  description: Optional byte limit. Defaults to `1048576`.
               additionalProperties: false
         output:
           type: object
@@ -231,7 +235,7 @@ contracts:
               additionalProperties: false
             - type: object
               required: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead]
-              propertyOrder: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead, truncated, rangeKey]
+              propertyOrder: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead, nextOffset, rangeKey]
               properties:
                 phase:
                   type: string
@@ -253,13 +257,13 @@ contracts:
                   description: Starting byte offset used for this read.
                 limit:
                   type: number
-                  description: Effective byte limit used for this read, or `-1` when reading the remainder of the file.
+                  description: Effective byte limit used for this read.
                 bytesRead:
                   type: number
                   description: Number of file bytes delivered by chunk events for the read.
-                truncated:
-                  type: boolean
-                  description: True when the read stopped before the end of the file because of the requested limit.
+                nextOffset:
+                  type: number
+                  description: Byte offset to pass on the next call when more content is available. Omitted when the read reached the end of the file.
                 rangeKey:
                   type: string
                   description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.

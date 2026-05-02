@@ -413,6 +413,10 @@ control:
       type: number
       required: false
       default: 90
+    optimize:
+      type: boolean
+      required: false
+      default: false
     contextControl:
       type: controlTarget
       runtimeOverride: false
@@ -566,6 +570,10 @@ control:
         label: Tools
         type: controlTarget[]
         helpKey: core.agent.tools.help
+      - key: optimize
+        label: Optimize
+        type: checkbox
+        helpKey: core.agent.optimize.help
       - key: maxToolRounds
         label: Max Tool Rounds
         type: number

@@ -1,21 +1,21 @@
 format: 1
 id: find
 name: Find
-description: Finds regex matches inside project workspace files and returns matching line and byte ranges. Use Find to locate marker text before Read Lines; narrow `path` first when possible, and use `filter` only for file-name globs.
+description: Finds regex matches inside project workspace files.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Find
-        description: Find regex matches in a file or directory tree. Use this to find line and byte ranges for anchors such as `<style>`, `<script>`, function names, or headings before reading or editing nearby ranges with Read, Read Lines, Write, or Write Lines. `filter` filters file names only and supports brace alternatives such as `*.{js,ts,html}`.
+        name: Find Text
+        description: Find regex matches in a file or directory tree as compact text.
         input:
           type: object
           description: Content find request.
           required:
             - path
             - pattern
-          propertyOrder: [path, pattern, filter, limit]
+          propertyOrder: [path, pattern, filter, limit, output, format]
           properties:
             path:
               type: string
@@ -25,11 +25,55 @@ contracts:
               description: Regular expression pattern to find.
             filter:
               type: string
-              description: Optional file-name glob used to filter directory entries. Matches file names only, not full relative paths. Supports common brace alternatives such as `*.{js,ts,html}`.
+              default: ""
+              description: Optional file-name glob used to filter directory entries. Matches file names only, not full relative paths. Supports brace alternatives such as `*.{js,ts,html}`.
             limit:
               type: number
               default: 100
-              description: Optional maximum number of matches to return before truncating. Defaults to 100 and may be capped by control config.
+              description: Maximum matches to return. Defaults to `100` and may be capped by control config.
+            output:
+              type: string
+              enum: [text]
+              default: text
+              description: Text output. Omit or set to `text` for the default compact result.
+            format:
+              type: string
+              default: "{path_N}\t{startLine_N}\t{startOffset_N}\t{endOffset_N}\t{text_N}\n{?truncated}truncated:{truncated}{/truncated}"
+              description: Full text template for the returned output. `{truncated}` is set to `true` when Find hits the match limit. Any template line containing a `_N` match token repeats once per match. Available row tokens are `{path_N}`, `{fileHash_N}`, `{startLine_N}`, `{endLine_N}`, `{startOffset_N}`, `{endOffset_N}`, and `{text_N}`. Available scalar tokens are `{scannedFiles}` and `{truncated}`. Wrap optional text in `{?truncated}...{/truncated}` to include it only when Find hits the match limit.
+          additionalProperties: false
+        output:
+          type: string
+          description: Text rendered from the `format` template. The default format returns one row per match as `path<TAB>startLine<TAB>startOffset<TAB>endOffset<TAB>text`. If Find hits the match limit, the default format includes `truncated:true`.
+      - id: json
+        name: Find JSON
+        description: Find regex matches in a file or directory tree as structured JSON.
+        input:
+          type: object
+          description: Content find request.
+          required:
+            - path
+            - pattern
+            - output
+          propertyOrder: [path, pattern, output, filter, limit]
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            pattern:
+              type: string
+              description: Regular expression pattern to find.
+            output:
+              type: string
+              enum: [json]
+              description: Structured JSON output. Use `json` when a structured result is required.
+            filter:
+              type: string
+              default: ""
+              description: Optional file-name glob used to filter directory entries. Matches file names only, not full relative paths. Supports brace alternatives such as `*.{js,ts,html}`.
+            limit:
+              type: number
+              default: 100
+              description: Maximum matches to return. Defaults to `100` and may be capped by control config.
           additionalProperties: false
         output:
           type: object

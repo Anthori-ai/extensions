@@ -44,21 +44,13 @@ contracts:
           type: object
           description: HTTP response payload.
           required:
-            - ok
             - status
-            - statusText
             - headers
             - body
           properties:
-            ok:
-              type: boolean
-              description: True when the status code is in the 2xx range.
             status:
               type: number
               description: HTTP status code.
-            statusText:
-              type: string
-              description: Full HTTP status text, including code and reason phrase.
             headers:
               type: object
               description: Response headers keyed by header name.
@@ -164,8 +156,8 @@ contracts:
                   additionalProperties: false
               additionalProperties: false
             - type: object
-              required: [phase, taskId, sequence, ok, status, statusText, headers]
-              propertyOrder: [phase, taskId, sequence, ok, status, statusText, headers]
+              required: [phase, taskId, sequence, status, headers]
+              propertyOrder: [phase, taskId, sequence, status, headers]
               properties:
                 phase:
                   type: string
@@ -176,15 +168,9 @@ contracts:
                 sequence:
                   type: number
                   description: Delivered event sequence for this task.
-                ok:
-                  type: boolean
-                  description: True when the status code is in the 2xx range.
                 status:
                   type: number
                   description: HTTP status code.
-                statusText:
-                  type: string
-                  description: Full HTTP status text, including code and reason phrase.
                 headers:
                   type: object
                   description: Response headers keyed by header name.
@@ -246,7 +232,7 @@ control:
           text: |
             Fetch exposes explicit `Pull Start`, `Pull Step`, and `Pull Cancel` caller contracts for visible reverse async flow.
 
-            `Pull Step` returns chunk content on `phase:"chunk"`. The terminal `phase:"end"` event carries the final HTTP response fields top-level: `ok`, `status`, `statusText`, and `headers`.
+            `Pull Step` returns chunk content on `phase:"chunk"`. The terminal `phase:"end"` event carries the final HTTP response fields top-level: `status` and `headers`.
         - title: EXAMPLES
           kind: examples
           examples:
@@ -255,9 +241,7 @@ control:
                 url: https://example.com
                 method: GET
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers:
                   Content-Type: text/html; charset=utf-8
                 body: "..."
@@ -270,9 +254,7 @@ control:
                 body:
                   hello: world
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 body: "..."
             - intent: Fetch binary content safely as base64 text.
@@ -281,9 +263,7 @@ control:
                 method: GET
                 responseType: base64
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 body: "iVBORw0KGgoAAA..."
             - intent: Fetch binary content as raw bytes.
@@ -292,8 +272,6 @@ control:
                 method: GET
                 responseType: bytes
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 body: Uint8Array(...)

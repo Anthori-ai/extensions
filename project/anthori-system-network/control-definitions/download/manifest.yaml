@@ -80,21 +80,13 @@ contracts:
             - type: object
               description: Direct download response payload.
               required:
-                - ok
                 - status
-                - statusText
                 - headers
-              propertyOrder: [ok, status, statusText, headers, content]
+              propertyOrder: [status, headers, content]
               properties:
-                ok:
-                  type: boolean
-                  description: True when the status code is in the 2xx range.
                 status:
                   type: number
                   description: HTTP status code.
-                statusText:
-                  type: string
-                  description: Full HTTP status text, including code and reason phrase.
                 headers:
                   type: object
                   description: Response headers keyed by header name.
@@ -105,22 +97,14 @@ contracts:
             - type: object
               description: File-target download response payload.
               required:
-                - ok
                 - status
-                - statusText
                 - headers
                 - bytesWritten
-              propertyOrder: [ok, status, statusText, headers, bytesWritten]
+              propertyOrder: [status, headers, bytesWritten]
               properties:
-                ok:
-                  type: boolean
-                  description: True when the status code is in the 2xx range.
                 status:
                   type: number
                   description: HTTP status code.
-                statusText:
-                  type: string
-                  description: Full HTTP status text, including code and reason phrase.
                 headers:
                   type: object
                   description: Response headers keyed by header name.
@@ -228,8 +212,8 @@ contracts:
                   additionalProperties: false
               additionalProperties: false
             - type: object
-              required: [phase, taskId, sequence, ok, status, statusText, headers]
-              propertyOrder: [phase, taskId, sequence, ok, status, statusText, headers]
+              required: [phase, taskId, sequence, status, headers]
+              propertyOrder: [phase, taskId, sequence, status, headers]
               properties:
                 phase:
                   type: string
@@ -240,15 +224,9 @@ contracts:
                 sequence:
                   type: number
                   description: Delivered event sequence for this task.
-                ok:
-                  type: boolean
-                  description: True when the status code is in the 2xx range.
                 status:
                   type: number
                   description: HTTP status code.
-                statusText:
-                  type: string
-                  description: Full HTTP status text, including code and reason phrase.
                 headers:
                   type: object
                   description: Response headers keyed by header name.
@@ -313,7 +291,7 @@ control:
           text: |
             Download exposes explicit `Pull Start`, `Pull Step`, and `Pull Cancel` caller contracts for visible reverse async transfer.
 
-            `Pull Step` returns chunk content on `phase:"chunk"`. The terminal `phase:"end"` event carries the final HTTP response fields top-level: `ok`, `status`, `statusText`, and `headers`.
+            `Pull Step` returns chunk content on `phase:"chunk"`. The terminal `phase:"end"` event carries the final HTTP response fields top-level: `status` and `headers`.
         - title: EXAMPLES
           kind: examples
           examples:
@@ -322,9 +300,7 @@ control:
                 url: https://example.com
                 method: GET
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers:
                   Content-Type: text/html; charset=utf-8
                 content: "..."
@@ -334,9 +310,7 @@ control:
                 method: GET
                 responseType: base64
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 content: "iVBORw0KGgoAAA..."
             - intent: POST to a download endpoint and receive bytes.
@@ -349,9 +323,7 @@ control:
                   hello: world
                 responseType: bytes
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 content: Uint8Array(...)
             - intent: Download directly into a new file.
@@ -361,8 +333,6 @@ control:
                 path: downloads/archive.bin
                 mode: "0644"
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 bytesWritten: 1048576

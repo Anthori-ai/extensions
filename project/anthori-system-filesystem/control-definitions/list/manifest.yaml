@@ -1,17 +1,18 @@
 format: 1
 id: list
 name: List
-description: Lists files and directories under a workspace path.
+description: Lists workspace paths under a directory.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: List
-        description: List files and directories under a workspace path.
+        name: List Text
+        description: List workspace paths under a directory as compact text.
         input:
           type: object
           description: Directory listing options.
+          propertyOrder: [path, pattern, maxDepth, offset, limit, output, format]
           required:
             - path
           properties:
@@ -20,19 +21,76 @@ contracts:
               description: Path relative to the project workspace, or an absolute path.
             pattern:
               type: string
+              default: ""
               description: Optional glob pattern to filter results, for example "*.txt".
             maxDepth:
               type: number
+              default: 1
               description: Optional recursion depth. Use `0` to recurse without a depth limit.
+            offset:
+              type: number
+              default: 0
+              description: Optional zero-based entry offset for continuing a previous limited listing.
+            limit:
+              type: number
+              default: 1000
+              description: Maximum entries to return. Defaults to `1000`.
+            output:
+              type: string
+              enum: [text]
+              default: text
+              description: Text output. Omit or set to `text` for the default compact result.
+            format:
+              type: string
+              default: "{path_N}\t{size_N}\n{?nextOffset}nextOffset:{nextOffset}{/nextOffset}"
+              description: Full text template for the returned output. `{nextOffset}` is set when more entries are available. Any template line containing `{path_N}` or `{size_N}` repeats once per listed entry. Wrap optional text in `{?nextOffset}...{/nextOffset}` to include it only when more entries are available. Directory paths end with `/`.
+          additionalProperties: false
+        output:
+          type: string
+          description: Text rendered from the `format` template. The default format returns one row per entry as `path<TAB>size`. If more entries are available, the default format includes `nextOffset:<offset>`.
+      - id: json
+        name: List JSON
+        description: List workspace paths under a directory as structured JSON.
+        input:
+          type: object
+          description: Directory listing options.
+          propertyOrder: [path, output, pattern, maxDepth, offset, limit]
+          required:
+            - path
+            - output
+          properties:
+            path:
+              type: string
+              description: Path relative to the project workspace, or an absolute path.
+            output:
+              type: string
+              enum: [json]
+              description: Structured JSON output. Use `json` when a structured result is required.
+            pattern:
+              type: string
+              default: ""
+              description: Optional glob pattern to filter results, for example "*.txt".
+            maxDepth:
+              type: number
+              default: 1
+              description: Optional recursion depth. Use `0` to recurse without a depth limit.
+            offset:
+              type: number
+              default: 0
+              description: Optional zero-based entry offset for continuing a previous limited listing.
+            limit:
+              type: number
+              default: 1000
+              description: Maximum entries to return. Defaults to `1000`.
           additionalProperties: false
         output:
           type: object
           required:
-            - files
+            - paths
           properties:
-            files:
+            paths:
               type: array
-              description: Files and directories that matched the listing.
+              description: Path entries that matched the listing.
               items:
                 type: object
                 required:
@@ -46,6 +104,9 @@ contracts:
                     type: number
                     description: Entry size in bytes.
                 additionalProperties: false
+            nextOffset:
+              type: number
+              description: Offset to pass on the next call when more entries are available. Omitted when the listing is complete.
           additionalProperties: false
 control:
   visible: true

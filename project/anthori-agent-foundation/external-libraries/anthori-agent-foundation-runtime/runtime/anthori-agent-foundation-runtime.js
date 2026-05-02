@@ -1,5 +1,9 @@
 "use strict";
 
+const AGENT_TOOL_LOADER_ID = "anthori.agent.tools.load";
+const AGENT_TOOL_LOADER_NAME = "load_tools";
+const AGENT_TOOL_LOADER_TITLE = "Load Tools";
+
 function normalizeString(value) {
   return String(value == null ? "" : value).trim();
 }
@@ -969,13 +973,12 @@ function normalizeToolName(value) {
   return text.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
-function buildToolTransportName(controlId, title, contractId) {
+function buildToolTransportName(_controlId, title, contractId) {
   const label = normalizeToolName(title) || "tool";
   const variant = normalizeToolName(contractId);
-  const id = normalizeToolName(controlId) || "control";
   // Keep provider-visible tool names inside OpenAI-compatible function-name
   // constraints: underscores/dashes only and a hard max length of 64 chars.
-  const suffix = variant ? "__" + variant + "__" + id : "__" + id;
+  const suffix = variant ? "__" + variant : "";
   const maxLength = 64;
   let prefix = label;
   if (prefix.length + suffix.length > maxLength) {
@@ -2311,61 +2314,333 @@ function resolveToolDefinition(controlId, host) {
   return toolDefinitionsFromInfo(info);
 }
 
-function resolveBoundToolDefinitions(currentControlId, config, host) {
+function compactControlDescription(info) {
+  const control = info && info.control && typeof info.control === "object" && !Array.isArray(info.control)
+    ? info.control
+    : null;
+  const description = normalizeString((info && info.description) || (control && control.description));
+  return compactToolDescription(description || (info && info.name));
+}
+
+function toolGroupFromInfo(info, overrides = {}) {
+  return {
+    groupId: normalizeString(info && info.id),
+    name: normalizeString(info && info.name),
+    title: normalizeString((info && info.title) || (info && info.name)),
+    description: compactControlDescription(info),
+    definitions: toolDefinitionsFromInfo(info, overrides),
+  };
+}
+
+function resolveBoundToolGroups(currentControlId, config, host) {
   if (normalizeString(currentControlId)) {
     const currentControlInfo = graphControlInfo(currentControlId, host);
     const targets = bindingFieldTargets(currentControlInfo, "tools");
     if (targets.length > 0) {
-      const resolved = [];
+      const groups = [];
       for (const entry of targets) {
         const info = canonicalToolInfo(entry);
         const invokeControlId = optionalControlString(entry, "invokeControlId") || info.id;
         const invokePath = optionalStringArray(entry, "invokePath");
         const supportsPulling = controlSupportsPulling(invokeControlId, host);
-        for (const definition of toolDefinitionsFromInfo(info, {
+        const group = toolGroupFromInfo(info, {
           invokeControlId: invokeControlId,
           invokePath: invokePath,
-        })) {
+        });
+        for (const definition of group.definitions) {
           // Purposeful: tool pullability must reflect the actual control Agent will
           // invoke, not the flattened target's contracts. Passthrough exposes a
           // downstream pullable tool but is not itself pullable, so Agent must
           // fall back to a direct invoke through that boundary instead of
           // sending pull start/step envelopes the wrapper cannot accept.
           definition.supportsPulling = supportsPulling;
-          resolved.push(definition);
         }
+        groups.push(group);
       }
-      return resolved;
+      return groups;
     }
   }
-  const resolved = [];
+  const groups = [];
   for (const controlId of configControlTargetList(config, "tools")) {
-    for (const definition of resolveToolDefinition(controlId, host)) {
+    const info = canonicalToolInfo(graphControlInfo(controlId, host));
+    groups.push(toolGroupFromInfo(info));
+  }
+  return groups;
+}
+
+function resolveBoundToolDefinitions(currentControlId, config, host) {
+  const resolved = [];
+  for (const group of resolveBoundToolGroups(currentControlId, config, host)) {
+    for (const definition of Array.isArray(group.definitions) ? group.definitions : []) {
       resolved.push(definition);
     }
   }
   return resolved;
 }
 
-function buildToolDefinitions(currentControlId, config, host) {
-  const tools = [];
-  for (const def of resolveBoundToolDefinitions(currentControlId, config, host)) {
-    tools.push({
-      id: def.id,
-      title: def.title,
-      name: def.name,
-      description: def.description,
-      parameters: def.parameters,
-    });
-  }
-  return tools;
+function toolDefinitionStableId(definition) {
+  return normalizeString(definition && definition.id) || normalizeString(definition && definition.name);
 }
 
-function toolLookup(currentControlId, config, host) {
+function providerVisibleToolDefinition(definition, externalName) {
+  const name = normalizeString(externalName) || normalizeString(definition && definition.name);
+  return {
+    id: name || definition.id,
+    title: definition.title,
+    name: name,
+    description: definition.description,
+    parameters: definition.parameters,
+  };
+}
+
+function agentOptimizeEnabled(config) {
+  return configValue(config, "optimize") === true;
+}
+
+function agentLazyToolLoadingEnabled(config) {
+  if (config && typeof config === "object" && Object.prototype.hasOwnProperty.call(config, "optimize")) {
+    return agentOptimizeEnabled(config);
+  }
+  if (config && typeof config === "object" && Object.prototype.hasOwnProperty.call(config, "lazyToolLoading")) {
+    return configValue(config, "lazyToolLoading") !== false;
+  }
+  return agentOptimizeEnabled(config);
+}
+
+function normalizeLoadedToolIds(value) {
+  const ids = [];
+  const seen = {};
+  for (const entry of Array.isArray(value) ? value : []) {
+    const id = normalizeString(typeof entry === "string" ? entry : entry && (entry.id || entry.toolId));
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    ids.push(id);
+  }
+  return ids;
+}
+
+function loadedToolIdMap(value) {
   const map = {};
-  for (const def of resolveBoundToolDefinitions(currentControlId, config, host)) {
-    map[def.name] = def;
-    map[def.id] = def;
+  for (const id of normalizeLoadedToolIds(value)) {
+    map[id] = true;
+  }
+  return map;
+}
+
+function normalizeToolNameMap(value) {
+  const map = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return map;
+  for (const [name, toolId] of Object.entries(value)) {
+    const externalName = normalizeString(name);
+    const id = normalizeString(toolId);
+    if (!externalName || !id) continue;
+    map[externalName] = id;
+  }
+  return map;
+}
+
+function agentToolLoadId(index) {
+  return "t" + String(index + 1);
+}
+
+function compactToolDescription(value) {
+  const text = normalizeString(value).replace(/\s+/g, " ");
+  if (text.length <= 240) return text;
+  return text.slice(0, 237) + "...";
+}
+
+function toolNameWithOrdinal(baseName, ordinal) {
+  const suffix = "__" + String(Math.max(2, finiteNumber(ordinal, 2)));
+  const maxLength = 64;
+  let prefix = normalizeString(baseName) || "tool";
+  if (prefix.length + suffix.length > maxLength) {
+    prefix = prefix.slice(0, Math.max(1, maxLength - suffix.length)).replace(/_+$/g, "");
+  }
+  if (!prefix) prefix = "tool";
+  return prefix + suffix;
+}
+
+function assignExternalToolNames(entries) {
+  const counts = {};
+  const used = {};
+  const assigned = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const baseName = normalizeString(entry && entry.name) || "tool";
+    let ordinal = finiteNumber(counts[baseName], 0) + 1;
+    counts[baseName] = ordinal;
+    let externalName = baseName;
+    if (ordinal > 1 || used[externalName]) {
+      do {
+        externalName = toolNameWithOrdinal(baseName, ordinal);
+        ordinal += 1;
+      } while (used[externalName]);
+      counts[baseName] = ordinal - 1;
+    }
+    used[externalName] = true;
+    assigned.push({
+      ...entry,
+      externalName,
+    });
+  }
+  return assigned;
+}
+
+function buildAgentToolCatalog(currentControlId, config, host) {
+  const groups = resolveBoundToolGroups(currentControlId, config, host);
+  const groupEntries = [];
+  const definitionEntries = [];
+  const seenGroupIds = {};
+  for (let index = 0; index < groups.length; index += 1) {
+    const group = groups[index];
+    const baseGroupId = normalizeString(group && group.groupId) || "tool-group-" + String(index + 1);
+    const seenCount = finiteNumber(seenGroupIds[baseGroupId], 0) + 1;
+    seenGroupIds[baseGroupId] = seenCount;
+    const groupId = seenCount > 1 ? baseGroupId + "#" + String(seenCount) : baseGroupId;
+    const loadId = agentToolLoadId(groupEntries.length);
+    const groupEntry = {
+      loadId,
+      groupId,
+      name: normalizeToolName(group && group.name) || normalizeToolName(group && group.title) || "tool",
+      title: normalizeString((group && group.title) || (group && group.name)),
+      description: compactToolDescription(group && group.description),
+      definitionEntries: [],
+    };
+    groupEntries.push(groupEntry);
+    for (const definition of Array.isArray(group && group.definitions) ? group.definitions : []) {
+      const toolId = toolDefinitionStableId(definition);
+      if (!toolId) continue;
+      definitionEntries.push({
+        groupId,
+        toolId,
+        name: normalizeString(definition.name),
+        title: normalizeString(definition.title),
+        definition,
+      });
+    }
+  }
+  const entries = assignExternalToolNames(groupEntries);
+  const byGroupId = {};
+  for (const entry of entries) {
+    byGroupId[entry.groupId] = entry;
+  }
+  const assignedDefinitions = assignExternalToolNames(definitionEntries);
+  for (const entry of assignedDefinitions) {
+    const group = byGroupId[entry.groupId];
+    if (group) group.definitionEntries.push(entry);
+  }
+  const byLoadId = {};
+  const byToolId = {};
+  for (const entry of entries) {
+    byLoadId[entry.loadId] = entry;
+  }
+  for (const entry of assignedDefinitions) {
+    byToolId[entry.toolId] = entry;
+  }
+  return { entries, definitionEntries: assignedDefinitions, byLoadId, byToolId };
+}
+
+function buildLoadToolsCatalogText(entries) {
+  const lines = [];
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const label = entry.externalName || entry.name || entry.title || entry.toolId;
+    const description = entry.description ? " - " + entry.description : "";
+    lines.push("- " + entry.loadId + ": " + label + description);
+  }
+  return lines.join("\n");
+}
+
+function buildLoadToolsDefinition(entries) {
+  const catalogText = buildLoadToolsCatalogText(entries);
+  return {
+    id: AGENT_TOOL_LOADER_ID,
+    title: AGENT_TOOL_LOADER_TITLE,
+    name: AGENT_TOOL_LOADER_NAME,
+    description: [
+      "Load tool schemas before calling tools.",
+      "Use the loadId values below; do not call load_tools and another tool in the same response.",
+      "After this tool returns, the loaded tool schemas are available on the next provider turn.",
+      "Available tools:",
+      catalogText || "No unloaded tools are available.",
+    ].join("\n"),
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["ids"],
+      properties: {
+        ids: {
+          type: "array",
+          minItems: 1,
+          items: { type: "string" },
+          description: "loadId values from the available tool list.",
+        },
+      },
+    },
+  };
+}
+
+function buildAgentToolRequest(currentControlId, config, host, loadedToolIds) {
+  const catalog = buildAgentToolCatalog(currentControlId, config, host);
+  const toolNameMap = {};
+  if (catalog.entries.length === 0) {
+    return { tools: [], toolNameMap };
+  }
+  if (!agentLazyToolLoadingEnabled(config)) {
+    return {
+      tools: catalog.definitionEntries.map((entry) => {
+        toolNameMap[entry.externalName] = entry.toolId;
+        return providerVisibleToolDefinition(entry.definition, entry.externalName);
+      }),
+      toolNameMap,
+    };
+  }
+  const loaded = loadedToolIdMap(loadedToolIds);
+  const tools = [];
+  const unloaded = [];
+  for (const entry of catalog.entries) {
+    if (loaded[entry.groupId]) {
+      for (const definitionEntry of Array.isArray(entry.definitionEntries) ? entry.definitionEntries : []) {
+        toolNameMap[definitionEntry.externalName] = definitionEntry.toolId;
+        tools.push(providerVisibleToolDefinition(definitionEntry.definition, definitionEntry.externalName));
+      }
+    } else {
+      unloaded.push(entry);
+    }
+  }
+  if (unloaded.length > 0) {
+    tools.unshift(buildLoadToolsDefinition(unloaded));
+  }
+  return { tools, toolNameMap };
+}
+
+function buildToolDefinitions(currentControlId, config, host, loadedToolIds) {
+  return buildAgentToolRequest(currentControlId, config, host, loadedToolIds).tools;
+}
+
+function toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap) {
+  const map = {};
+  const byToolId = {};
+  if (loadedToolIds != null && agentLazyToolLoadingEnabled(config)) {
+    const catalog = buildAgentToolCatalog(currentControlId, config, host);
+    const loaded = loadedToolIdMap(loadedToolIds);
+    for (const entry of catalog.definitionEntries) {
+      if (!loaded[entry.groupId]) continue;
+      byToolId[entry.toolId] = entry.definition;
+      map[entry.definition.name] = entry.definition;
+      map[entry.definition.id] = entry.definition;
+    }
+  } else {
+    for (const def of resolveBoundToolDefinitions(currentControlId, config, host)) {
+      const toolId = toolDefinitionStableId(def);
+      byToolId[toolId] = def;
+      map[def.name] = def;
+      map[def.id] = def;
+    }
+  }
+  const externalMap = normalizeToolNameMap(toolNameMap);
+  for (const [externalName, toolId] of Object.entries(externalMap)) {
+    if (byToolId[toolId]) {
+      map[externalName] = byToolId[toolId];
+    }
   }
   return map;
 }
@@ -2397,6 +2672,104 @@ function toolCallArguments(toolCall) {
 function toolCallID(toolCall) {
   if (!toolCall || typeof toolCall !== "object") return "";
   return normalizeString(toolCall.id || toolCall.ID || "");
+}
+
+function isLoadToolsToolCall(toolCall) {
+  return toolCallName(toolCall) === AGENT_TOOL_LOADER_NAME;
+}
+
+function loadToolIdsFromToolCall(toolCall) {
+  const args = normalizeToolArguments(toolCallArguments(toolCall)) || {};
+  const rawIds = Object.prototype.hasOwnProperty.call(args, "ids")
+    ? args.ids
+    : Object.prototype.hasOwnProperty.call(args, "loadIds")
+      ? args.loadIds
+      : Object.prototype.hasOwnProperty.call(args, "loadId")
+        ? args.loadId
+        : args.id;
+  const source = Array.isArray(rawIds) ? rawIds : [rawIds];
+  const ids = [];
+  const seen = {};
+  for (const entry of source) {
+    const id = normalizeString(entry);
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    ids.push(id);
+  }
+  return ids;
+}
+
+function buildLoadToolsResultMessage(toolCall, loadedEntries, unknownIds) {
+  const output = {
+    version: 1,
+    message: loadedEntries.length > 0
+      ? "Tool details loaded. Call the loaded tools directly on the next turn."
+      : "No tool details were loaded.",
+    loaded: loadedEntries.map((entry) => ({
+      loadId: entry.loadId,
+      name: entry.externalName || entry.name,
+      title: entry.title,
+    })),
+  };
+  if (unknownIds.length > 0) {
+    output.unknownIds = unknownIds.slice();
+  }
+  return {
+    role: "tool",
+    toolCallId: toolCallID(toolCall),
+    name: AGENT_TOOL_LOADER_NAME,
+    parts: [{ kind: "text", text: JSON.stringify(output) }],
+  };
+}
+
+function applyLoadToolsToolCalls(toolCalls, currentControlId, config, host, loadedToolIds) {
+  const catalog = buildAgentToolCatalog(currentControlId, config, host);
+  const loaded = normalizeLoadedToolIds(loadedToolIds);
+  const loadedMap = loadedToolIdMap(loaded);
+  const messages = [];
+  for (const toolCall of Array.isArray(toolCalls) ? toolCalls : []) {
+    const ids = loadToolIdsFromToolCall(toolCall);
+    const loadedEntries = [];
+    const unknownIds = [];
+    for (const loadId of ids) {
+      const entry = catalog.byLoadId[loadId];
+      if (!entry) {
+        unknownIds.push(loadId);
+        continue;
+      }
+      if (!loadedMap[entry.groupId]) {
+        loadedMap[entry.groupId] = true;
+        loaded.push(entry.groupId);
+      }
+      loadedEntries.push(entry);
+    }
+    messages.push(buildLoadToolsResultMessage(toolCall, loadedEntries, unknownIds));
+  }
+  return {
+    loadedToolIds: loaded,
+    messages,
+  };
+}
+
+function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
+  const agentMessage = buildAgentMessage({
+    text: response.text,
+    reasoningText: response.reasoningText,
+    parts: response.parts,
+    toolCalls: loadToolCalls,
+    usage: response.usage,
+    finishReason: response.finishReason,
+    model: response.model,
+  });
+  const currentToolCalls = [];
+  loadToolCalls.forEach((toolCall, index) => {
+    currentToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(index + 1), {
+      title: AGENT_TOOL_LOADER_TITLE,
+      status: "complete",
+    }));
+  });
+  agentMessage.parts = setToolCallParts(agentMessage.parts, currentToolCalls);
+  return [agentMessage, ...clone(loadResult.messages)];
 }
 
 function isBundleToolDefinition(definition) {
@@ -2677,10 +3050,10 @@ function applyToolLiteralArguments(args, definition) {
   return next;
 }
 
-async function executeToolCall(toolCall, currentControlId, config, host, signalState, round) {
+async function executeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap) {
   const toolName = toolCallName(toolCall);
   if (!toolName) throw new Error("tool call name is required");
-  const definition = toolLookup(currentControlId, config, host)[toolName];
+  const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap)[toolName];
   if (!definition) throw new Error("tool not found: " + toolName);
   const args = applyToolRuntimeArguments(
     applyToolLiteralArguments(normalizeToolArguments(toolCallArguments(toolCall)), definition),
@@ -3131,6 +3504,11 @@ function normalizeAgentPullTaskState(raw) {
   if (!Array.isArray(state.trackedToolCalls)) state.trackedToolCalls = [];
   if (!Array.isArray(state.currentToolCalls)) state.currentToolCalls = [];
   if (!Array.isArray(state.pendingToolCalls)) state.pendingToolCalls = [];
+  state.loadedToolIds = Array.isArray(state.loadedToolIds)
+    ? normalizeLoadedToolIds(state.loadedToolIds)
+    : null;
+  state.toolNameMap = normalizeToolNameMap(state.toolNameMap);
+  if (!Array.isArray(state.transientProviderMessages)) state.transientProviderMessages = [];
   if (!Array.isArray(state.pendingEvents)) state.pendingEvents = [];
   if (!Array.isArray(state.historySeedPending)) state.historySeedPending = [];
   if (!state.signalState || typeof state.signalState !== "object" || Array.isArray(state.signalState)) {
@@ -3220,6 +3598,9 @@ function createAgentPullInitialState(currentControlId, inputMessages, config, ow
     trackedToolCalls: [],
     currentToolCalls: [],
     pendingToolCalls: [],
+    loadedToolIds: [],
+    toolNameMap: {},
+    transientProviderMessages: [],
     pendingEvents: [],
     historySeedPending: clone(inputMessages),
     signalState: { pendingMessages: [] },
@@ -3482,8 +3863,17 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
     providerContext,
     host,
   );
-  const providerConversation = withSystemPrompt(preparedMessages, configString(config, "systemPrompt"));
-  const toolDefinitions = buildToolDefinitions(currentControlId, config, host);
+  const transientMessages = Array.isArray(state.transientProviderMessages)
+    ? clone(state.transientProviderMessages)
+    : [];
+  state.transientProviderMessages = [];
+  const providerMessages = transientMessages.length > 0
+    ? [...preparedMessages, ...transientMessages]
+    : preparedMessages;
+  const providerConversation = withSystemPrompt(providerMessages, configString(config, "systemPrompt"));
+  const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds);
+  state.toolNameMap = toolRequest.toolNameMap;
+  const toolDefinitions = toolRequest.tools;
   validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
   return {
     request: {
@@ -3625,10 +4015,26 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     return emitAgentPullFinalMessage(taskId, state, outputMessage, speaker, host);
   }
 
+  const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
+  if (loadToolCalls.length > 0) {
+    const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, state.loadedToolIds);
+    state.loadedToolIds = loadResult.loadedToolIds;
+    state.transientProviderMessages = [
+      ...(Array.isArray(state.transientProviderMessages) ? state.transientProviderMessages : []),
+      ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
+    ];
+    state.pendingToolCalls = [];
+    state.active = null;
+    state.toolAgentIndex = -1;
+    state.currentToolCalls = [];
+    state.round += 1;
+    return storeEmptyAgentPullStep(taskId, state, host);
+  }
+
   const agentMessage = buildAgentMessage(response);
   let currentToolCalls = [];
   response.toolCalls.forEach((toolCall, index) => {
-    const definition = toolLookup(currentControlId, config, host)[toolCallName(toolCall)];
+    const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap)[toolCallName(toolCall)];
     const trackedToolCall = normalizeTrackedToolCall(toolCall, "tool-call-" + (state.round + 1) + "-" + (index + 1), {
       title: trackedToolCallTitle(definition, toolCall, host),
       status: "requested",
@@ -3758,13 +4164,13 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
   if (!toolName) {
     return emitAgentPullResult(taskId, state, buildAgentPullTerminalEvent("error", { reason: "tool call name is required" }), host);
   }
-  const definition = toolLookup(currentControlId, config, host)[toolName];
+  const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap)[toolName];
   if (!definition) {
     return emitAgentPullResult(taskId, state, buildAgentPullTerminalEvent("error", { reason: "tool not found: " + toolName }), host);
   }
   if (!state.active) {
     if (!toolUsesInternalPullDriver(definition)) {
-      const executed = await executeToolCall(toolCall, currentControlId, config, host, state.signalState, state.round);
+      const executed = await executeToolCall(toolCall, currentControlId, config, host, state.signalState, state.round, state.loadedToolIds, state.toolNameMap);
       const statusMessage = advanceAgentPullToolResult(state, executed, config, host);
       const chunkEvent = buildAgentPullChunkEvent(
         state,
@@ -4137,6 +4543,9 @@ async function agentControl(payload, host) {
     appendHistoryMessages(inputMessages, config, host);
     let trackedToolCalls = [];
     let pendingContextMessages = clone(inputMessages);
+    let loadedToolIds = [];
+    let toolNameMap = {};
+    let transientProviderMessages = [];
     const signalState = { pendingMessages: [] };
     // Keep this fallback aligned with the Agent manifest default so unset controls
     // behave the same whether the value comes from config or runtime fallback.
@@ -4172,8 +4581,14 @@ async function agentControl(payload, host) {
         providerContext,
         host,
       );
-      const providerConversation = withSystemPrompt(preparedMessages, configString(config, "systemPrompt"));
-      const toolDefinitions = buildToolDefinitions(currentControlId, config, host);
+      const providerMessages = transientProviderMessages.length > 0
+        ? [...preparedMessages, ...transientProviderMessages]
+        : preparedMessages;
+      transientProviderMessages = [];
+      const providerConversation = withSystemPrompt(providerMessages, configString(config, "systemPrompt"));
+      const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds);
+      toolNameMap = toolRequest.toolNameMap;
+      const toolDefinitions = toolRequest.tools;
       validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
       let providerCall;
       const emitPulledAgentChunk = pullOutput
@@ -4239,10 +4654,21 @@ async function agentControl(payload, host) {
         }
         return speaker ? { output: outputMessage, metadata: { speaker: speaker } } : { output: outputMessage };
       }
+      const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
+      if (loadToolCalls.length > 0) {
+        const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, loadedToolIds);
+        loadedToolIds = loadResult.loadedToolIds;
+        transientProviderMessages = [
+          ...transientProviderMessages,
+          ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
+        ];
+        trackedToolCalls = [];
+        continue agent_round;
+      }
       const agentMessage = buildAgentMessage(response);
       let currentToolCalls = [];
       response.toolCalls.forEach((toolCall, index) => {
-        const definition = toolLookup(currentControlId, config, host)[toolCallName(toolCall)];
+        const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap)[toolCallName(toolCall)];
         const trackedToolCall = normalizeTrackedToolCall(toolCall, "tool-call-" + (round + 1) + "-" + (index + 1), {
           title: trackedToolCallTitle(definition, toolCall, host),
           status: "requested",
@@ -4260,7 +4686,7 @@ async function agentControl(payload, host) {
       for (const toolCall of response.toolCalls) {
         let executed;
         try {
-          executed = await executeToolCall(toolCall, currentControlId, config, host, signalState, round);
+          executed = await executeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap);
         } catch (error) {
           if (isAgentSignalInterruptError(error)) {
             const injectedMessages = drainAgentSignalMessages(signalState);

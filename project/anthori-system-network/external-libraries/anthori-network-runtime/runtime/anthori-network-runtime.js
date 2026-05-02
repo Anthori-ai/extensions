@@ -200,16 +200,28 @@ function normalizeFetchResponse(response) {
   return response && typeof response === "object" ? clone(response) : {};
 }
 
+function buildFetchOutput(response) {
+  const normalized = normalizeFetchResponse(response);
+  const output = {
+    status: normalized.status,
+    headers: clone(normalized.headers || {}),
+  };
+  if (Object.prototype.hasOwnProperty.call(normalized, "body")) {
+    output.body = clone(normalized.body);
+  }
+  return output;
+}
+
 function buildTransferOutput(response) {
   const normalized = normalizeFetchResponse(response);
   const output = {
-    ok: !!normalized.ok,
     status: normalized.status,
-    statusText: normalized.statusText,
     headers: clone(normalized.headers || {}),
   };
   if (Object.prototype.hasOwnProperty.call(normalized, "body")) {
     output.content = clone(normalized.body);
+  } else if (Object.prototype.hasOwnProperty.call(normalized, "content")) {
+    output.content = clone(normalized.content);
   }
   return output;
 }
@@ -223,6 +235,10 @@ function normalizeTransferPullOutput(output) {
   if (phase !== "end" && phase !== "error" && phase !== "cancel") {
     return next;
   }
+  if (phase === "end") {
+    delete next.ok;
+    delete next.statusText;
+  }
   if (Object.prototype.hasOwnProperty.call(next, "content")) {
     if (next.content && typeof next.content === "object" && !Array.isArray(next.content)) {
       if (phase === "end") {
@@ -231,17 +247,11 @@ function normalizeTransferPullOutput(output) {
         delete terminal.body;
         delete terminal.contentEncoding;
         delete terminal.bodyEncoding;
-        if (Object.prototype.hasOwnProperty.call(terminal, "ok")) {
-          next.ok = !!terminal.ok;
-          delete terminal.ok;
-        }
+        delete terminal.ok;
+        delete terminal.statusText;
         if (Object.prototype.hasOwnProperty.call(terminal, "status")) {
           next.status = terminal.status;
           delete terminal.status;
-        }
-        if (Object.prototype.hasOwnProperty.call(terminal, "statusText")) {
-          next.statusText = terminal.statusText;
-          delete terminal.statusText;
         }
         if (Object.prototype.hasOwnProperty.call(terminal, "headers")) {
           next.headers = clone(terminal.headers || {});
@@ -549,7 +559,7 @@ function runFetch(payload, host) {
   const request = normalizeFetchRequest(payload);
   const response = host.http.fetch(request);
   return {
-    output: normalizeFetchResponse(response),
+    output: buildFetchOutput(response),
   };
 }
 
@@ -635,7 +645,7 @@ function runUpload(payload, host) {
       taskId: push.taskId,
     });
     const output = finished && typeof finished === "object" && finished.output && typeof finished.output === "object"
-      ? clone(finished.output)
+      ? buildTransferOutput(finished.output)
       : {};
     output.taskId = push.taskId;
     return {

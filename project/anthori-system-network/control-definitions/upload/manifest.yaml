@@ -97,20 +97,12 @@ contracts:
           type: object
           description: HTTP upload response payload.
           required:
-            - ok
             - status
-            - statusText
             - headers
           properties:
-            ok:
-              type: boolean
-              description: True when the status code is in the 2xx range.
             status:
               type: number
               description: HTTP status code.
-            statusText:
-              type: string
-              description: Full HTTP status text, including code and reason phrase.
             headers:
               type: object
               description: Response headers keyed by header name.
@@ -218,23 +210,15 @@ contracts:
           type: object
           required:
             - taskId
-            - ok
             - status
-            - statusText
             - headers
           properties:
             taskId:
               type: string
               description: Completed upload push task id.
-            ok:
-              type: boolean
-              description: True when the status code is in the 2xx range.
             status:
               type: number
               description: HTTP status code.
-            statusText:
-              type: string
-              description: Full HTTP status text, including code and reason phrase.
             headers:
               type: object
               description: Response headers keyed by header name.
@@ -298,9 +282,7 @@ control:
                 encoding: utf8
                 content: '{"hello":"world"}'
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
             - intent: Upload file content in one shot.
               input:
@@ -309,9 +291,7 @@ control:
                 encoding: bytes
                 path: files/archive.bin
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 content: "..."
             - intent: Upload raw bytes.
@@ -322,8 +302,6 @@ control:
                 content: Uint8Array(...)
                 responseType: bytes
               output:
-                ok: true
                 status: 200
-                statusText: 200 OK
                 headers: {}
                 content: Uint8Array(...)
