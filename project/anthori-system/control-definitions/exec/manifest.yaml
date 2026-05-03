@@ -1,14 +1,14 @@
 format: 1
 id: exec
 name: Exec
-description: Execute a system command and return stdout, stderr, and exit status.
+description: Executes a system command.
 baseControlRef: controls/1/extensions/anthori.system/definitions/system-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Exec
-        description: Run a system command and return its captured output and exit status.
+        description: Executes a system command.
         input:
           type: object
           description: Command execution request. Prefer argv with `command` plus `args`; when `args` is omitted, shell-style command strings are accepted for compatibility.
@@ -59,7 +59,7 @@ contracts:
       - id: start
         toolVisible: false
         name: Pull Start
-        description: Start a background command execution owned by the supplied invocation and return a task handle.
+        description: Starts a background command.
         input:
           type: object
           required: [pull, ownerInvocationId, command]
@@ -98,7 +98,7 @@ contracts:
       - id: pull
         toolVisible: false
         name: Pull Step
-        description: Read the next available exec event from a running pullable task.
+        description: Reads the next command event.
         input:
           type: object
           required: [pull, taskId]
@@ -207,7 +207,7 @@ contracts:
       - id: cancel
         toolVisible: false
         name: Pull Cancel
-        description: Cancel a running pullable exec task.
+        description: Cancels a background command.
         input:
           type: object
           required: [pull, taskId]

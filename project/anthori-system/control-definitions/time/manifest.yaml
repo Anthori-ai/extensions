@@ -1,14 +1,14 @@
 format: 1
 id: time
 name: Time
-description: Return the current time as epoch milliseconds, epoch seconds, and ISO 8601 UTC.
+description: Get the current time.
 baseControlRef: controls/1/extensions/anthori.system/definitions/system-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Time
-        description: Return the current time as Unix milliseconds, seconds, and ISO 8601 UTC.
+        description: Returns the current time.
         input:
           type: void
           description: Use no input.

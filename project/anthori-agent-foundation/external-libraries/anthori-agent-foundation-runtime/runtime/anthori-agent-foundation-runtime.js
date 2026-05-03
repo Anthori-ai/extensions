@@ -2,7 +2,7 @@
 
 const AGENT_TOOL_LOADER_ID = "anthori.agent.tools.load";
 const AGENT_TOOL_LOADER_NAME = "load_tools";
-const AGENT_TOOL_LOADER_TITLE = "Load Tools";
+const AGENT_TOOL_LOADER_TITLE = "Agent: Load Tools";
 
 function normalizeString(value) {
   return String(value == null ? "" : value).trim();
@@ -1959,16 +1959,42 @@ function callerContractVariants(contracts) {
   return resolved;
 }
 
+function authoredCallerContractVariants(contracts) {
+  if (!contracts || typeof contracts !== "object" || Array.isArray(contracts)) return [];
+  const caller = contracts.caller;
+  if (!caller || typeof caller !== "object" || Array.isArray(caller)) return [];
+  return Array.isArray(caller.contracts)
+    ? caller.contracts.filter((variant) => variant && typeof variant === "object" && !Array.isArray(variant))
+    : [];
+}
+
+function callerContractsNeedVariantLabel(contracts, providerVisibleVariants) {
+  if (Array.isArray(providerVisibleVariants) && providerVisibleVariants.length > 1) return true;
+  let authoredNonLifecycleCount = 0;
+  for (const variant of authoredCallerContractVariants(contracts)) {
+    if (callerContractLifecycleInfo(variant)) continue;
+    authoredNonLifecycleCount += 1;
+    if (authoredNonLifecycleCount > 1) return true;
+  }
+  return false;
+}
+
 function callerContractKey(variant, index) {
   const lifecycle = callerContractLifecycleInfo(variant);
   if (lifecycle) {
     return lifecycle.transport + "_" + lifecycle.phase;
   }
-  return normalizeToolName((variant && (variant.name || variant.id)) || "") || ("variant_" + String(index + 1));
+  const key = normalizeToolName((variant && (variant.name || variant.id)) || "");
+  if (key === "default") return "";
+  return key || ("variant_" + String(index + 1));
 }
 
-function callerContractLabel(variant, index) {
-  return normalizeString(variant && (variant.name || variant.id)) || ("Variant " + String(index + 1));
+function callerContractLabel(info, variant, index) {
+  const label = normalizeString(variant && (variant.name || variant.id));
+  if (normalizeToolName(label) === "default") {
+    return normalizeString(info && info.name) || normalizeString(info && info.id) || ("Variant " + String(index + 1));
+  }
+  return label || ("Variant " + String(index + 1));
 }
 
 function callerContractOutputSummary(variant) {
@@ -2121,6 +2147,7 @@ function providerVisibleInputAlternatives(schema) {
   }
   const withKeys = [];
   const seenKeys = {};
+  const seenPropertyDescriptions = {};
   for (let index = 0; index < alternatives.length; index += 1) {
     const alternative = alternatives[index];
     const orderedKeys = orderedSchemaPropertyNames(alternative);
@@ -2158,9 +2185,66 @@ function providerVisibleInputAlternatives(schema) {
     } else {
       seenKeys[key] = 1;
     }
-    withKeys.push({ key: key, schema: alternative });
+    withKeys.push({ key: key, schema: stripRepeatedAlternativePropertyDescriptions(alternative, propertyCounts, seenPropertyDescriptions) });
   }
   return withKeys;
+}
+
+function stripRepeatedAlternativePropertyDescriptions(schema, propertyCounts, seenPropertyDescriptions) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
+  const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
+    ? schema.properties
+    : null;
+  if (!properties || !propertyCounts || typeof propertyCounts !== "object" || Array.isArray(propertyCounts)) {
+    return schema;
+  }
+  const next = clone(schema);
+  next.properties = clone(properties);
+  for (const [key, value] of Object.entries(next.properties)) {
+    if (finiteNumber(propertyCounts[key], 0) <= 1) continue;
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const description = normalizeString(value.description);
+    if (!description) continue;
+    const signature = key + "\u0000" + description;
+    if (!seenPropertyDescriptions || typeof seenPropertyDescriptions !== "object" || Array.isArray(seenPropertyDescriptions)) {
+      seenPropertyDescriptions = {};
+    }
+    if (!seenPropertyDescriptions[signature]) {
+      seenPropertyDescriptions[signature] = true;
+      continue;
+    }
+    const property = clone(value);
+    delete property.description;
+    next.properties[key] = property;
+  }
+  return next;
+}
+
+function stripRepeatedProviderToolPropertyDescriptions(schema, seenPropertyDescriptions) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return schema;
+  const properties = schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
+    ? schema.properties
+    : null;
+  if (!properties) return clone(schema);
+  if (!seenPropertyDescriptions || typeof seenPropertyDescriptions !== "object" || Array.isArray(seenPropertyDescriptions)) {
+    seenPropertyDescriptions = {};
+  }
+  const next = clone(schema);
+  next.properties = clone(properties);
+  for (const [key, value] of Object.entries(next.properties)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const description = normalizeString(value.description);
+    if (!description) continue;
+    const signature = key + "\u0000" + description;
+    if (!seenPropertyDescriptions[signature]) {
+      seenPropertyDescriptions[signature] = true;
+      continue;
+    }
+    const property = clone(value);
+    delete property.description;
+    next.properties[key] = property;
+  }
+  return next;
 }
 
 function stripToolParameterKeys(schema, keys) {
@@ -2257,8 +2341,9 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
   }
 
   const definitions = [];
-  const multipleVariants = variants.length > 1;
+  const multipleVariants = callerContractsNeedVariantLabel(info.contracts, variants);
   const seenKeys = {};
+  const seenProviderToolPropertyDescriptions = {};
   // Provider APIs only accept one top-level object schema per tool. Expose one
   // transport tool per caller contract and per top-level payload alternative so
   // the model sees concrete schemas instead of one flattened object with
@@ -2275,19 +2360,24 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
     seenKeys[contractKey] = true;
     const injectOwnerInvocationId = variantNeedsOwnerInvocationInjection(variant);
     for (const alternative of inputAlternatives) {
+      const variantKey = multipleVariants ? baseKey : "";
       const transportKey = multipleVariants || splitAlternatives
-        ? [baseKey, splitAlternatives ? alternative.key : ""].filter(Boolean).join("_")
+        ? [variantKey, splitAlternatives ? alternative.key : ""].filter(Boolean).join("_")
         : "";
-      const title = multipleVariants || splitAlternatives
-        ? info.name + ": " + callerContractLabel(variant, index) + (splitAlternatives && alternative.key ? " " + alternative.key : "")
-        : info.name;
+      const titleParts = [];
+      if (multipleVariants) titleParts.push(callerContractLabel(info, variant, index));
+      if (splitAlternatives && alternative.key) titleParts.push(alternative.key);
+      const title = titleParts.length > 0 ? info.name + ": " + titleParts.join(" ") : info.name;
       const literals = toolLiteralArgumentsFromSchema(alternative.schema);
       const definition = {
         id: transportKey ? info.id + "#" + transportKey : info.id,
         title: title,
         name: buildToolTransportName(info.id, info.name, transportKey),
         description: buildToolDescription(info, variant, multipleVariants || splitAlternatives),
-        parameters: providerVisibleToolParameterSchema(alternative.schema, injectOwnerInvocationId ? ["ownerInvocationId"] : []),
+        parameters: stripRepeatedProviderToolPropertyDescriptions(
+          providerVisibleToolParameterSchema(alternative.schema, injectOwnerInvocationId ? ["ownerInvocationId"] : []),
+          seenProviderToolPropertyDescriptions
+        ),
         controlId: info.id,
         invokeControlId: invokeControlId,
         invokePath: invokePath,
@@ -2751,18 +2841,39 @@ function applyLoadToolsToolCalls(toolCalls, currentControlId, config, host, load
   };
 }
 
-function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
-  const currentToolCalls = [];
+function buildLoadToolsTrackedToolCalls(loadToolCalls) {
+  const trackedToolCalls = [];
   loadToolCalls.forEach((toolCall, index) => {
-    currentToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(index + 1), {
+    trackedToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(index + 1), {
       title: AGENT_TOOL_LOADER_TITLE,
       status: "complete",
     }));
   });
-  const agentMessage = {
-    role: "agent",
-    parts: setToolCallParts([], currentToolCalls),
-  };
+  return trackedToolCalls;
+}
+
+function mergeTrackedToolCalls(toolCalls, additions) {
+  let next = Array.isArray(toolCalls) ? toolCalls.map((entry) => clone(entry)) : [];
+  for (const toolCall of Array.isArray(additions) ? additions : []) {
+    next = upsertTrackedToolCall(next, toolCall);
+  }
+  return next;
+}
+
+function buildLoadToolsAgentMessage(response, loadToolCalls) {
+  const agentMessage = buildAgentMessage({
+    text: response.text,
+    reasoningText: response.reasoningText,
+    parts: response.parts,
+    finishReason: response.finishReason,
+    model: response.model,
+  });
+  agentMessage.parts = setToolCallParts(agentMessage.parts, buildLoadToolsTrackedToolCalls(loadToolCalls));
+  return agentMessage;
+}
+
+function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
+  const agentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
   return [agentMessage, ...clone(loadResult.messages)];
 }
 
@@ -3192,19 +3303,96 @@ const AGENT_PROVIDER_USAGE_TOKEN_KEYS = [
   "cacheWriteTokens",
 ];
 
-function normalizeAgentProviderUsage(usage) {
+const AGENT_PROVIDER_USAGE_DURATION_KEYS = [
+  "generationDurationMs",
+  "totalDurationMs",
+];
+
+const AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY = "_providerUsageCallCount";
+const AGENT_PROVIDER_USAGE_INTERNAL_GENERATION_OUTPUT_TOKENS_KEY = "_generationDurationOutputTokens";
+const AGENT_PROVIDER_USAGE_INTERNAL_TOTAL_OUTPUT_TOKENS_KEY = "_totalDurationOutputTokens";
+
+function positiveAgentProviderUsageNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function hasAgentProviderUsagePublicMetric(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return false;
+  }
+  return Object.keys(usage).some((key) => !key.startsWith("_"));
+}
+
+function refreshAgentProviderUsageRates(usage, sourceUsage, options = {}) {
+  delete usage.outputTokensPerSecond;
+  delete usage.endToEndTokensPerSecond;
+
+  const outputTokens = positiveAgentProviderUsageNumber(usage.outputTokens);
+  if (!outputTokens) {
+    return;
+  }
+  const callCount = positiveAgentProviderUsageNumber(usage[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]);
+
+  const generationDurationMs = positiveAgentProviderUsageNumber(usage.generationDurationMs);
+  const generationOutputTokens = positiveAgentProviderUsageNumber(
+    usage[AGENT_PROVIDER_USAGE_INTERNAL_GENERATION_OUTPUT_TOKENS_KEY],
+  );
+  if (generationDurationMs && generationOutputTokens === outputTokens) {
+    usage.outputTokensPerSecond = outputTokens / (generationDurationMs / 1000);
+  } else {
+    if (options.allowSourceRates) {
+      const sourceRate = positiveAgentProviderUsageNumber(sourceUsage && sourceUsage.outputTokensPerSecond);
+      if (sourceRate) usage.outputTokensPerSecond = sourceRate;
+    }
+    if (!usage.outputTokensPerSecond && callCount && callCount > 1 && generationDurationMs) {
+      delete usage.generationDurationMs;
+    }
+  }
+
+  const totalDurationMs = positiveAgentProviderUsageNumber(usage.totalDurationMs);
+  const totalDurationOutputTokens = positiveAgentProviderUsageNumber(
+    usage[AGENT_PROVIDER_USAGE_INTERNAL_TOTAL_OUTPUT_TOKENS_KEY],
+  );
+  if (totalDurationMs && totalDurationOutputTokens === outputTokens) {
+    usage.endToEndTokensPerSecond = outputTokens / (totalDurationMs / 1000);
+  } else {
+    if (options.allowSourceRates) {
+      const sourceRate = positiveAgentProviderUsageNumber(sourceUsage && sourceUsage.endToEndTokensPerSecond);
+      if (sourceRate) usage.endToEndTokensPerSecond = sourceRate;
+    }
+    if (!usage.endToEndTokensPerSecond && callCount && callCount > 1 && totalDurationMs) {
+      delete usage.totalDurationMs;
+    }
+  }
+}
+
+function stripAgentProviderUsageInternalFields(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return usage;
+  }
+  for (const key of Object.keys(usage)) {
+    if (key.startsWith("_")) {
+      delete usage[key];
+    }
+  }
+  return usage;
+}
+
+function normalizeAgentProviderUsage(usage, options = {}) {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
     return null;
   }
+  const includeInternal = options.internal === true;
   const next = {};
   for (const key of AGENT_PROVIDER_USAGE_TOKEN_KEYS) {
-    const value = Number(usage[key]);
-    if (Number.isFinite(value) && value > 0) {
+    const value = positiveAgentProviderUsageNumber(usage[key]);
+    if (value) {
       next[key] = value;
     }
   }
-  const explicitTotal = Number(usage.totalTokens);
-  if (Number.isFinite(explicitTotal) && explicitTotal > 0) {
+  const explicitTotal = positiveAgentProviderUsageNumber(usage.totalTokens);
+  if (explicitTotal) {
     next.totalTokens = explicitTotal;
   } else {
     const input = Number(next.inputTokens);
@@ -3213,20 +3401,76 @@ function normalizeAgentProviderUsage(usage) {
       next.totalTokens = (Number.isFinite(input) ? input : 0) + (Number.isFinite(output) ? output : 0);
     }
   }
+  for (const key of AGENT_PROVIDER_USAGE_DURATION_KEYS) {
+    const value = positiveAgentProviderUsageNumber(usage[key]);
+    if (value) {
+      next[key] = value;
+    }
+  }
+  const callCount = positiveAgentProviderUsageNumber(usage[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]);
+  const timeToFirstTokenMs = positiveAgentProviderUsageNumber(usage.timeToFirstTokenMs);
+  if (timeToFirstTokenMs && (!callCount || callCount === 1)) {
+    next.timeToFirstTokenMs = timeToFirstTokenMs;
+  }
+  if (includeInternal && hasAgentProviderUsagePublicMetric(next)) {
+    next[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY] = callCount || 1;
+    const outputTokens = positiveAgentProviderUsageNumber(next.outputTokens);
+    const generationOutputTokens = positiveAgentProviderUsageNumber(
+      usage[AGENT_PROVIDER_USAGE_INTERNAL_GENERATION_OUTPUT_TOKENS_KEY],
+    );
+    const totalDurationOutputTokens = positiveAgentProviderUsageNumber(
+      usage[AGENT_PROVIDER_USAGE_INTERNAL_TOTAL_OUTPUT_TOKENS_KEY],
+    );
+    if (outputTokens && positiveAgentProviderUsageNumber(next.generationDurationMs)) {
+      next[AGENT_PROVIDER_USAGE_INTERNAL_GENERATION_OUTPUT_TOKENS_KEY] = generationOutputTokens || outputTokens;
+    }
+    if (outputTokens && positiveAgentProviderUsageNumber(next.totalDurationMs)) {
+      next[AGENT_PROVIDER_USAGE_INTERNAL_TOTAL_OUTPUT_TOKENS_KEY] = totalDurationOutputTokens || outputTokens;
+    }
+  }
+  refreshAgentProviderUsageRates(next, usage, { allowSourceRates: !includeInternal });
+  if (!includeInternal) {
+    stripAgentProviderUsageInternalFields(next);
+  }
   return Object.keys(next).length > 0 ? next : null;
 }
 
 function mergeAgentProviderUsage(base, usage) {
-  const aggregate = normalizeAgentProviderUsage(base) || {};
-  const addition = normalizeAgentProviderUsage(usage);
+  const aggregate = normalizeAgentProviderUsage(base, { internal: true }) || {};
+  const addition = normalizeAgentProviderUsage(usage, { internal: true });
   if (!addition) {
     return Object.keys(aggregate).length > 0 ? aggregate : null;
   }
   for (const key of [...AGENT_PROVIDER_USAGE_TOKEN_KEYS, "totalTokens"]) {
-    const value = Number(addition[key]);
-    if (!Number.isFinite(value) || value <= 0) continue;
+    const value = positiveAgentProviderUsageNumber(addition[key]);
+    if (!value) continue;
     aggregate[key] = (Number(aggregate[key]) || 0) + value;
   }
+  for (const key of AGENT_PROVIDER_USAGE_DURATION_KEYS) {
+    const value = positiveAgentProviderUsageNumber(addition[key]);
+    if (!value) continue;
+    aggregate[key] = (Number(aggregate[key]) || 0) + value;
+  }
+
+  const baseCallCount = positiveAgentProviderUsageNumber(aggregate[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]);
+  const additionCallCount = positiveAgentProviderUsageNumber(addition[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]) || 1;
+  aggregate[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY] = (baseCallCount || 0) + additionCallCount;
+  if (aggregate[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY] === 1 && addition.timeToFirstTokenMs) {
+    aggregate.timeToFirstTokenMs = addition.timeToFirstTokenMs;
+  } else {
+    delete aggregate.timeToFirstTokenMs;
+  }
+
+  for (const key of [
+    AGENT_PROVIDER_USAGE_INTERNAL_GENERATION_OUTPUT_TOKENS_KEY,
+    AGENT_PROVIDER_USAGE_INTERNAL_TOTAL_OUTPUT_TOKENS_KEY,
+  ]) {
+    const value = positiveAgentProviderUsageNumber(addition[key]);
+    if (!value) continue;
+    aggregate[key] = (Number(aggregate[key]) || 0) + value;
+  }
+
+  refreshAgentProviderUsageRates(aggregate, null);
   return Object.keys(aggregate).length > 0 ? aggregate : null;
 }
 
@@ -3558,7 +3802,7 @@ function normalizeAgentPullTaskState(raw) {
     ? normalizeLoadedToolIds(state.loadedToolIds)
     : null;
   state.toolNameMap = normalizeToolNameMap(state.toolNameMap);
-  state.providerUsage = normalizeAgentProviderUsage(state.providerUsage);
+  state.providerUsage = normalizeAgentProviderUsage(state.providerUsage, { internal: true });
   if (!Array.isArray(state.transientProviderMessages)) state.transientProviderMessages = [];
   if (!Array.isArray(state.pendingEvents)) state.pendingEvents = [];
   if (!Array.isArray(state.historySeedPending)) state.historySeedPending = [];
@@ -4071,7 +4315,11 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
   const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
   if (loadToolCalls.length > 0) {
     const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, state.loadedToolIds);
+    const loadTrackedToolCalls = buildLoadToolsTrackedToolCalls(loadToolCalls);
+    const loadAgentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
     state.loadedToolIds = loadResult.loadedToolIds;
+    state.trackedToolCalls = mergeTrackedToolCalls(state.trackedToolCalls, loadTrackedToolCalls);
+    state.currentToolCalls = loadTrackedToolCalls;
     state.transientProviderMessages = [
       ...(Array.isArray(state.transientProviderMessages) ? state.transientProviderMessages : []),
       ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
@@ -4079,8 +4327,14 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     state.pendingToolCalls = [];
     state.active = null;
     state.toolAgentIndex = -1;
-    state.currentToolCalls = [];
     state.round += 1;
+    const chunkMessage = providerMetadata.chunkWrote === true
+      ? agentToolStatusChunkMessage(loadAgentMessage)
+      : loadAgentMessage;
+    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(chunkMessage), speaker, null);
+    if (chunkEvent) {
+      return emitAgentPullResult(taskId, state, chunkEvent, host);
+    }
     return storeEmptyAgentPullStep(taskId, state, host);
   }
 
@@ -4717,12 +4971,22 @@ async function agentControl(payload, host) {
       const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
       if (loadToolCalls.length > 0) {
         const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, loadedToolIds);
+        const loadTrackedToolCalls = buildLoadToolsTrackedToolCalls(loadToolCalls);
+        const loadAgentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
         loadedToolIds = loadResult.loadedToolIds;
+        trackedToolCalls = mergeTrackedToolCalls(trackedToolCalls, loadTrackedToolCalls);
+        if (pullOutput && hasAgentChunkContent(loadAgentMessage)) {
+          const chunkMessage = providerMetadata.chunkWrote === true
+            ? agentToolStatusChunkMessage(loadAgentMessage)
+            : loadAgentMessage;
+          if (hasAgentChunkContent(chunkMessage)) {
+            emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
+          }
+        }
         transientProviderMessages = [
           ...transientProviderMessages,
           ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
         ];
-        trackedToolCalls = [];
         continue agent_round;
       }
       const agentMessage = buildAgentMessage(response);

@@ -1,24 +1,63 @@
 format: 1
 id: create
 name: Create
-description: Creates files or directories inside the project workspace.
+description: Creates a file or directory.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: file
-        name: Create File
-        description: Create an empty file at a workspace path.
+        name: File
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Creates a file.
         input:
           type: object
           description: File creation request.
+          propertyOrder: [path, type, createDirs, mode, format]
           required:
             - path
             - type
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
+            type:
+              type: string
+              enum: [file]
+              description: Create a file.
+            createDirs:
+              type: boolean
+              description: Create missing parent directories first.
+            mode:
+              type: string
+              description: Optional octal file mode such as `0644` for files or `0755` for directories.
+            format:
+              type: string
+              default: "{fileHash}"
+              description: Text template. `{fileHash}` is the new file version token.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted file creation result.
+      - id: file-json
+        name: File
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Creates a file.
+        input:
+          type: object
+          description: File creation request.
+          propertyOrder: [path, type, createDirs, mode]
+          required:
+            - path
+            - type
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
             type:
               type: string
               enum: [file]
@@ -41,18 +80,19 @@ contracts:
               description: Current full-file XXH3-128 version token for the created file.
           additionalProperties: false
       - id: directory
-        name: Create Directory
-        description: Create an empty directory at a workspace path.
+        name: Directory
+        description: Creates a directory.
         input:
           type: object
           description: Directory creation request.
+          propertyOrder: [path, type, createDirs, mode]
           required:
             - path
             - type
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             type:
               type: string
               enum: [directory]
@@ -73,3 +113,21 @@ control:
     runtimeActionForward:
       type: string
       default: create
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

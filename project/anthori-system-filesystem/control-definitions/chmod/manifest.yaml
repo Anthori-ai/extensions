@@ -1,14 +1,14 @@
 format: 1
 id: chmod
 name: Chmod
-description: Updates file permissions inside the project workspace.
+description: Changes file or directory permissions.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Chmod
-        description: Change permissions on a file or directory.
+        description: Changes file or directory permissions.
         input:
           type: object
           description: Permission change request.
@@ -18,7 +18,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             mode:
               type: string
               description: Permission mode as an octal string such as `0755`.

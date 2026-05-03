@@ -1,23 +1,51 @@
 format: 1
 id: count-lines
 name: Count Lines
-description: Counts lines in a text file inside the project workspace.
+description: Counts lines in a file.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
-      - id: default
+      - id: text
         name: Count Lines
-        description: Count the number of lines in a text file.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Counts lines in a file.
         input:
           type: object
           description: Line count request.
+          propertyOrder: [path, format]
           required:
             - path
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
+            format:
+              type: string
+              default: "{lineCount}"
+              description: Text template.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted line count text.
+      - id: json
+        name: Count Lines
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Counts lines in a file.
+        input:
+          type: object
+          description: Line count request.
+          propertyOrder: [path]
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
           additionalProperties: false
         output:
           type: object
@@ -35,3 +63,21 @@ control:
     runtimeActionForward:
       type: string
       default: count-lines
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

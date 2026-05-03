@@ -1,7 +1,7 @@
 format: 1
 id: download
 name: Download
-description: Download response content from an HTTP endpoint and return status, headers, and content.
+description: Download a file.
 baseControlRef: controls/1/extensions/anthori.system.network/definitions/network-base
 contracts:
   caller:

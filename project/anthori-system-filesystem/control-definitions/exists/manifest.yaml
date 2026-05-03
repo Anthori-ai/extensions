@@ -1,23 +1,51 @@
 format: 1
 id: exists
 name: Exists
-description: Checks whether a path exists inside the project workspace.
+description: Checks whether a file or directory exists.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
-      - id: default
+      - id: text
         name: Exists
-        description: Check whether a workspace path currently exists.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Checks whether a file or directory exists.
         input:
           type: object
           description: Existence check request.
+          propertyOrder: [path, format]
           required:
             - path
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
+            format:
+              type: string
+              default: "{exists}"
+              description: Text template.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted existence text.
+      - id: json
+        name: Exists
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Checks whether a file or directory exists.
+        input:
+          type: object
+          description: Existence check request.
+          propertyOrder: [path]
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
           additionalProperties: false
         output:
           type: object
@@ -35,3 +63,21 @@ control:
     runtimeActionForward:
       type: string
       default: exists
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

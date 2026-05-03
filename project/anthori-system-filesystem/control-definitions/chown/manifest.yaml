@@ -1,31 +1,124 @@
 format: 1
 id: chown
 name: Chown
-description: Updates file ownership inside the project workspace.
+description: Changes file or directory ownership.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
-      - id: default
+      - id: text
         name: Chown
-        description: Change ownership on a file or directory.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Changes file or directory ownership.
         input:
           description: Ownership change request. Provide exactly one owner selector (`uid` or `user`) and exactly one group selector (`gid` or `group`).
           anyOf:
             - type: object
               description: Change ownership using numeric uid and gid directly.
-              propertyOrder:
-                - path
-                - uid
-                - gid
-              required:
-                - path
-                - uid
-                - gid
+              propertyOrder: [path, uid, gid, format]
+              required: [path, uid, gid]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
+                uid:
+                  type: number
+                  description: Numeric uid to apply directly.
+                gid:
+                  type: number
+                  description: Numeric gid to apply directly.
+                format:
+                  type: string
+                  default: |-
+                    uid:{uid}
+                    gid:{gid}
+                  description: Text template.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using numeric uid and a group name.
+              propertyOrder: [path, uid, group, format]
+              required: [path, uid, group]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                uid:
+                  type: number
+                  description: Numeric uid to apply directly.
+                group:
+                  type: string
+                  description: Group name to resolve into a gid.
+                format:
+                  type: string
+                  default: |-
+                    uid:{uid}
+                    gid:{gid}
+                  description: Text template.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using a user name and numeric gid.
+              propertyOrder: [path, user, gid, format]
+              required: [path, user, gid]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                user:
+                  type: string
+                  description: User name to resolve into a uid.
+                gid:
+                  type: number
+                  description: Numeric gid to apply directly.
+                format:
+                  type: string
+                  default: |-
+                    uid:{uid}
+                    gid:{gid}
+                  description: Text template.
+              additionalProperties: false
+            - type: object
+              description: Change ownership using a user name and a group name.
+              propertyOrder: [path, user, group, format]
+              required: [path, user, group]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                user:
+                  type: string
+                  description: User name to resolve into a uid.
+                group:
+                  type: string
+                  description: Group name to resolve into a gid.
+                format:
+                  type: string
+                  default: |-
+                    uid:{uid}
+                    gid:{gid}
+                  description: Text template.
+              additionalProperties: false
+        output:
+          type: string
+          description: Formatted ownership change result.
+      - id: json
+        name: Chown
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Changes file or directory ownership.
+        input:
+          description: Ownership change request. Provide exactly one owner selector (`uid` or `user`) and exactly one group selector (`gid` or `group`).
+          anyOf:
+            - type: object
+              description: Change ownership using numeric uid and gid directly.
+              propertyOrder: [path, uid, gid]
+              required: [path, uid, gid]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
                 uid:
                   type: number
                   description: Numeric uid to apply directly.
@@ -35,18 +128,12 @@ contracts:
               additionalProperties: false
             - type: object
               description: Change ownership using numeric uid and a group name.
-              propertyOrder:
-                - path
-                - uid
-                - group
-              required:
-                - path
-                - uid
-                - group
+              propertyOrder: [path, uid, group]
+              required: [path, uid, group]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 uid:
                   type: number
                   description: Numeric uid to apply directly.
@@ -56,18 +143,12 @@ contracts:
               additionalProperties: false
             - type: object
               description: Change ownership using a user name and numeric gid.
-              propertyOrder:
-                - path
-                - user
-                - gid
-              required:
-                - path
-                - user
-                - gid
+              propertyOrder: [path, user, gid]
+              required: [path, user, gid]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 user:
                   type: string
                   description: User name to resolve into a uid.
@@ -77,18 +158,12 @@ contracts:
               additionalProperties: false
             - type: object
               description: Change ownership using a user name and a group name.
-              propertyOrder:
-                - path
-                - user
-                - group
-              required:
-                - path
-                - user
-                - group
+              propertyOrder: [path, user, group]
+              required: [path, user, group]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 user:
                   type: string
                   description: User name to resolve into a uid.
@@ -116,3 +191,21 @@ control:
     runtimeActionForward:
       type: string
       default: chown
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

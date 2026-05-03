@@ -1,7 +1,7 @@
 format: 1
 id: fetch
 name: Fetch
-description: Send an HTTP request and return the response status, headers, and body.
+description: Send an HTTP request.
 baseControlRef: controls/1/extensions/anthori.system.network/definitions/network-base
 contracts:
   caller:

@@ -1,24 +1,27 @@
 format: 1
 id: list
 name: List
-description: Lists workspace paths under a directory.
+description: Lists directory entries.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: text
-        name: Text
-        description: List workspace paths under a directory as compact text.
+        name: List
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Lists directory entries.
         input:
           type: object
           description: Directory listing options.
-          propertyOrder: [path, pattern, maxDepth, offset, limit, output, format]
+          propertyOrder: [path, pattern, maxDepth, offset, limit, format]
           required:
             - path
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             pattern:
               type: string
               default: ""
@@ -35,37 +38,30 @@ contracts:
               type: number
               default: 1000
               description: Maximum entries to return. Defaults to `1000`.
-            output:
-              type: string
-              enum: [text]
-              default: text
-              description: Text output. Omit or set to `text` for the default compact result.
             format:
               type: string
               default: "{path_N}\t{size_N}\n{?nextOffset}nextOffset:{nextOffset}{/nextOffset}"
-              description: Full text template for the returned output. `{nextOffset}` is set when more entries are available. Any template line containing `{path_N}` or `{size_N}` repeats once per listed entry. Wrap optional text in `{?nextOffset}...{/nextOffset}` to include it only when more entries are available. Directory paths end with `/`.
+              description: Text template. `_N` fields repeat per entry; `{nextOffset}` continues a limited listing.
           additionalProperties: false
         output:
           type: string
-          description: Text rendered from the `format` template. The default format returns one row per entry as `path<TAB>size`. If more entries are available, the default format includes `nextOffset:<offset>`.
+          description: Formatted text listing.
       - id: json
-        name: JSON
-        description: List workspace paths under a directory as structured JSON.
+        name: List
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Lists directory entries.
         input:
           type: object
           description: Directory listing options.
-          propertyOrder: [path, output, pattern, maxDepth, offset, limit]
+          propertyOrder: [path, pattern, maxDepth, offset, limit]
           required:
             - path
-            - output
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
-            output:
-              type: string
-              enum: [json]
-              description: Structured JSON output. Use `json` when a structured result is required.
+              description: Relative or absolute path.
             pattern:
               type: string
               default: ""
@@ -114,3 +110,21 @@ control:
     runtimeActionForward:
       type: string
       default: list
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

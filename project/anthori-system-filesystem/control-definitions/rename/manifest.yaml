@@ -1,14 +1,14 @@
 format: 1
 id: rename
 name: Rename
-description: Renames or moves files and directories inside the project workspace.
+description: Renames or moves a file or directory.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Rename
-        description: Rename or move a file or directory to a new workspace path.
+        description: Renames or moves a file or directory.
         input:
           type: object
           description: Rename or move request.
@@ -18,10 +18,10 @@ contracts:
           properties:
             source:
               type: string
-              description: Source path relative to the project workspace, or an absolute path.
+              description: Relative or absolute source path.
             destination:
               type: string
-              description: Destination path relative to the project workspace, or an absolute path.
+              description: Relative or absolute destination path.
           additionalProperties: false
         output:
           type: void

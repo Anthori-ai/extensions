@@ -29,7 +29,7 @@ control:
               enum: [read, write]
           scope:
             type: string
-            description: File or folder path. Relative paths resolve from the project workspace.
+            description: Relative or absolute file or folder path.
           reason:
             type: string
             description: Reason shown in the permission prompt.

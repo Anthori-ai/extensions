@@ -79,11 +79,47 @@ function configString(config, key) {
   return normalizeString(configValue(config, key));
 }
 
+function filesystemActionDefaultOutput(action) {
+  switch (normalizeString(action).toLowerCase()) {
+    case "create":
+    case "copy":
+    case "exists":
+    case "list":
+    case "find":
+    case "info":
+    case "read":
+    case "readlines":
+    case "read-lines":
+    case "write":
+    case "writelines":
+    case "write-lines":
+    case "countlines":
+    case "count-lines":
+    case "chown":
+      return "text";
+    default:
+      return "";
+  }
+}
+
+function selectedFilesystemOutput(action, payload) {
+  const configured = configString(payload && payload.config, "outputFormat").toLowerCase();
+  if (configured === "text" || configured === "json") return configured;
+  return filesystemActionDefaultOutput(action);
+}
+
+function applyFilesystemOutput(action, payload, request) {
+  if (!request || typeof request !== "object" || Array.isArray(request)) return;
+  if (hasOwn(request, "output")) return;
+  const output = selectedFilesystemOutput(action, payload);
+  if (output) request.output = output;
+}
+
 function wantsFilesystemDetails(payload) {
   return !!(payload && payload.details === true);
 }
 
-function buildFilesystemRequest(payload) {
+function buildFilesystemRequest(action, payload) {
   const input = payload && Object.prototype.hasOwnProperty.call(payload, "input") ? payload.input : null;
   let request;
   if (input && typeof input === "object" && !Array.isArray(input)) {
@@ -95,6 +131,7 @@ function buildFilesystemRequest(payload) {
   } else {
     request = { value: clone(input) };
   }
+  applyFilesystemOutput(action, payload, request);
   return request;
 }
 
@@ -208,7 +245,7 @@ function callFilesystem(action, payload, host) {
   if (!fs || typeof fs[action] !== "function") {
     throw new Error("host.fs." + action + " unavailable");
   }
-  const request = buildFilesystemRequest(payload);
+  const request = buildFilesystemRequest(action, payload);
   const wantsDetails = wantsFilesystemDetails(payload);
   const response = wantsDetails ? fs[action](request, { details: true }) : fs[action](request);
   const unwrapped = unwrapFilesystemResponse(response);
@@ -224,7 +261,7 @@ function callFilesystemRead(payload, host) {
     throw new Error("host.fs.read unavailable");
   }
   const pull = runtimePullRequest(payload && payload.input);
-  const request = buildFilesystemRequest(pull && pull.pull === "start"
+  const request = buildFilesystemRequest("read", pull && pull.pull === "start"
     ? { input: pull.payload }
     : payload);
   if (pull) {
@@ -271,8 +308,8 @@ function callFilesystemReadLines(payload, host) {
     throw new Error("host.fs.readLines unavailable");
   }
   const pull = runtimePullRequest(payload && payload.input);
-  const request = buildFilesystemRequest(pull && pull.pull === "start"
-    ? { input: pull.payload }
+  const request = buildFilesystemRequest("readLines", pull && pull.pull === "start"
+    ? { input: pull.payload, config: payload && payload.config }
     : payload);
   if (pull) {
     if (!host.task) {
@@ -311,7 +348,7 @@ function callFilesystemWrite(payload, host) {
   if (!fs || typeof fs.write !== "function") {
     throw new Error("host.fs.write unavailable");
   }
-  const request = buildFilesystemRequest(payload);
+  const request = buildFilesystemRequest("write", payload);
   const wantsDetails = wantsFilesystemDetails(payload);
   const response = wantsDetails ? fs.write(request, { details: true }) : fs.write(request);
   const unwrapped = unwrapFilesystemResponse(response);

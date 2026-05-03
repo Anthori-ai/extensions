@@ -1,14 +1,174 @@
 format: 1
 id: write
 name: Write
-description: Writes content to existing files in the project workspace.
+description: Writes to a file.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: replace
         name: Replace
-        description: Replace the exact byte range identified by a `rangeKey` returned from Read. The write fails if the selected range changed since that key was created.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Replaces bytes in a file.
+        input:
+          type: object
+          description: Replace byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - rangeKey
+            - content
+            - encoding
+            - format
+          required:
+            - path
+            - mode
+            - rangeKey
+            - content
+            - encoding
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
+            mode:
+              type: string
+              enum: [replace]
+              description: Replace bytes.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the exact range to replace. Keys are formatted as an opaque base62 token.
+            content:
+              type: any
+              description: Replacement content. Strings are written directly. Bytes are supported when provided by a runtime library.
+            encoding:
+              type: string
+              enum: [utf8, base64, bytes]
+              description: Required content encoding. `base64` decodes the input string before writing.
+            format:
+              type: string
+              default: |-
+                bytesWritten:{bytesWritten}
+                offset:{offset}
+                endOffset:{endOffset}
+                byteDelta:{byteDelta}
+                fileByteCount:{fileByteCount}
+                fileHash:{fileHash}
+                rangeKey:{rangeKey}
+              description: Text template. `{endOffset}` is inclusive; `{byteDelta}` is the file size change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated byte-range handle.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted write result text.
+      - id: insert
+        name: Insert
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Inserts bytes in a file.
+        input:
+          type: object
+          description: Insert byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - content
+            - encoding
+            - rangeKey
+            - after
+            - format
+          required:
+            - path
+            - mode
+            - content
+            - encoding
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
+            mode:
+              type: string
+              enum: [insert]
+              description: Insert bytes.
+            content:
+              type: any
+              description: Inserted content. Strings are written directly. Bytes are supported when provided by a runtime library.
+            encoding:
+              type: string
+              enum: [utf8, base64, bytes]
+              description: Required content encoding. `base64` decodes the input string before writing.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the target range. Required unless the file is empty. Keys are formatted as an opaque base62 token.
+            after:
+              type: boolean
+              description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+            format:
+              type: string
+              default: |-
+                bytesWritten:{bytesWritten}
+                offset:{offset}
+                endOffset:{endOffset}
+                byteDelta:{byteDelta}
+                fileByteCount:{fileByteCount}
+                fileHash:{fileHash}
+                rangeKey:{rangeKey}
+              description: Text template. `{endOffset}` is inclusive; `{byteDelta}` is the file size change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated byte-range handle.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted write result text.
+      - id: delete
+        name: Delete
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Deletes bytes from a file.
+        input:
+          type: object
+          description: Delete byte range request.
+          propertyOrder:
+            - path
+            - mode
+            - rangeKey
+            - format
+          required:
+            - path
+            - mode
+            - rangeKey
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
+            mode:
+              type: string
+              enum: [delete]
+              description: Delete bytes.
+            rangeKey:
+              type: string
+              description: Byte range key returned by Read for the exact range to delete. Keys are formatted as an opaque base62 token.
+            format:
+              type: string
+              default: |-
+                bytesWritten:{bytesWritten}
+                offset:{offset}
+                endOffset:{endOffset}
+                byteDelta:{byteDelta}
+                fileByteCount:{fileByteCount}
+                fileHash:{fileHash}
+                rangeKey:{rangeKey}
+              description: Text template. `{endOffset}` is inclusive; `{byteDelta}` is the file size change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated byte-range handle.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted write result text.
+      - id: replace-json
+        name: Replace
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Replaces bytes in a file.
         input:
           type: object
           description: Replace byte range request.
@@ -27,7 +187,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             mode:
               type: string
               enum: [replace]
@@ -84,9 +244,12 @@ contracts:
               type: string
               description: Byte range key for the written range after this operation, formatted as an opaque base62 token. Omitted when the resulting range no longer exists.
           additionalProperties: false
-      - id: insert
+      - id: insert-json
         name: Insert
-        description: "Insert content before or after the exact byte range identified by a `rangeKey` returned from Read. Omit `rangeKey` only when the target file is empty. Use `after: true` with a key for the final byte to add content at the end of a non-empty file."
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Inserts bytes in a file.
         input:
           type: object
           description: Insert byte range request.
@@ -105,7 +268,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             mode:
               type: string
               enum: [insert]
@@ -165,9 +328,12 @@ contracts:
               type: string
               description: Byte range key for the written range after this operation, formatted as an opaque base62 token. Omitted when the resulting range no longer exists.
           additionalProperties: false
-      - id: delete
+      - id: delete-json
         name: Delete
-        description: Delete the exact byte range identified by a `rangeKey` returned from Read. The write fails if the selected range changed since that key was created.
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Deletes bytes from a file.
         input:
           type: object
           description: Delete byte range request.
@@ -182,7 +348,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             mode:
               type: string
               enum: [delete]
@@ -235,7 +401,7 @@ contracts:
       - id: push-start
         toolVisible: false
         name: Push Start
-        description: Start an explicit write push session for an existing file and return a task handle.
+        description: Starts a write session.
         input:
           description: Push session start input.
           anyOf:
@@ -261,7 +427,7 @@ contracts:
                   description: Invocation that owns the write push session lifetime.
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -293,7 +459,7 @@ contracts:
                   description: Invocation that owns the write push session lifetime.
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -316,7 +482,7 @@ contracts:
       - id: push
         toolVisible: false
         name: Push Step
-        description: Write one explicit chunk into an active write push session.
+        description: Writes a chunk.
         input:
           type: object
           propertyOrder:
@@ -355,7 +521,7 @@ contracts:
       - id: push-end
         toolVisible: false
         name: Push End
-        description: Finish an active write push session.
+        description: Finishes a write session.
         input:
           type: object
           required:
@@ -381,7 +547,7 @@ contracts:
       - id: push-cancel
         toolVisible: false
         name: Push Cancel
-        description: Cancel an active write push session.
+        description: Cancels a write session.
         input:
           type: object
           required:
@@ -415,7 +581,24 @@ control:
     runtimeActionForward:
       type: string
       default: write
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
   ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json
     info:
       sections:
         - title: PUSH

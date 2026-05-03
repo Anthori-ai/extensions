@@ -1,27 +1,62 @@
 format: 1
 id: info
 name: Info
-description: Returns file or directory metadata from the project workspace.
+description: Returns file or directory metadata.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
-      - id: default
+      - id: text
         name: Info
-        description: Return metadata for a file or directory.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Returns file or directory metadata.
         input:
           type: object
           description: Metadata lookup request.
+          propertyOrder: [path, format]
           required:
             - path
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
+            format:
+              type: string
+              default: |-
+                name:{name}
+                size:{size}
+                isDir:{isDir}
+                permissions:{permissions}
+                lastModified:{lastModified}
+                fileHash:{fileHash}
+              description: Text template. `{lastModified}` is Unix epoch seconds; `{fileHash}` is the current file version token.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted metadata text.
+      - id: json
+        name: Info
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Returns file or directory metadata.
+        input:
+          type: object
+          description: Metadata lookup request.
+          propertyOrder: [path]
+          required:
+            - path
+          properties:
+            path:
+              type: string
+              description: Relative or absolute path.
           additionalProperties: false
         output:
           type: object
           description: Metadata result.
+          propertyOrder: [name, size, isDir, permissions, lastModified, fileHash, mode]
           required:
             - name
             - size
@@ -59,3 +94,21 @@ control:
     runtimeActionForward:
       type: string
       default: info
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

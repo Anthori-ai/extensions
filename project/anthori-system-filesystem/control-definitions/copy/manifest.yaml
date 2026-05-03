@@ -1,27 +1,61 @@
 format: 1
 id: copy
 name: Copy
-description: Copies files or directories inside the project workspace.
+description: Copies a file or directory.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
-      - id: default
+      - id: text
         name: Copy
-        description: Copy a file or directory to a new workspace path.
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Copies a file or directory.
         input:
           type: object
           description: Copy request.
+          propertyOrder: [source, destination, format]
           required:
             - source
             - destination
           properties:
             source:
               type: string
-              description: Source path relative to the project workspace, or an absolute path.
+              description: Relative or absolute source path.
             destination:
               type: string
-              description: Destination path relative to the project workspace, or an absolute path.
+              description: Relative or absolute destination path.
+            format:
+              type: string
+              default: |-
+                bytesCopied:{bytesCopied}
+                entriesCopied:{entriesCopied}
+              description: Text template.
+          additionalProperties: false
+        output:
+          type: string
+          description: Formatted copy result.
+      - id: json
+        name: Copy
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Copies a file or directory.
+        input:
+          type: object
+          description: Copy request.
+          propertyOrder: [source, destination]
+          required:
+            - source
+            - destination
+          properties:
+            source:
+              type: string
+              description: Relative or absolute source path.
+            destination:
+              type: string
+              description: Relative or absolute destination path.
           additionalProperties: false
         output:
           type: object
@@ -43,3 +77,21 @@ control:
     runtimeActionForward:
       type: string
       default: copy
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json

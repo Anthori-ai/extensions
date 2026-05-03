@@ -1,14 +1,14 @@
 format: 1
 id: delete
 name: Delete
-description: Deletes files or directories inside the project workspace.
+description: Deletes a file or directory.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
         name: Delete
-        description: Delete a file or directory from the project workspace.
+        description: Deletes a file or directory.
         input:
           type: object
           description: Delete request.
@@ -17,7 +17,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             recursive:
               type: boolean
               description: Required when deleting directories.

@@ -1,14 +1,17 @@
 format: 1
 id: read-lines
 name: Read Lines
-description: Reads specific lines from a text file inside the project workspace. When you know marker text, use Find first to get line numbers, then read the smallest range that answers the question or that you intend to edit. Use compact custom text formats to extract content, then read the exact target range again before Write Lines.
+description: Reads lines from a file.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: default
-        name: Text
-        description: Read a line range from a text file as LLM-readable templated text. This is the default output. For large files, use Find to locate anchors when possible; otherwise first scan only a narrow or estimated range with a compact format, then read the exact target range before editing.
+        name: Read Lines
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Reads lines from a file.
         input:
           description: Line read request.
           anyOf:
@@ -16,12 +19,12 @@ contracts:
               description: Guarded line read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
               # Property maps can lose authored order once they round-trip through server-side maps.
               # Keep path first because it is the primary selector for the read-lines request.
-              propertyOrder: [path, fileHash, startLine, endLine, output, format]
+              propertyOrder: [path, fileHash, startLine, endLine, format]
               required: [path, fileHash]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 fileHash:
                   type: string
                   description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
@@ -31,11 +34,6 @@ contracts:
                 endLine:
                   type: number
                   description: Last inclusive 1-based line number to read. Leave blank to read through the end.
-                output:
-                  type: string
-                  enum: [text]
-                  default: text
-                  description: Text output. Omit or set to `text` for the default LLM-readable result.
                 format:
                   type: string
                   default: |-
@@ -47,16 +45,16 @@ contracts:
 
                     lines:
                     {lineNumber_N}:{line_N}
-                  description: Full text template for the returned output. Scalar tokens such as `{startLine}`, `{endLine}`, `{fileLineCount}`, `{fileHash}`, `{rangeKey}`, and `{editNote}` are replaced once. Any template line containing `{lineNumber_N}` or `{line_N}` repeats once per returned file line. Use compact formats such as `{lineNumber_N}:{line_N}` for scanning boundaries or `{line_N}` for copying raw content into another file. If the template omits `{rangeKey}`, the result is read-only for Write Lines until you read the exact range again with a format that includes it.
+                  description: Text template. `_N` fields repeat per line; `{fileHash}` is the current file version token; `{rangeKey}` is a line-range handle for Write Lines.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
-              propertyOrder: [path, dangerous, startLine, endLine, output, format]
+              propertyOrder: [path, dangerous, startLine, endLine, format]
               required: [path, dangerous]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 dangerous:
                   type: boolean
                   enum: [true]
@@ -67,11 +65,6 @@ contracts:
                 endLine:
                   type: number
                   description: Last inclusive 1-based line number to read. Leave blank to read through the end.
-                output:
-                  type: string
-                  enum: [text]
-                  default: text
-                  description: Text output. Omit or set to `text` for the default LLM-readable result.
                 format:
                   type: string
                   default: |-
@@ -83,32 +76,31 @@ contracts:
 
                     lines:
                     {lineNumber_N}:{line_N}
-                  description: Full text template for the returned output. Scalar tokens such as `{startLine}`, `{endLine}`, `{fileLineCount}`, `{fileHash}`, `{rangeKey}`, and `{editNote}` are replaced once. Any template line containing `{lineNumber_N}` or `{line_N}` repeats once per returned file line. Use compact formats such as `{lineNumber_N}:{line_N}` for scanning boundaries or `{line_N}` for copying raw content into another file. If the template omits `{rangeKey}`, the result is read-only for Write Lines until you read the exact range again with a format that includes it.
+                  description: Text template. `_N` fields repeat per line; `{fileHash}` is the current file version token; `{rangeKey}` is a line-range handle for Write Lines.
               additionalProperties: false
         output:
           type: string
-          description: Text rendered from the `format` template. The default format includes effective `startLine`, effective `endLine`, `fileLineCount`, `fileHash`, optional `rangeKey`, and line-number-prefixed content. Empty results use `startLine:-1` and `endLine:-1`; `{rangeKey}` renders empty when no lines are returned. The `rangeKey` is an opaque base62 token and edits the entire returned range; read the exact subset you intend to modify before calling Write Lines. For extraction tasks, use a compact format to copy only the needed content, then replace only the source block with Write Lines.
+          description: Formatted text line range.
       - id: json
-        name: JSON
-        description: Read a line range from a text file as structured JSON.
+        name: Read Lines
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Reads lines from a file.
         input:
           description: Line read request.
           anyOf:
             - type: object
               description: Guarded structured line read.
-              propertyOrder: [path, fileHash, output, startLine, endLine]
-              required: [path, fileHash, output]
+              propertyOrder: [path, fileHash, startLine, endLine]
+              required: [path, fileHash]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 fileHash:
                   type: string
                   description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
-                output:
-                  type: string
-                  enum: [json]
-                  description: Structured JSON output. Use `json` when a structured result is required.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -118,20 +110,16 @@ contracts:
               additionalProperties: false
             - type: object
               description: Dangerous unguarded structured line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs.
-              propertyOrder: [path, dangerous, output, startLine, endLine]
-              required: [path, dangerous, output]
+              propertyOrder: [path, dangerous, startLine, endLine]
+              required: [path, dangerous]
               properties:
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 dangerous:
                   type: boolean
                   enum: [true]
                   description: Must be true to bypass `fileHash` validation.
-                output:
-                  type: string
-                  enum: [json]
-                  description: Structured JSON output. Use `json` when a structured result is required.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -194,13 +182,13 @@ contracts:
       - id: start
         toolVisible: false
         name: Pull Start
-        description: Start a background line read owned by the supplied invocation and return a task handle.
+        description: Starts a background line read.
         input:
           description: Pull line read start request.
           anyOf:
             - type: object
               description: Guarded pull line read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines.
-              propertyOrder: [pull, ownerInvocationId, path, fileHash, output, startLine, endLine, format]
+              propertyOrder: [pull, ownerInvocationId, path, fileHash, startLine, endLine, format]
               required: [pull, ownerInvocationId, path, fileHash]
               properties:
                 pull:
@@ -211,15 +199,10 @@ contracts:
                   description: Invocation that owns the background task lifetime.
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 fileHash:
                   type: string
                   description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
-                output:
-                  type: string
-                  enum: [text, json]
-                  default: text
-                  description: Output shape for line chunks. Text chunks contain rendered text; JSON chunks contain line entry objects.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -237,11 +220,11 @@ contracts:
 
                     lines:
                     {lineNumber_N}:{line_N}
-                  description: Full text template for text output. Ignored when `output` is `json`.
+                  description: Full text template for text output.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded pull line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
-              propertyOrder: [pull, ownerInvocationId, path, dangerous, output, startLine, endLine, format]
+              propertyOrder: [pull, ownerInvocationId, path, dangerous, startLine, endLine, format]
               required: [pull, ownerInvocationId, path, dangerous]
               properties:
                 pull:
@@ -252,16 +235,11 @@ contracts:
                   description: Invocation that owns the background task lifetime.
                 path:
                   type: string
-                  description: Path relative to the project workspace, or an absolute path.
+                  description: Relative or absolute path.
                 dangerous:
                   type: boolean
                   enum: [true]
                   description: Must be true to bypass `fileHash` validation.
-                output:
-                  type: string
-                  enum: [text, json]
-                  default: text
-                  description: Output shape for line chunks. Text chunks contain rendered text; JSON chunks contain line entry objects.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -279,7 +257,7 @@ contracts:
 
                     lines:
                     {lineNumber_N}:{line_N}
-                  description: Full text template for text output. Ignored when `output` is `json`.
+                  description: Full text template for text output.
               additionalProperties: false
         output:
           type: object
@@ -292,7 +270,7 @@ contracts:
       - id: pull
         toolVisible: false
         name: Pull Step
-        description: Read the next available line-read event from a running pullable task.
+        description: Reads the next line-read event.
         input:
           type: object
           required: [pull, taskId]
@@ -390,7 +368,7 @@ contracts:
       - id: cancel
         toolVisible: false
         name: Pull Cancel
-        description: Cancel a running pullable line read task.
+        description: Cancels a background line read.
         input:
           type: object
           required: [pull, taskId]
@@ -418,7 +396,24 @@ control:
     runtimeActionForward:
       type: string
       default: read-lines
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
   ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json
     info:
       sections:
         - title: PULL

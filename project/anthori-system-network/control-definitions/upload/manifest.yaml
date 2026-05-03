@@ -1,7 +1,7 @@
 format: 1
 id: upload
 name: Upload
-description: Upload request content to an HTTP endpoint and return the response status, headers, and content.
+description: Upload a file.
 baseControlRef: controls/1/extensions/anthori.system.network/definitions/network-base
 contracts:
   caller:

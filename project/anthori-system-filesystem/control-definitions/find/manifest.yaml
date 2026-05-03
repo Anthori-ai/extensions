@@ -1,25 +1,28 @@
 format: 1
 id: find
 name: Find
-description: Finds regex matches inside project workspace files.
+description: Finds regex matches in files.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
     contracts:
       - id: text
-        name: Text
-        description: Find regex matches in a file or directory tree as compact text.
+        name: Find
+        activeWhen:
+          config:
+            outputFormat: text
+        description: Finds regex matches in files.
         input:
           type: object
           description: Content find request.
           required:
             - path
             - pattern
-          propertyOrder: [path, pattern, filter, limit, output, format]
+          propertyOrder: [path, pattern, filter, limit, format]
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             pattern:
               type: string
               description: Regular expression pattern to find.
@@ -31,41 +34,34 @@ contracts:
               type: number
               default: 100
               description: Maximum matches to return. Defaults to `100` and may be capped by control config.
-            output:
-              type: string
-              enum: [text]
-              default: text
-              description: Text output. Omit or set to `text` for the default compact result.
             format:
               type: string
               default: "{path_N}\t{startLine_N}\t{startOffset_N}\t{endOffset_N}\t{text_N}\n{?truncated}truncated:{truncated}{/truncated}"
-              description: Full text template for the returned output. `{truncated}` is set to `true` when Find hits the match limit. Any template line containing a `_N` match token repeats once per match. Available row tokens are `{path_N}`, `{fileHash_N}`, `{startLine_N}`, `{endLine_N}`, `{startOffset_N}`, `{endOffset_N}`, and `{text_N}`. Available scalar tokens are `{scannedFiles}` and `{truncated}`. Wrap optional text in `{?truncated}...{/truncated}` to include it only when Find hits the match limit.
+              description: Text template. `_N` fields repeat per match.
           additionalProperties: false
         output:
           type: string
-          description: Text rendered from the `format` template. The default format returns one row per match as `path<TAB>startLine<TAB>startOffset<TAB>endOffset<TAB>text`. If Find hits the match limit, the default format includes `truncated:true`.
+          description: Formatted text matches.
       - id: json
-        name: JSON
-        description: Find regex matches in a file or directory tree as structured JSON.
+        name: Find
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Finds regex matches in files.
         input:
           type: object
           description: Content find request.
           required:
             - path
             - pattern
-            - output
-          propertyOrder: [path, pattern, output, filter, limit]
+          propertyOrder: [path, pattern, filter, limit]
           properties:
             path:
               type: string
-              description: Path relative to the project workspace, or an absolute path.
+              description: Relative or absolute path.
             pattern:
               type: string
               description: Regular expression pattern to find.
-            output:
-              type: string
-              enum: [json]
-              description: Structured JSON output. Use `json` when a structured result is required.
             filter:
               type: string
               default: ""
@@ -133,3 +129,21 @@ control:
     runtimeActionForward:
       type: string
       default: find
+    outputFormat:
+      type: string
+      enum: [text, json]
+      default: text
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: Text
+              value: text
+            - label: JSON
+              value: json
