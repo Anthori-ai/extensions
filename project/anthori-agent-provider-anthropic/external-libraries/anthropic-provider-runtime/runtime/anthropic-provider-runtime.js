@@ -1406,6 +1406,7 @@ function buildMessages(request, host, config, model) {
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
 
       if (role === "system") {
         var systemContent = appendAttachmentContext(normalizeMessageText(entry), normalizeMessageAttachments(entry));
@@ -1492,19 +1493,6 @@ function buildMessages(request, host, config, model) {
         content: contentBlocks
       });
     }
-  }
-
-  if (messages.length === 0) {
-    messages.push({
-      role: "user",
-      content: [{
-        type: "text",
-        text: trim(request && request.prompt)
-      }]
-    });
-    system = trim(request && request.system);
-  } else if (system === "") {
-    system = trim(request && request.system);
   }
 
   return {

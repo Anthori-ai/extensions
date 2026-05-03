@@ -16,7 +16,7 @@ contracts:
           description: File read request.
           anyOf:
             - type: object
-              description: Guarded file read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines.
+              description: Guarded file read with a `fileHash` integrity check.
               propertyOrder: [path, fileHash, encoding, offset, limit, format]
               required: [path, fileHash, encoding]
               properties:
@@ -25,7 +25,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -40,18 +40,18 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    content:{content}
-                    fileByteCount:{fileByteCount}
-                    fileHash:{fileHash}
-                    offset:{offset}
-                    limit:{limit}
-                    bytesRead:{bytesRead}
-                    nextOffset:{nextOffset}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{fileHash}` is the current file version token; `{nextOffset}` continues a limited read; `{rangeKey}` is a byte-range handle for Write.
+                    content:{{content}}
+                    fileByteCount:{{fileByteCount}}
+                    fileHash:{{fileHash}}
+                    offset:{{offset}}
+                    limit:{{limit}}
+                    bytesRead:{{bytesRead}}{{#nextOffset}}
+                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{rangeKey}}` is a byte-range handle for Write.
               additionalProperties: false
             - type: object
-              description: Dangerous unguarded file read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
+              description: Dangerous unguarded file read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection.
               propertyOrder: [path, dangerous, encoding, offset, limit, format]
               required: [path, dangerous, encoding]
               properties:
@@ -61,7 +61,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -76,15 +76,15 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    content:{content}
-                    fileByteCount:{fileByteCount}
-                    fileHash:{fileHash}
-                    offset:{offset}
-                    limit:{limit}
-                    bytesRead:{bytesRead}
-                    nextOffset:{nextOffset}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{fileHash}` is the current file version token; `{nextOffset}` continues a limited read; `{rangeKey}` is a byte-range handle for Write.
+                    content:{{content}}
+                    fileByteCount:{{fileByteCount}}
+                    fileHash:{{fileHash}}
+                    offset:{{offset}}
+                    limit:{{limit}}
+                    bytesRead:{{bytesRead}}{{#nextOffset}}
+                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{rangeKey}}` is a byte-range handle for Write.
               additionalProperties: false
         output:
           type: string
@@ -99,7 +99,7 @@ contracts:
           description: File read request.
           anyOf:
             - type: object
-              description: Guarded structured file read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines.
+              description: Guarded structured file read with a `fileHash` integrity check.
               propertyOrder: [path, fileHash, encoding, offset, limit]
               required: [path, fileHash, encoding]
               properties:
@@ -108,7 +108,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -122,7 +122,7 @@ contracts:
                   description: Optional byte limit. Defaults to `1048576`.
               additionalProperties: false
             - type: object
-              description: Dangerous unguarded structured file read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
+              description: Dangerous unguarded structured file read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection.
               propertyOrder: [path, dangerous, encoding, offset, limit]
               required: [path, dangerous, encoding]
               properties:
@@ -132,7 +132,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -173,7 +173,7 @@ contracts:
               description: Full file size in bytes.
             fileHash:
               type: string
-              description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
             offset:
               type: number
               description: Starting byte offset used for this read.
@@ -211,7 +211,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -240,7 +240,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation for unstable files.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 encoding:
                   type: string
                   enum: [utf8, base64, bytes]
@@ -337,7 +337,7 @@ contracts:
                   description: Full file size in bytes.
                 fileHash:
                   type: string
-                  description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+                  description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
                 offset:
                   type: number
                   description: Starting byte offset used for this read.

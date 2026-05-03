@@ -1118,6 +1118,7 @@ function collectOpenAIMessages(request, host) {
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "tool") {
         var toolCallId = trim(entry.toolCallId);
         if (toolCallId === "") {
@@ -1152,13 +1153,6 @@ function collectOpenAIMessages(request, host) {
       }
       messages.push({ role: role, content: messageContent });
     }
-  }
-  if (messages.length === 0) {
-    var system = trim(request && request.system);
-    if (system !== "") {
-      messages.push({ role: "system", content: system });
-    }
-    messages.push({ role: "user", content: trim(request && request.prompt) });
   }
   return messages;
 }
@@ -1228,6 +1222,7 @@ function previousLMStudioResponseId(request, config, model) {
 
 function buildResponsesContent(entry, host) {
   var role = trim(entry && entry.role) || "user";
+  if (role === "agent") role = "assistant";
   var text = role === "assistant"
     ? appendAttachmentContext(normalizeMessageText(entry), normalizeMessageAttachments(entry))
     : buildUserMessageContent(entry, host);
@@ -1253,6 +1248,25 @@ function buildResponsesContent(entry, host) {
   return blocks;
 }
 
+function collectSystemPrompt(request) {
+  var messages = request && Array.isArray(request.messages) ? request.messages : [];
+  var prompts = [];
+  for (var i = 0; i < messages.length; i += 1) {
+    var entry = messages[i];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    if (trim(entry.role) !== "system") {
+      continue;
+    }
+    var text = normalizeMessageText(entry);
+    if (text !== "") {
+      prompts.push(text);
+    }
+  }
+  return prompts.join("\n\n");
+}
+
 function collectResponsesInput(request, host, startIndex) {
   var items = [];
   var firstIndex = Number(startIndex);
@@ -1267,6 +1281,7 @@ function collectResponsesInput(request, host, startIndex) {
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "system") {
         continue;
       }
@@ -1302,13 +1317,6 @@ function collectResponsesInput(request, host, startIndex) {
         }
       }
     }
-  }
-  if (items.length === 0) {
-    items.push({
-      type: "message",
-      role: "user",
-      content: [{ type: "input_text", text: trim(request && request.prompt) }]
-    });
   }
   return items;
 }
@@ -2109,7 +2117,7 @@ function handleRespond(config, request, host) {
       input: collectResponsesInput(request || {}, host, responseAnchor.index + 1),
       stream: true
     };
-    var system = trim(request && request.system);
+    var system = collectSystemPrompt(request || {});
     if (system !== "") {
       responsesPayload.instructions = system;
     }

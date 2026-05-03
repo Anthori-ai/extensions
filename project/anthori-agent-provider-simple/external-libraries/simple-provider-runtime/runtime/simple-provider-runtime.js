@@ -143,10 +143,7 @@ module.exports = {
       return { error: "provider config http is required" };
     }
 
-    var text = trim(request.prompt);
-    if (text === "") {
-      text = latestMessageText(request.messages);
-    }
+    var text = latestMessageText(request.messages);
 
     var response = hostFetch(host, {
       url: endpoint,

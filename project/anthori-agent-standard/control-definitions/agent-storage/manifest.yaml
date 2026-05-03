@@ -129,7 +129,7 @@ control:
               ids:number[]
             }
         - id: select
-          name: Select
+          name: Select Raw
           description: Select stored agent message row envelopes.
           showWhen:
             key: access
@@ -138,11 +138,17 @@ control:
             type: object
             required:
               - action
+              - kind
             properties:
               action:
                 type: string
                 enum:
                   - select
+              kind:
+                type: string
+                enum:
+                  - raw
+                description: Return stored row envelopes.
               where:
                 type: object
                 description: Filter object used to match stored rows.
@@ -174,6 +180,7 @@ control:
           inputFormat: |-
             {
               action:"select"
+              kind:"raw"
               where?:object
               orderBy?:{
                 field:string
@@ -187,6 +194,72 @@ control:
             items: StoredMessageEnvelope
             description: Matching stored message row envelopes.
           outputFormat: StoredMessageEnvelope[]
+        - id: select
+          name: Select Context
+          description: Select replay-safe context messages from stored agent history.
+          showWhen:
+            key: access
+            equals: read
+          input:
+            type: object
+            required:
+              - action
+              - kind
+            properties:
+              action:
+                type: string
+                enum:
+                  - select
+              kind:
+                type: string
+                enum:
+                  - context
+                description: Return replay-safe context messages.
+              where:
+                type: object
+                description: Filter object used to match stored rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for selected rows.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit for select.
+              maxChars:
+                type: number
+                description: Optional maximum JSON character count for the returned context message array. Agent Storage trims the oldest selected messages until the result fits.
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"select"
+              kind:"context"
+              where?:object
+              orderBy?:{
+                field:string
+                direction?:"asc" | "desc"
+              }[]
+              limit?:number
+              maxChars?:number
+            }
+          output:
+            type: array
+            items: anthori.agent.foundation.ContextMessage
+            description: Matching replay-safe context messages.
+          outputFormat: anthori.agent.foundation.ContextMessage[]
         - id: update
           name: Update
           description: Update stored agent messages by filter.

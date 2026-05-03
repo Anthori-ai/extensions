@@ -100,19 +100,32 @@ function cloneObject(value) {
 function withProviderResultMetadata(result, provider) {
   if (!result || typeof result !== "object" || Array.isArray(result)) return result;
   const next = clone(result);
-  const ref = providerRef(provider);
-  const definitionId = providerDefinitionId(provider);
-  const interfaces = providerInterfaces(provider);
-  if (ref && !normalizeString(next.providerRef)) next.providerRef = ref;
+  const config = providerConfig(provider);
+  const id = normalizeString(next.providerId) || providerRef(provider) || providerRefFromConfig(config);
+  const definitionId = providerDefinitionId(provider) || configString(config, "providerDefinitionId");
+  delete next.providerRef;
+  delete next.providerInterfaces;
+  if (id) next.providerId = id;
   if (definitionId && !normalizeString(next.providerDefinitionId)) next.providerDefinitionId = definitionId;
-  if (interfaces.length > 0 && !Array.isArray(next.providerInterfaces)) next.providerInterfaces = interfaces;
   return withReasoningProviderSource(next, providerSourceFromProvider(provider, next));
+}
+
+function withProviderMetadataOutput(result, target) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+  const next = clone(result);
+  const config = optionalControlObject(target, "config") || {};
+  const id = normalizeString(next.providerId) || configString(config, "providerRef");
+  const definitionId = normalizeString(next.providerDefinitionId) || configString(config, "providerDefinitionId");
+  delete next.providerRef;
+  if (id) next.providerId = id;
+  if (definitionId) next.providerDefinitionId = definitionId;
+  return next;
 }
 
 function providerSourceFromProvider(provider, result) {
   const config = providerConfig(provider);
   const source = {};
-  const ref = providerRef(provider) || providerRefFromConfig(config) || normalizeString(result && result.providerRef);
+  const ref = providerRef(provider) || providerRefFromConfig(config) || normalizeString(result && result.providerId);
   const definitionId = providerDefinitionId(provider) || configString(config, "providerDefinitionId") || normalizeString(result && result.providerDefinitionId);
   const model = normalizeString(result && (result.model || result.responseModel)) || normalizeString(config.llmModel);
   if (ref) source.providerRef = ref;
@@ -124,7 +137,7 @@ function providerSourceFromProvider(provider, result) {
 function providerSourceFromTarget(target, result) {
   const config = optionalControlObject(target, "config") || {};
   const source = {};
-  const ref = configString(config, "providerRef") || normalizeString(result && result.providerRef);
+  const ref = configString(config, "providerRef") || normalizeString(result && result.providerId);
   const definitionId = configString(config, "providerDefinitionId") || normalizeString(result && result.providerDefinitionId);
   const model = normalizeString(result && (result.model || result.responseModel)) || normalizeString(config.llmModel);
   if (ref) source.providerRef = ref;
@@ -328,6 +341,116 @@ function asMessages(input, label) {
   throw new Error(sourceLabel + " must be a message history array");
 }
 
+function asContextMessages(input, label) {
+  const sourceLabel = normalizeString(label) || "context messages";
+  function normalizeContextRole(role, fallbackRole) {
+    const normalizedRole = normalizeString(role).toLowerCase();
+    if (normalizedRole === "assistant") return "agent";
+    if (normalizedRole === "user" || normalizedRole === "agent" || normalizedRole === "system" || normalizedRole === "tool") {
+      return normalizedRole;
+    }
+    const fallback = normalizeString(fallbackRole).toLowerCase();
+    if (fallback === "assistant") return "agent";
+    return fallback || "user";
+  }
+  function normalizeContextToolCall(toolCall) {
+    const next = sanitizeProviderToolCall(toolCall);
+    if (!next || typeof next !== "object" || Array.isArray(next)) return null;
+    if (!normalizeString(next.name)) return null;
+    return next;
+  }
+  function normalizeContextPart(part) {
+    if (!part || typeof part !== "object" || Array.isArray(part)) return null;
+    if (normalizeString(part.kind).toLowerCase() === "tool_call") {
+      const toolCall = normalizeContextToolCall(part.toolCall);
+      return toolCall ? { kind: "tool_call", toolCall } : null;
+    }
+    return clone(part);
+  }
+  function normalizeContextMessageEntry(entry, fallbackRole) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+    const role = normalizeContextRole(entry.role, fallbackRole || "user");
+    let parts = normalizeMessageParts(entry.parts, null)
+      .map((part) => normalizeContextPart(part))
+      .filter(Boolean);
+    const toolCalls = [];
+    const partToolCalls = toolCallsFromParts(parts);
+    for (const toolCall of partToolCalls) {
+      const normalized = normalizeContextToolCall(toolCall);
+      if (normalized) toolCalls.push(normalized);
+    }
+    if (Array.isArray(entry.toolCalls)) {
+      for (const toolCall of entry.toolCalls) {
+        const normalized = normalizeContextToolCall(toolCall);
+        if (normalized) toolCalls.push(normalized);
+      }
+    }
+    parts = parts.filter((part) => normalizeString(part && part.kind).toLowerCase() !== "tool_call");
+    const attachments = Array.isArray(entry.attachments) ? clone(entry.attachments) : [];
+    const toolCallId = normalizeString(entry.toolCallId);
+    if (parts.length === 0 && attachments.length === 0 && toolCalls.length === 0 && !toolCallId) {
+      return null;
+    }
+    const next = { role };
+    if (parts.length > 0) next.parts = parts;
+    if (attachments.length > 0) next.attachments = attachments;
+    if (role === "tool") {
+      if (toolCallId) next.toolCallId = toolCallId;
+      if (entry.name) next.name = normalizeString(entry.name);
+    }
+    if (role === "agent" && toolCalls.length > 0) next.toolCalls = toolCalls;
+    return next;
+  }
+
+  if (Array.isArray(input)) {
+    const normalized = input
+      .map((entry) => normalizeContextMessageEntry(entry, "user"))
+      .filter(Boolean);
+    if (normalized.length === 0) {
+      throw new Error(sourceLabel + " must contain at least one message");
+    }
+    return normalized;
+  }
+  throw new Error(sourceLabel + " must be a message history array");
+}
+
+function normalizeTextProviderTool(tool) {
+  if (!tool || typeof tool !== "object" || Array.isArray(tool)) return null;
+  const name = normalizeString(tool.name);
+  if (!name) return null;
+  const next = { name };
+  if (tool.id) next.id = normalizeString(tool.id);
+  if (tool.title) next.title = normalizeString(tool.title);
+  if (tool.description) next.description = normalizeString(tool.description);
+  next.parameters = tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters)
+    ? clone(tool.parameters)
+    : { type: "object", properties: {} };
+  return next;
+}
+
+function asTextProviderRequest(input, label) {
+  const sourceLabel = normalizeString(label) || "text provider request";
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error(sourceLabel + " must be an object");
+  }
+  const allowed = { messages: true, tools: true };
+  for (const key of Object.keys(input)) {
+    if (!allowed[key]) {
+      throw new Error(sourceLabel + ' does not accept "' + key + '"');
+    }
+  }
+  const next = {
+    messages: asContextMessages(input.messages, sourceLabel + " messages"),
+  };
+  if (Object.prototype.hasOwnProperty.call(input, "tools")) {
+    if (!Array.isArray(input.tools)) {
+      throw new Error(sourceLabel + " tools must be an array");
+    }
+    next.tools = input.tools.map((tool) => normalizeTextProviderTool(tool)).filter(Boolean);
+  }
+  return next;
+}
+
 function isAgentConversationRole(role) {
   const normalizedRole = normalizeString(role).toLowerCase();
   return normalizedRole === "agent" || normalizedRole === "assistant";
@@ -392,7 +515,7 @@ function metadataRequestValue(request) {
 
 function buildProviderMetadata(effectiveConfig, provider, metadataRequest, host) {
   const metadata = {
-    providerRef: providerRefFromConfig(effectiveConfig) || providerRef(provider),
+    providerId: providerRefFromConfig(effectiveConfig) || providerRef(provider),
     providerDefinitionId: configString(effectiveConfig, "providerDefinitionId") || providerDefinitionId(provider),
     providerInterfaces: providerInterfaces(provider),
     model: normalizeString((metadataRequest && metadataRequest.model) || effectiveConfig.llmModel),
@@ -400,11 +523,11 @@ function buildProviderMetadata(effectiveConfig, provider, metadataRequest, host)
   if (metadata.providerInterfaces.length === 0 && Array.isArray(effectiveConfig.providerInterfaces)) {
     metadata.providerInterfaces = clone(effectiveConfig.providerInterfaces);
   }
-  if (!(metadata.providerRef || metadata.providerDefinitionId)) {
+  if (!(metadata.providerId || metadata.providerDefinitionId)) {
     throw new Error("provider must be configured before Agent can size Context");
   }
   const models = host.providerRuntime.call({
-    providerRef: metadata.providerRef,
+    providerRef: metadata.providerId,
     definitionId: metadata.providerDefinitionId,
     config: clone(effectiveConfig),
     action: "listModels",
@@ -447,7 +570,7 @@ function resolveProviderMetadata(providerTarget, host) {
   return {
     maxContextTokens: maxContextTokens,
     model: normalizeString(metadata.model),
-    providerRef: normalizeString(metadata.providerRef),
+    providerId: normalizeString(metadata.providerId),
     providerDefinitionId: normalizeString(metadata.providerDefinitionId),
     providerInterfaces: Array.isArray(metadata.providerInterfaces) ? clone(metadata.providerInterfaces) : [],
   };
@@ -571,7 +694,7 @@ function resolveContextMessages(messages, phase, round, config, providerContext,
   if (!invoked || !invoked.ok) {
     throw new Error(normalizeString(invoked && invoked.error && invoked.error.message) || "context control failed");
   }
-  return asMessages(invoked.output, "context control output");
+  return asContextMessages(invoked.output, "context control output");
 }
 
 function appendHistoryMessages(messages, config, host) {
@@ -627,9 +750,12 @@ function invokeProviderControl(providerTarget, request, host) {
   const providerOutput = invokedOutput && Object.prototype.hasOwnProperty.call(invokedOutput, "value")
     ? clone(invokedOutput.value)
     : invoked.output;
-  const providerSource = providerSourceFromTarget(providerTarget, providerOutput);
+  const normalizedProviderOutput = request && request.metadata === true
+    ? withProviderMetadataOutput(providerOutput, providerTarget)
+    : withProviderResultMetadata(providerOutput, { config: optionalControlObject(providerTarget, "config") || {} });
+  const providerSource = providerSourceFromTarget(providerTarget, normalizedProviderOutput);
   return {
-    output: withReasoningProviderSource(providerOutput, providerSource),
+    output: withReasoningProviderSource(normalizedProviderOutput, providerSource),
     metadata: invokedOutput && Object.prototype.hasOwnProperty.call(invokedOutput, "metadata")
       ? cloneObject(invokedOutput.metadata)
       : null,
@@ -2647,9 +2773,11 @@ function buildLoadToolsDefinition(entries) {
     name: AGENT_TOOL_LOADER_NAME,
     description: [
       "Load tool details before calling tools.",
-      "Use the loadId values below; call only load_tools in this response.",
-      "After this tool returns, call the loaded tools on the next response.",
-      "Available tools:",
+      "Use load_tools only when you need an unloaded tool from the list below.",
+      "When calling load_tools, call only load_tools in this response.",
+      "After this tool returns, call the loaded tool(s) directly.",
+      "Loaded tools are not listed here.",
+      "Unloaded tools:",
       catalogText || "No unloaded tools are available.",
     ].join("\n"),
     parameters: {
@@ -2789,35 +2917,51 @@ function loadToolIdsFromToolCall(toolCall) {
   return ids;
 }
 
-function buildLoadToolsResultMessage(toolCall, loadedEntries, unknownIds) {
+function buildLoadToolsResultOutput(loadedEntries, unknownIds) {
+  const newlyLoaded = loadedEntries.filter((entry) => entry && entry.alreadyLoaded !== true).length;
   const output = {
     version: 1,
     message: loadedEntries.length > 0
-      ? "Tool details loaded. Call the loaded tools directly on the next turn."
+      ? newlyLoaded > 0
+        ? "Tool details loaded. Call the loaded tool(s) directly next."
+        : "Tool details were already loaded. Call the loaded tool(s) directly next."
       : "No tool details were loaded.",
-    loaded: loadedEntries.map((entry) => ({
-      loadId: entry.loadId,
-      name: entry.externalName || entry.name,
-      title: entry.title,
-    })),
+    loaded: loadedEntries.map((entry) => {
+      const item = {
+        loadId: entry.loadId,
+        name: entry.externalName || entry.name,
+        title: entry.title,
+      };
+      if (entry.alreadyLoaded === true) item.alreadyLoaded = true;
+      return item;
+    }),
   };
   if (unknownIds.length > 0) {
     output.unknownIds = unknownIds.slice();
   }
+  return output;
+}
+
+function buildLoadToolsResultMessage(toolCall, output) {
+  const providerOutput = {
+    version: 1,
+    message: normalizeString(output && output.message),
+  };
   return {
     role: "tool",
     toolCallId: toolCallID(toolCall),
     name: AGENT_TOOL_LOADER_NAME,
-    parts: [{ kind: "text", text: JSON.stringify(output) }],
+    parts: [{ kind: "text", text: JSON.stringify(providerOutput) }],
   };
 }
 
-function applyLoadToolsToolCalls(toolCalls, currentControlId, config, host, loadedToolIds) {
+function applyLoadToolsToolCalls(inputToolCalls, currentControlId, config, host, loadedToolIds) {
   const catalog = buildAgentToolCatalog(currentControlId, config, host);
   const loaded = normalizeLoadedToolIds(loadedToolIds);
   const loadedMap = loadedToolIdMap(loaded);
   const messages = [];
-  for (const toolCall of Array.isArray(toolCalls) ? toolCalls : []) {
+  const trackedToolCalls = [];
+  for (const toolCall of Array.isArray(inputToolCalls) ? inputToolCalls : []) {
     const ids = loadToolIdsFromToolCall(toolCall);
     const loadedEntries = [];
     const unknownIds = [];
@@ -2827,29 +2971,29 @@ function applyLoadToolsToolCalls(toolCalls, currentControlId, config, host, load
         unknownIds.push(loadId);
         continue;
       }
+      const alreadyLoaded = loadedMap[entry.groupId] === true;
       if (!loadedMap[entry.groupId]) {
         loadedMap[entry.groupId] = true;
         loaded.push(entry.groupId);
       }
-      loadedEntries.push(entry);
+      loadedEntries.push({
+        ...entry,
+        alreadyLoaded,
+      });
     }
-    messages.push(buildLoadToolsResultMessage(toolCall, loadedEntries, unknownIds));
+    const output = buildLoadToolsResultOutput(loadedEntries, unknownIds);
+    messages.push(buildLoadToolsResultMessage(toolCall, output));
+    trackedToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(trackedToolCalls.length + 1), {
+      title: AGENT_TOOL_LOADER_TITLE,
+      status: "complete",
+      details: buildTrackedToolCallDetails(null, output, []),
+    }));
   }
   return {
     loadedToolIds: loaded,
     messages,
+    toolCalls: trackedToolCalls,
   };
-}
-
-function buildLoadToolsTrackedToolCalls(loadToolCalls) {
-  const trackedToolCalls = [];
-  loadToolCalls.forEach((toolCall, index) => {
-    trackedToolCalls.push(normalizeTrackedToolCall(toolCall, "load-tools-" + String(index + 1), {
-      title: AGENT_TOOL_LOADER_TITLE,
-      status: "complete",
-    }));
-  });
-  return trackedToolCalls;
 }
 
 function mergeTrackedToolCalls(toolCalls, additions) {
@@ -2860,7 +3004,7 @@ function mergeTrackedToolCalls(toolCalls, additions) {
   return next;
 }
 
-function buildLoadToolsAgentMessage(response, loadToolCalls) {
+function buildLoadToolsAgentMessage(response, loadTrackedToolCalls) {
   const agentMessage = buildAgentMessage({
     text: response.text,
     reasoningText: response.reasoningText,
@@ -2868,13 +3012,8 @@ function buildLoadToolsAgentMessage(response, loadToolCalls) {
     finishReason: response.finishReason,
     model: response.model,
   });
-  agentMessage.parts = setToolCallParts(agentMessage.parts, buildLoadToolsTrackedToolCalls(loadToolCalls));
+  agentMessage.parts = setToolCallParts(agentMessage.parts, loadTrackedToolCalls);
   return agentMessage;
-}
-
-function buildTransientLoadToolsExchange(response, loadToolCalls, loadResult) {
-  const agentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
-  return [agentMessage, ...clone(loadResult.messages)];
 }
 
 function isBundleToolDefinition(definition) {
@@ -3099,26 +3238,6 @@ function sanitizeProviderToolCall(toolCall) {
   delete next.details;
   delete next.detailsRef;
   return next;
-}
-
-function sanitizeProviderMessage(message) {
-  const next = clone(message);
-  if (!next || typeof next !== "object" || Array.isArray(next)) return next;
-  if (isAgentConversationRole(next.role)) {
-    next.role = "assistant";
-  }
-  const partToolCalls = toolCallsFromParts(next.parts);
-  if (partToolCalls.length > 0) {
-    next.toolCalls = partToolCalls;
-  }
-  if (Array.isArray(next.toolCalls)) {
-    next.toolCalls = next.toolCalls.map((entry) => sanitizeProviderToolCall(entry));
-  }
-  return next;
-}
-
-function sanitizeProviderMessages(messages) {
-  return Array.isArray(messages) ? messages.map((entry) => sanitizeProviderMessage(entry)) : [];
 }
 
 function unwrapDetailedInvokeResult(invoked) {
@@ -3758,7 +3877,7 @@ async function callPullableProviderControl(currentControlId, providerTarget, req
 async function callConfiguredProviderControl(currentControlId, config, providerTarget, conversation, toolDefinitions, speaker, onChunk, host, signalState, round) {
   const request = {
     input: {
-      messages: sanitizeProviderMessages(conversation),
+      messages: asContextMessages(conversation, "provider input messages"),
       tools: clone(Array.isArray(toolDefinitions) ? toolDefinitions : buildToolDefinitions(currentControlId, config, host)),
     },
   };
@@ -3803,7 +3922,7 @@ function normalizeAgentPullTaskState(raw) {
     : null;
   state.toolNameMap = normalizeToolNameMap(state.toolNameMap);
   state.providerUsage = normalizeAgentProviderUsage(state.providerUsage, { internal: true });
-  if (!Array.isArray(state.transientProviderMessages)) state.transientProviderMessages = [];
+  delete state.transientProviderMessages;
   if (!Array.isArray(state.pendingEvents)) state.pendingEvents = [];
   if (!Array.isArray(state.historySeedPending)) state.historySeedPending = [];
   if (!state.signalState || typeof state.signalState !== "object" || Array.isArray(state.signalState)) {
@@ -3896,7 +4015,6 @@ function createAgentPullInitialState(currentControlId, inputMessages, config, ow
     loadedToolIds: [],
     toolNameMap: {},
     providerUsage: null,
-    transientProviderMessages: [],
     pendingEvents: [],
     historySeedPending: clone(inputMessages),
     signalState: { pendingMessages: [] },
@@ -4159,14 +4277,7 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
     providerContext,
     host,
   );
-  const transientMessages = Array.isArray(state.transientProviderMessages)
-    ? clone(state.transientProviderMessages)
-    : [];
-  state.transientProviderMessages = [];
-  const providerMessages = transientMessages.length > 0
-    ? [...preparedMessages, ...transientMessages]
-    : preparedMessages;
-  const providerConversation = withSystemPrompt(providerMessages, configString(config, "systemPrompt"));
+  const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
   const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds);
   state.toolNameMap = toolRequest.toolNameMap;
   const toolDefinitions = toolRequest.tools;
@@ -4174,7 +4285,7 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
   return {
     request: {
       input: {
-        messages: sanitizeProviderMessages(providerConversation),
+        messages: providerConversation,
         tools: clone(toolDefinitions),
       },
     },
@@ -4315,15 +4426,15 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
   const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
   if (loadToolCalls.length > 0) {
     const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, state.loadedToolIds);
-    const loadTrackedToolCalls = buildLoadToolsTrackedToolCalls(loadToolCalls);
-    const loadAgentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
+    const loadTrackedToolCalls = loadResult.toolCalls;
+    const loadAgentMessage = buildLoadToolsAgentMessage(response, loadTrackedToolCalls);
     state.loadedToolIds = loadResult.loadedToolIds;
     state.trackedToolCalls = mergeTrackedToolCalls(state.trackedToolCalls, loadTrackedToolCalls);
     state.currentToolCalls = loadTrackedToolCalls;
-    state.transientProviderMessages = [
-      ...(Array.isArray(state.transientProviderMessages) ? state.transientProviderMessages : []),
-      ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
-    ];
+    state.conversation = [...state.conversation, loadAgentMessage, ...loadResult.messages];
+    appendHistoryMessages([loadAgentMessage], config, host);
+    appendHistoryMessages(loadResult.messages, config, host);
+    state.pendingContextMessages = [clone(loadAgentMessage), ...clone(loadResult.messages)];
     state.pendingToolCalls = [];
     state.active = null;
     state.toolAgentIndex = -1;
@@ -4858,7 +4969,6 @@ async function agentControl(payload, host) {
     let loadedToolIds = [];
     let toolNameMap = {};
     let providerUsage = null;
-    let transientProviderMessages = [];
     const signalState = { pendingMessages: [] };
     // Keep this fallback aligned with the Agent manifest default so unset controls
     // behave the same whether the value comes from config or runtime fallback.
@@ -4894,11 +5004,7 @@ async function agentControl(payload, host) {
         providerContext,
         host,
       );
-      const providerMessages = transientProviderMessages.length > 0
-        ? [...preparedMessages, ...transientProviderMessages]
-        : preparedMessages;
-      transientProviderMessages = [];
-      const providerConversation = withSystemPrompt(providerMessages, configString(config, "systemPrompt"));
+      const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
       const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds);
       toolNameMap = toolRequest.toolNameMap;
       const toolDefinitions = toolRequest.tools;
@@ -4971,10 +5077,14 @@ async function agentControl(payload, host) {
       const loadToolCalls = response.toolCalls.filter((toolCall) => isLoadToolsToolCall(toolCall));
       if (loadToolCalls.length > 0) {
         const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, loadedToolIds);
-        const loadTrackedToolCalls = buildLoadToolsTrackedToolCalls(loadToolCalls);
-        const loadAgentMessage = buildLoadToolsAgentMessage(response, loadToolCalls);
+        const loadTrackedToolCalls = loadResult.toolCalls;
+        const loadAgentMessage = buildLoadToolsAgentMessage(response, loadTrackedToolCalls);
         loadedToolIds = loadResult.loadedToolIds;
         trackedToolCalls = mergeTrackedToolCalls(trackedToolCalls, loadTrackedToolCalls);
+        conversation = [...conversation, loadAgentMessage, ...loadResult.messages];
+        appendHistoryMessages([loadAgentMessage], config, host);
+        appendHistoryMessages(loadResult.messages, config, host);
+        pendingContextMessages = [clone(loadAgentMessage), ...clone(loadResult.messages)];
         if (pullOutput && hasAgentChunkContent(loadAgentMessage)) {
           const chunkMessage = providerMetadata.chunkWrote === true
             ? agentToolStatusChunkMessage(loadAgentMessage)
@@ -4983,10 +5093,6 @@ async function agentControl(payload, host) {
             emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
           }
         }
-        transientProviderMessages = [
-          ...transientProviderMessages,
-          ...buildTransientLoadToolsExchange(response, loadToolCalls, loadResult),
-        ];
         continue agent_round;
       }
       const agentMessage = buildAgentMessage(response);
@@ -5142,12 +5248,9 @@ function textProviderControl(payload, host) {
       const metadata = buildProviderMetadata(effectiveConfig, provider, metadataRequest, host);
       return { output: metadata };
     }
-    const providerInput = clone(args.input);
-    if (providerInput && typeof providerInput === "object" && !Array.isArray(providerInput) &&
-      Object.prototype.hasOwnProperty.call(providerInput, "messages")) {
-      providerInput.messages = asMessages(providerInput.messages, "provider input messages");
-      providerInput.messages = sanitizeProviderMessages(providerInput.messages);
-    }
+    const providerInput = pull && pull.pull !== "start"
+      ? undefined
+      : asTextProviderRequest(args.input, "provider input");
     if (pull) {
       if (!host.task) {
         throw new Error("host.task unavailable");

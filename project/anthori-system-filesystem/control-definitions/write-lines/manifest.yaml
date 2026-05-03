@@ -53,14 +53,14 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    linesWritten:{linesWritten}
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    lineDelta:{lineDelta}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{lineDelta}` is the line count change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated line-range handle.
+                    linesWritten:{{linesWritten}}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    lineDelta:{{lineDelta}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
               additionalProperties: false
             - type: object
               description: Replace existing lines using newline-delimited text content.
@@ -92,14 +92,14 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    linesWritten:{linesWritten}
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    lineDelta:{lineDelta}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{lineDelta}` is the line count change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated line-range handle.
+                    linesWritten:{{linesWritten}}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    lineDelta:{{lineDelta}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
               additionalProperties: false
         output:
           type: string
@@ -149,14 +149,14 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    linesWritten:{linesWritten}
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    lineDelta:{lineDelta}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{lineDelta}` is the line count change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated line-range handle.
+                    linesWritten:{{linesWritten}}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    lineDelta:{{lineDelta}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
               additionalProperties: false
             - type: object
               description: Insert new lines using newline-delimited text content.
@@ -191,14 +191,14 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    linesWritten:{linesWritten}
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    lineDelta:{lineDelta}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
-                  description: Text template. `{lineDelta}` is the line count change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated line-range handle.
+                    linesWritten:{{linesWritten}}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    lineDelta:{{lineDelta}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
               additionalProperties: false
         output:
           type: string
@@ -235,14 +235,14 @@ contracts:
             format:
               type: string
               default: |-
-                linesWritten:{linesWritten}
-                startLine:{startLine}
-                endLine:{endLine}
-                lineDelta:{lineDelta}
-                fileLineCount:{fileLineCount}
-                fileHash:{fileHash}
-                rangeKey:{rangeKey}
-              description: Text template. `{lineDelta}` is the line count change; `{fileHash}` is the new file version token; `{rangeKey}` is the updated line-range handle.
+                linesWritten:{{linesWritten}}
+                startLine:{{startLine}}
+                endLine:{{endLine}}
+                lineDelta:{{lineDelta}}
+                fileLineCount:{{fileLineCount}}
+                fileHash:{{fileHash}}{{#rangeKey}}
+                rangeKey:{{rangeKey}}{{/rangeKey}}
+              description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
           additionalProperties: false
         output:
           type: string
@@ -350,7 +350,7 @@ contracts:
               description: Total lines in the file after the edit.
             fileHash:
               type: string
-              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
             rangeKey:
               type: string
               description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
@@ -464,7 +464,7 @@ contracts:
               description: Total lines in the file after the edit.
             fileHash:
               type: string
-              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
             rangeKey:
               type: string
               description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
@@ -533,7 +533,7 @@ contracts:
               description: Total lines in the file after the edit.
             fileHash:
               type: string
-              description: Full-file XXH3-128 version token after the edit. Use this as the next `fileHash` input for guarded Read or Read Lines calls.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
           additionalProperties: false
 control:
   visible: true

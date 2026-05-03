@@ -24,8 +24,8 @@ contracts:
               description: Relative or absolute path.
             format:
               type: string
-              default: "{lineCount}"
-              description: Text template.
+              default: "{{lineCount}}"
+              description: Mustache text template.
           additionalProperties: false
         output:
           type: string

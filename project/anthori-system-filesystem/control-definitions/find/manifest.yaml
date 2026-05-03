@@ -22,7 +22,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Relative or absolute path.
+              description: A relative or absolute path.
             pattern:
               type: string
               description: Regular expression pattern to find.
@@ -36,8 +36,8 @@ contracts:
               description: Maximum matches to return. Defaults to `100` and may be capped by control config.
             format:
               type: string
-              default: "{path_N}\t{startLine_N}\t{startOffset_N}\t{endOffset_N}\t{text_N}\n{?truncated}truncated:{truncated}{/truncated}"
-              description: Text template. `_N` fields repeat per match.
+              default: "{{#matches}}{{path}}\t{{startLine}}\t{{startOffset}}\t{{endOffset}}\t{{text}}\n{{/matches}}{{#truncated}}truncated:{{truncated}}{{/truncated}}"
+              description: Mustache text template. `{{#matches}}...{{/matches}}` repeats once per match with match fields.
           additionalProperties: false
         output:
           type: string
@@ -58,7 +58,7 @@ contracts:
           properties:
             path:
               type: string
-              description: Relative or absolute path.
+              description: A relative or absolute path.
             pattern:
               type: string
               description: Regular expression pattern to find.
@@ -96,10 +96,10 @@ contracts:
                 properties:
                   path:
                     type: string
-                    description: Absolute file path containing the match.
+                    description: Path relative to the searched path.
                   fileHash:
                     type: string
-                    description: Current full-file XXH3-128 version token for the matched file. Use this for guarded Read or Read Lines calls.
+                    description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
                   startLine:
                     type: number
                     description: 1-based line where the regex match starts.

@@ -16,7 +16,7 @@ contracts:
           description: Line read request.
           anyOf:
             - type: object
-              description: Guarded line read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
+              description: Guarded line read with a `fileHash` integrity check. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
               # Property maps can lose authored order once they round-trip through server-side maps.
               # Keep path first because it is the primary selector for the read-lines request.
               propertyOrder: [path, fileHash, startLine, endLine, format]
@@ -27,7 +27,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -37,18 +37,19 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
 
                     lines:
-                    {lineNumber_N}:{line_N}
-                  description: Text template. `_N` fields repeat per line; `{fileHash}` is the current file version token; `{rangeKey}` is a line-range handle for Write Lines.
+                    {{#lines}}{{lineNumber}}:{{line}}
+                    {{/lines}}
+                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text.
               additionalProperties: false
             - type: object
-              description: Dangerous unguarded line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
+              description: Dangerous unguarded line read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
               propertyOrder: [path, dangerous, startLine, endLine, format]
               required: [path, dangerous]
               properties:
@@ -58,7 +59,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -68,15 +69,16 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
 
                     lines:
-                    {lineNumber_N}:{line_N}
-                  description: Text template. `_N` fields repeat per line; `{fileHash}` is the current file version token; `{rangeKey}` is a line-range handle for Write Lines.
+                    {{#lines}}{{lineNumber}}:{{line}}
+                    {{/lines}}
+                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text.
               additionalProperties: false
         output:
           type: string
@@ -100,7 +102,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -109,7 +111,7 @@ contracts:
                   description: Last inclusive 1-based line number to read. Leave blank to read through the end.
               additionalProperties: false
             - type: object
-              description: Dangerous unguarded structured line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs.
+              description: Dangerous unguarded structured line read for files that change too quickly to get a stable file hash, such as actively appended logs.
               propertyOrder: [path, dangerous, startLine, endLine]
               required: [path, dangerous]
               properties:
@@ -119,7 +121,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -171,7 +173,7 @@ contracts:
                 additionalProperties: false
             fileHash:
               type: string
-              description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
             fileLineCount:
               type: number
               description: Total line count for the file.
@@ -187,7 +189,7 @@ contracts:
           description: Pull line read start request.
           anyOf:
             - type: object
-              description: Guarded pull line read. Use the latest `fileHash` from Create, Info, Read, Read Lines, Write, or Write Lines.
+              description: Guarded pull line read with a `fileHash` integrity check.
               propertyOrder: [pull, ownerInvocationId, path, fileHash, startLine, endLine, format]
               required: [pull, ownerInvocationId, path, fileHash]
               properties:
@@ -202,7 +204,7 @@ contracts:
                   description: Relative or absolute path.
                 fileHash:
                   type: string
-                  description: Required expected current file version token. Get the initial value from Create or Info, then use the latest `fileHash` returned by Create, Read, Read Lines, Write, or Write Lines.
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -212,18 +214,19 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
 
                     lines:
-                    {lineNumber_N}:{line_N}
-                  description: Full text template for text output.
+                    {{#lines}}{{lineNumber}}:{{line}}
+                    {{/lines}}
+                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line.
               additionalProperties: false
             - type: object
-              description: Dangerous unguarded pull line read for files that change too quickly to get a stable `fileHash`, such as actively appended logs. This bypasses stale-read detection.
+              description: Dangerous unguarded pull line read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection.
               propertyOrder: [pull, ownerInvocationId, path, dangerous, startLine, endLine, format]
               required: [pull, ownerInvocationId, path, dangerous]
               properties:
@@ -239,7 +242,7 @@ contracts:
                 dangerous:
                   type: boolean
                   enum: [true]
-                  description: Must be true to bypass `fileHash` validation.
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read. Otherwise, provide the fileHash returned by the latest read, write, or info operation for this file.
                 startLine:
                   type: number
                   description: First inclusive 1-based line number to read. Defaults to `1`.
@@ -249,15 +252,16 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    startLine:{startLine}
-                    endLine:{endLine}
-                    fileLineCount:{fileLineCount}
-                    fileHash:{fileHash}
-                    rangeKey:{rangeKey}
+                    startLine:{{startLine}}
+                    endLine:{{endLine}}
+                    fileLineCount:{{fileLineCount}}
+                    fileHash:{{fileHash}}{{#rangeKey}}
+                    rangeKey:{{rangeKey}}{{/rangeKey}}
 
                     lines:
-                    {lineNumber_N}:{line_N}
-                  description: Full text template for text output.
+                    {{#lines}}{{lineNumber}}:{{line}}
+                    {{/lines}}
+                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line.
               additionalProperties: false
         output:
           type: object
@@ -340,7 +344,7 @@ contracts:
                   description: Effective ending line number, or `-1` when no lines were returned.
                 fileHash:
                   type: string
-                  description: Current full-file XXH3-128 version token. Use this as the next `fileHash` input unless a later write returns a newer one.
+                  description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
                 fileLineCount:
                   type: number
                   description: Total line count for the file.

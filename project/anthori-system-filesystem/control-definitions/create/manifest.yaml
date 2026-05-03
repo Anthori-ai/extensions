@@ -35,8 +35,8 @@ contracts:
               description: Optional octal file mode such as `0644` for files or `0755` for directories.
             format:
               type: string
-              default: "{fileHash}"
-              description: Text template. `{fileHash}` is the new file version token.
+              default: "{{fileHash}}"
+              description: Mustache text template. `{{fileHash}}` is the new file hash.
           additionalProperties: false
         output:
           type: string
@@ -77,7 +77,7 @@ contracts:
           properties:
             fileHash:
               type: string
-              description: Current full-file XXH3-128 version token for the created file.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
           additionalProperties: false
       - id: directory
         name: Directory

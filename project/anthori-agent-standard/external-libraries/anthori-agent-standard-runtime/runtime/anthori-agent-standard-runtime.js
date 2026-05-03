@@ -203,6 +203,80 @@ function normalizeStoredMessagePatch(values) {
   return next;
 }
 
+
+function normalizeContextToolCall(toolCall) {
+  const next = clone(toolCall);
+  if (!next || typeof next !== "object" || Array.isArray(next)) {
+    return null;
+  }
+  delete next.title;
+  delete next.status;
+  delete next.details;
+  delete next.detailsRef;
+  if (!normalizeString(next.name)) {
+    return null;
+  }
+  return next;
+}
+
+function normalizeContextPart(part) {
+  const next = clone(part);
+  if (!next || typeof next !== "object" || Array.isArray(next)) {
+    return null;
+  }
+  if (normalizeString(next.kind).toLowerCase() === "tool_call") {
+    const toolCall = normalizeContextToolCall(next.toolCall);
+    return toolCall ? { kind: "tool_call", toolCall: toolCall } : null;
+  }
+  return next;
+}
+
+function toolCallsFromContextParts(parts) {
+  const toolCalls = [];
+  for (const part of Array.isArray(parts) ? parts : []) {
+    if (!part || typeof part !== "object" || Array.isArray(part)) continue;
+    if (normalizeString(part.kind).toLowerCase() !== "tool_call") continue;
+    const toolCall = normalizeContextToolCall(part.toolCall);
+    if (toolCall) toolCalls.push(toolCall);
+  }
+  return toolCalls;
+}
+
+function normalizeStoredMessageForContext(message) {
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    return null;
+  }
+  let role = normalizeString(message.role).toLowerCase();
+  if (role === "assistant") role = "agent";
+  if (role !== "system" && role !== "user" && role !== "agent" && role !== "tool") {
+    role = "user";
+  }
+  let parts = Array.isArray(message.parts)
+    ? message.parts.map((part) => normalizeContextPart(part)).filter(Boolean)
+    : [];
+  const toolCalls = toolCallsFromContextParts(parts);
+  if (Array.isArray(message.toolCalls)) {
+    for (const toolCall of message.toolCalls) {
+      const normalized = normalizeContextToolCall(toolCall);
+      if (normalized) toolCalls.push(normalized);
+    }
+  }
+  parts = parts.filter((part) => normalizeString(part && part.kind).toLowerCase() !== "tool_call");
+  const attachments = Array.isArray(message.attachments) ? clone(message.attachments) : [];
+  const toolCallId = normalizeString(message.toolCallId);
+  if (parts.length === 0 && attachments.length === 0 && toolCalls.length === 0 && !toolCallId) {
+    return null;
+  }
+  const next = { role: role };
+  if (parts.length > 0) next.parts = parts;
+  if (attachments.length > 0) next.attachments = attachments;
+  if (role === "tool") {
+    if (toolCallId) next.toolCallId = toolCallId;
+    if (message.name) next.name = normalizeString(message.name);
+  }
+  if (role === "agent" && toolCalls.length > 0) next.toolCalls = toolCalls;
+  return next;
+}
 function normalizeStoredRowEnvelope(entry) {
   const next = clone(entry);
   if (!next || typeof next !== "object" || Array.isArray(next)) {
@@ -504,6 +578,14 @@ function executeSelect(payload, storage) {
   return trimSelectedRowsByMaxChars(rows, payload.maxChars);
 }
 
+function executeSelectContext(payload, storage) {
+  const messages = storage.tableSelect(payload)
+    .map((entry) => normalizeStoredRowEnvelope(entry))
+    .map((entry) => normalizeStoredMessageForContext(entry && entry.row))
+    .filter(Boolean);
+  return trimSelectedRowsByMaxChars(messages, payload.maxChars);
+}
+
 function executeUpdate(payload, storage) {
   const where = validateWhereObject(payload.where, "agent storage update requires where object");
   const hasRow = Object.prototype.hasOwnProperty.call(payload, "row");
@@ -608,8 +690,12 @@ function agentStorageControl(payload, host) {
         return wrapValue(executeInsert(input, storage));
       case "insertall":
         return wrapValue(executeInsertAll(input, storage));
-      case "select":
-        return wrapValue(executeSelect(input, storage));
+      case "select": {
+        const kind = normalizeString(input.kind).toLowerCase();
+        if (kind === "raw") return wrapValue(executeSelect(input, storage));
+        if (kind === "context") return wrapValue(executeSelectContext(input, storage));
+        return wrapError('agent storage select requires kind "raw" or "context"');
+      }
       case "update":
         return wrapValue(executeUpdate(input, storage));
       case "delete":

@@ -25,13 +25,13 @@ contracts:
             format:
               type: string
               default: |-
-                name:{name}
-                size:{size}
-                isDir:{isDir}
-                permissions:{permissions}
-                lastModified:{lastModified}
-                fileHash:{fileHash}
-              description: Text template. `{lastModified}` is Unix epoch seconds; `{fileHash}` is the current file version token.
+                name:{{name}}
+                size:{{size}}
+                isDir:{{isDir}}
+                permissions:{{permissions}}
+                lastModified:{{lastModified}}
+                fileHash:{{fileHash}}
+              description: Mustache text template. `{{lastModified}}` is Unix epoch seconds; `{{fileHash}}` is the current file hash.
           additionalProperties: false
         output:
           type: string
@@ -83,7 +83,7 @@ contracts:
               description: Unix timestamp for the last modification time.
             fileHash:
               type: string
-              description: Opaque full-file XXH3-128 version token for files. Use this as the initial `fileHash` input to guarded Read and Read Lines calls.
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
             mode:
               type: any
               description: Raw file mode value returned by the server.

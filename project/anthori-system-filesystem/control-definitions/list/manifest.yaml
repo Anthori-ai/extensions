@@ -40,8 +40,8 @@ contracts:
               description: Maximum entries to return. Defaults to `1000`.
             format:
               type: string
-              default: "{path_N}\t{size_N}\n{?nextOffset}nextOffset:{nextOffset}{/nextOffset}"
-              description: Text template. `_N` fields repeat per entry; `{nextOffset}` continues a limited listing.
+              default: "{{#paths}}{{path}}\t{{size}}\n{{/paths}}{{#nextOffset}}nextOffset:{{nextOffset}}{{/nextOffset}}"
+              description: Mustache text template. `{{#paths}}...{{/paths}}` repeats once per entry with `{{path}}` and `{{size}}`; `{{nextOffset}}` continues a limited listing.
           additionalProperties: false
         output:
           type: string
@@ -95,7 +95,7 @@ contracts:
                 properties:
                   path:
                     type: string
-                    description: Entry path anchored to the requested `path`. Relative requests return relative entry paths, absolute requests return absolute entry paths. Directory paths end with `/`.
+                    description: Entry path relative to the listed path. Directory paths end with `/`.
                   size:
                     type: number
                     description: Entry size in bytes.

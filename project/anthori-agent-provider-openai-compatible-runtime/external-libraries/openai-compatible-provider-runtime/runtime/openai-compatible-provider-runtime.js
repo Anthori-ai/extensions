@@ -1295,6 +1295,7 @@ function collectOpenAIMessages(request, host, settings, model)
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "tool")
       {
         var toolCallId = trim(entry.toolCallId);
@@ -1328,21 +1329,13 @@ function collectOpenAIMessages(request, host, settings, model)
       messages.push({ role: role, content: messageContent });
     }
   }
-  if (messages.length === 0)
-  {
-    var system = trim(request && request.system);
-    if (system !== "")
-    {
-      messages.push({ role: "system", content: system });
-    }
-    messages.push({ role: "user", content: trim(request && request.prompt) });
-  }
   return messages;
 }
 
 function responsesContentTextType(role)
 {
-  return trim(role).toLowerCase() === "assistant" ? "output_text" : "input_text";
+  var normalized = trim(role).toLowerCase();
+  return normalized === "assistant" || normalized === "agent" ? "output_text" : "input_text";
 }
 
 function buildResponsesContent(entry, host)
@@ -1393,15 +1386,6 @@ function collectResponsesInput(request, host, settings, model)
   var items = [];
   if (request && Array.isArray(request.messages) && request.messages.length > 0)
   {
-    var system = trim(request && request.system);
-    if (system !== "")
-    {
-      items.push({
-        type: "message",
-        role: "system",
-        content: [{ type: "input_text", text: system }]
-      });
-    }
     for (var i = 0; i < request.messages.length; i += 1)
     {
       var entry = request.messages[i];
@@ -1410,6 +1394,7 @@ function collectResponsesInput(request, host, settings, model)
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "tool")
       {
         var toolCallId = trim(entry.toolCallId);
@@ -1454,18 +1439,6 @@ function collectResponsesInput(request, host, settings, model)
           });
         }
       }
-    }
-  }
-  if (items.length === 0)
-  {
-    var prompt = trim(request && request.prompt);
-    if (prompt !== "")
-    {
-      items.push({
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: prompt }]
-      });
     }
   }
   return items;

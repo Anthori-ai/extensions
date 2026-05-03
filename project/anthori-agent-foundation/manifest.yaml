@@ -63,17 +63,12 @@ typeDefinitions:
       model:
         type: string
         description: Effective model used for this call when available.
-      providerRef:
+      providerId:
         type: string
         description: Effective provider instance id for this call.
       providerDefinitionId:
         type: string
         description: Effective provider definition id for this call.
-      providerInterfaces:
-        type: array
-        description: Effective provider interface ids for this call.
-        items:
-          type: string
     additionalProperties: false
   ProviderCancelledResult:
     type: object
@@ -95,6 +90,120 @@ typeDefinitions:
       - ProviderResult
       - ProviderCancelledResult
     description: Final provider result returned after any visible chunk streaming completes.
+  ContextToolCall:
+    type: object
+    description: Provider-neutral replay tool call shape for context and text-provider requests.
+    required:
+      - name
+    properties:
+      id:
+        type: string
+        description: Optional provider-generated tool call id.
+      name:
+        type: string
+        description: Tool name requested by the provider.
+      arguments:
+        type: string
+        description: JSON string arguments for the tool call.
+      metadata:
+        type: object
+        description: Provider-owned round-trip metadata that must stay attached across provider rounds.
+    additionalProperties: false
+  ContextMessagePart:
+    type: object
+    description: Replay-safe message part used in provider-neutral context.
+    required:
+      - kind
+    properties:
+      kind:
+        type: string
+        description: What this part contains, such as text, reasoning, attachment, or error.
+      text:
+        type: string
+        description: Text for this part.
+      attachment:
+        type: object
+        description: Structured attachment payload for attachment parts.
+      toolCall: ContextToolCall
+      error:
+        type: object
+        description: Structured error payload for error parts.
+      metadata:
+        type: object
+        description: Provider-owned or replay-relevant part metadata.
+    additionalProperties: false
+  ContextMessage:
+    type: object
+    description: Replay-safe provider-neutral conversation message. Excludes usage, finish/model metadata, stream hints, participant display metadata, and tool-call UI fields.
+    required:
+      - role
+    properties:
+      role:
+        type: string
+        enum:
+          - system
+          - user
+          - agent
+          - tool
+        description: Provider-neutral Anthori role for replay context.
+      parts:
+        type: array
+        description: Ordered replay-visible message parts.
+        items: ContextMessagePart
+      attachments:
+        type: array
+        description: Attached files or media referenced by the message.
+        items:
+          type: object
+      toolCallId:
+        type: string
+        description: Tool-call id associated with a tool result message.
+      name:
+        type: string
+        description: Tool name associated with a tool result message.
+      toolCalls:
+        type: array
+        description: Tool calls requested by an agent message.
+        items: ContextToolCall
+    additionalProperties: false
+  ProviderToolDefinition:
+    type: object
+    description: Provider-neutral tool definition exposed to a text provider.
+    required:
+      - name
+    properties:
+      id:
+        type: string
+        description: Stable provider-visible tool id.
+      title:
+        type: string
+        description: Human-readable Anthori tool title.
+      name:
+        type: string
+        description: Provider-visible tool name.
+      description:
+        type: string
+        description: Provider-visible tool description.
+      parameters:
+        type: object
+        description: Provider-visible JSON schema for tool arguments.
+    additionalProperties: false
+  TextProviderRequest:
+    type: object
+    description: Strict provider-neutral request sent to text provider controls.
+    required:
+      - messages
+    properties:
+      messages:
+        type: array
+        minItems: 1
+        description: Replay-safe provider-neutral transcript messages.
+        items: ContextMessage
+      tools:
+        type: array
+        description: Provider-neutral tool definitions available for this call.
+        items: ProviderToolDefinition
+    additionalProperties: false
   ContextRequest:
     type: object
     description: Request sent to a context control before each provider round.

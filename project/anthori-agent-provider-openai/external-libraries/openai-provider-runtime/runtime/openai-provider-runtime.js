@@ -207,9 +207,23 @@ function looksLikeBrowserVerificationPage(text) {
 }
 
 function chooseSystemPrompt(request) {
-  var system = trim(request && request.system);
-  if (system !== "") {
-    return system;
+  var messages = request && Array.isArray(request.messages) ? request.messages : [];
+  var prompts = [];
+  for (var i = 0; i < messages.length; i += 1) {
+    var entry = messages[i];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+    if (trim(entry.role) !== "system") {
+      continue;
+    }
+    var text = normalizeMessageText(entry);
+    if (text !== "") {
+      prompts.push(text);
+    }
+  }
+  if (prompts.length > 0) {
+    return prompts.join("\n\n");
   }
   return "You are a concise software engineering assistant. Explain code changes clearly and practically.";
 }
@@ -1286,6 +1300,7 @@ function collectChatMessages(request) {
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "tool") {
         var toolCallId = trim(entry.toolCallId);
         if (toolCallId === "") {
@@ -1324,13 +1339,6 @@ function collectChatMessages(request) {
       });
     }
   }
-  if (messages.length === 0) {
-    var system = chooseSystemPrompt(request || {});
-    if (system !== "") {
-      messages.push({ role: "developer", content: system });
-    }
-    messages.push({ role: "user", content: trim(request && request.prompt) });
-  }
   return messages;
 }
 
@@ -1343,6 +1351,7 @@ function collectResponsesInput(request, includeAssistantContent, config, model) 
         continue;
       }
       var role = trim(entry.role) || "user";
+      if (role === "agent") role = "assistant";
       if (role === "tool") {
         var toolCallId = trim(entry.toolCallId);
         if (toolCallId === "") {
@@ -1385,13 +1394,6 @@ function collectResponsesInput(request, includeAssistantContent, config, model) 
         }
       }
     }
-  }
-  if (items.length === 0) {
-    items.push({
-      type: "message",
-      role: "user",
-      content: [{ type: "input_text", text: trim(request && request.prompt) }]
-    });
   }
   return items;
 }

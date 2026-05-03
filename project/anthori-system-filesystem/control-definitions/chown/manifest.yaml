@@ -32,9 +32,9 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    uid:{uid}
-                    gid:{gid}
-                  description: Text template.
+                    uid:{{uid}}
+                    gid:{{gid}}
+                  description: Mustache text template.
               additionalProperties: false
             - type: object
               description: Change ownership using numeric uid and a group name.
@@ -53,9 +53,9 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    uid:{uid}
-                    gid:{gid}
-                  description: Text template.
+                    uid:{{uid}}
+                    gid:{{gid}}
+                  description: Mustache text template.
               additionalProperties: false
             - type: object
               description: Change ownership using a user name and numeric gid.
@@ -74,9 +74,9 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    uid:{uid}
-                    gid:{gid}
-                  description: Text template.
+                    uid:{{uid}}
+                    gid:{{gid}}
+                  description: Mustache text template.
               additionalProperties: false
             - type: object
               description: Change ownership using a user name and a group name.
@@ -95,9 +95,9 @@ contracts:
                 format:
                   type: string
                   default: |-
-                    uid:{uid}
-                    gid:{gid}
-                  description: Text template.
+                    uid:{{uid}}
+                    gid:{{gid}}
+                  description: Mustache text template.
               additionalProperties: false
         output:
           type: string

@@ -12,10 +12,10 @@ control:
           description: Calls the configured provider and returns the provider response.
           input:
             type: object
+            required:
+              - input
             properties:
-              input:
-                type: any
-                description: Input sent to the provider runtime.
+              input: anthori.agent.foundation.TextProviderRequest
               config:
                 type: string
                 fieldRef: providerRef
@@ -62,17 +62,12 @@ control:
               model:
                 type: string
                 description: Effective model used for this call when available.
-              providerRef:
+              providerId:
                 type: string
                 description: Effective provider instance id for this call.
               providerDefinitionId:
                 type: string
                 description: Effective provider definition id for this call.
-              providerInterfaces:
-                type: array
-                description: Effective provider interface ids for this call.
-                items:
-                  type: string
             additionalProperties: false
         - id: start
           toolVisible: false
@@ -83,6 +78,7 @@ control:
             required:
               - pull
               - ownerInvocationId
+              - input
             properties:
               pull:
                 type: string
@@ -90,9 +86,7 @@ control:
               ownerInvocationId:
                 type: string
                 description: Invocation that owns the background task lifetime.
-              input:
-                type: any
-                description: Input sent to the provider runtime.
+              input: anthori.agent.foundation.TextProviderRequest
               config:
                 type: string
                 fieldRef: providerRef
@@ -221,7 +215,7 @@ control:
               model:
                 type: string
                 description: Effective model used for this metadata lookup.
-              providerRef:
+              providerId:
                 type: string
                 description: Effective provider instance id for this metadata lookup.
               providerDefinitionId:

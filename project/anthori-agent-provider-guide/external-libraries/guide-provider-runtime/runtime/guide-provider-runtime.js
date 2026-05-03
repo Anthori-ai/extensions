@@ -747,15 +747,8 @@ module.exports = {
   },
   "respond-text": function (input) {
     var request = input && input.request && typeof input.request === "object" ? input.request : {};
-    var prompt = trim(request.prompt);
     var messages = Array.isArray(request.messages) ? request.messages : [];
-    var promptFromMessages = false;
-
-    if (prompt === "") {
-      // Agent provider calls normally carry the active chat text in messages.
-      prompt = latestUserPrompt(messages);
-      promptFromMessages = prompt !== "";
-    }
+    var prompt = latestUserPrompt(messages);
 
     if (prompt === "") {
       return {
@@ -767,10 +760,7 @@ module.exports = {
 
     var topic = detectTopic(prompt);
     var prevTopic = lastAssistantTopic(messages);
-    var turnCount = conversationLength(messages);
-    if (promptFromMessages) {
-      turnCount = Math.max(0, turnCount - 1);
-    }
+    var turnCount = Math.max(0, conversationLength(messages) - 1);
     var ctx = {
       messages: messages,
       topic: topic,

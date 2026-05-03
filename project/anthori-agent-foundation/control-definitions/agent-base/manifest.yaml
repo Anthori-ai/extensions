@@ -197,10 +197,10 @@ contracts:
             description: Agent invokes the bound provider with a text call request.
             input:
               type: object
+              required:
+                - input
               properties:
-                input:
-                  type: any
-                  description: Provider runtime payload for this agent call, such as messages and tool definitions.
+                input: TextProviderRequest
                 speaker:
                   type: string
                   description: Optional visible speaker label for emitted agent output.
@@ -214,6 +214,7 @@ contracts:
               required:
                 - pull
                 - ownerInvocationId
+                - input
               properties:
                 pull:
                   type: string
@@ -222,9 +223,7 @@ contracts:
                 ownerInvocationId:
                   type: string
                   description: Invocation that owns the background provider task lifetime.
-                input:
-                  type: any
-                  description: Provider runtime payload for this agent call, such as messages and tool definitions.
+                input: TextProviderRequest
                 speaker:
                   type: string
                   description: Optional visible speaker label for emitted agent output.
@@ -345,7 +344,7 @@ contracts:
                 model:
                   type: string
                   description: Effective model used for this metadata lookup.
-                providerRef:
+                providerId:
                   type: string
                   description: Effective provider instance id for this metadata lookup.
                 providerDefinitionId:
@@ -365,7 +364,7 @@ contracts:
             input: ContextRequest
             output:
               type: array
-              items: anthori.standard.ConversationMessage
+              items: ContextMessage
       historyControl:
         contracts:
           - id: default

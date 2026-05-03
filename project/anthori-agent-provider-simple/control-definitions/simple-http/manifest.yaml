@@ -12,10 +12,10 @@ control:
           description: Calls the configured provider and returns the provider response.
           input:
             type: object
+            required:
+              - input
             properties:
-              input:
-                type: any
-                description: Input sent to the provider runtime.
+              input: anthori.agent.foundation.TextProviderRequest
               config:
                 type: string
                 fieldRef: providerRef
@@ -62,17 +62,12 @@ control:
               model:
                 type: string
                 description: Effective model used for this call when available.
-              providerRef:
+              providerId:
                 type: string
                 description: Effective provider instance id for this call.
               providerDefinitionId:
                 type: string
                 description: Effective provider definition id for this call.
-              providerInterfaces:
-                type: array
-                description: Effective provider interface ids for this call.
-                items:
-                  type: string
             additionalProperties: false
         - id: start
           toolVisible: false
@@ -80,16 +75,14 @@ control:
           description: Start a background provider call owned by the supplied invocation and return a task handle.
           input:
             type: object
-            required: [pull, ownerInvocationId]
+            required: [pull, ownerInvocationId, input]
             properties:
               pull:
                 type: string
                 enum: [start]
               ownerInvocationId:
                 type: string
-              input:
-                type: any
-                description: Input sent to the provider runtime.
+              input: anthori.agent.foundation.TextProviderRequest
               config:
                 type: string
                 fieldRef: providerRef
@@ -218,7 +211,7 @@ control:
               model:
                 type: string
                 description: Effective model used for this metadata lookup.
-              providerRef:
+              providerId:
                 type: string
                 description: Effective provider instance id for this metadata lookup.
               providerDefinitionId:
@@ -262,7 +255,7 @@ control:
           schema:
             text:
               type: string
-              description: Always present. Value = trim(request.prompt). If that is empty, the runtime uses the latest non-empty text extracted from request.messages.
+              description: Always present. Value is the latest non-empty text extracted from request.messages.
         - title: Response Body
           kind: text
           text:
@@ -277,5 +270,5 @@ control:
           text:
             - "This control uses a provider config with definitionId simple."
             - "Required config for text calls: http."
-            - "request.model, request.system, request.messages, and request.tools remain part of the caller-facing Anthori contract, but this provider does not forward them to the HTTP endpoint."
+            - "request.messages and request.tools remain part of the caller-facing Anthori contract, but this provider forwards only the latest message text to the HTTP endpoint."
             - 'The list-models action also requires maxContextTokens > 0 and reports llmModel or "custom-model" when llmModel is empty.'

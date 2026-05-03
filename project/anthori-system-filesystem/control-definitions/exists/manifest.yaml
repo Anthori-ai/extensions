@@ -24,8 +24,8 @@ contracts:
               description: Relative or absolute path.
             format:
               type: string
-              default: "{exists}"
-              description: Text template.
+              default: "{{exists}}"
+              description: Mustache text template.
           additionalProperties: false
         output:
           type: string

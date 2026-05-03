@@ -29,9 +29,9 @@ contracts:
             format:
               type: string
               default: |-
-                bytesCopied:{bytesCopied}
-                entriesCopied:{entriesCopied}
-              description: Text template.
+                bytesCopied:{{bytesCopied}}
+                entriesCopied:{{entriesCopied}}
+              description: Mustache text template.
           additionalProperties: false
         output:
           type: string
