@@ -360,7 +360,7 @@ contracts:
         contracts:
           - id: default
             name: Context Request
-            description: Agent calls the context control before each provider round with only the new messages from that round, the round phase, and the maximum character budget it should return for the next provider call.
+            description: Agent calls the context control before each provider round with only the new messages from that round, the round phase, and the remaining character budget it should return for the next provider call after Agent reserves space for its system prompt and visible tool definitions.
             input: ContextRequest
             output:
               type: array

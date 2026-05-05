@@ -44,6 +44,15 @@ control:
       required: false
       targetControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
       description: Text provider used to summarize older history during compaction.
+    compactPrompt:
+      type: string
+      required: false
+      default: |
+        Summarize the earlier part of this coding-agent conversation so a future assistant can continue without losing important state.
+
+        Preserve concrete facts: user goals, decisions, constraints, file paths, code locations, commands, tool results, errors, offsets, current hypotheses, and unfinished next steps.
+        Do not include generic filler. Do not invent details. If a detail may matter later, keep it.
+      description: Prompt used when Context summarizes older session history during compaction.
     permissions:
       type: array
       description: File permissions this control may request when restoring recently read file content after compaction.
@@ -79,41 +88,57 @@ control:
       type: number
       required: false
       default: 2000
+      description: Maximum number of durable history rows Context reads when preparing provider input.
     maxMemoryRows:
       type: number
       required: false
       default: 50
+      description: Maximum number of memory rows Context scans when finding the latest compacted session memory.
     restoreRecentReads:
       type: boolean
       required: false
       default: true
+      description: Re-read recently used files in bounded slices after compaction when permissions allow.
     maxRestoredFiles:
       type: number
       required: false
       default: 5
+      description: Maximum number of recently read files Context may restore after compaction.
     microcompact:
       type: boolean
       required: false
       default: true
+      description: Clear old large tool result text from provider context while preserving recent results.
     microcompactKeepRecentToolResults:
       type: number
       required: false
       default: 8
+      description: Number of latest large tool results kept verbatim during microcompact.
     microcompactMinToolResultChars:
       type: number
       required: false
       default: 2000
+      description: Minimum text length before a tool result is eligible for microcompact clearing.
   ui:
     fields:
       - key: historyControl
         label: History
         type: controlTarget
+        helpText: Agent Storage control containing durable conversation rows that Context reads before each provider round.
       - key: memoryControl
         label: Memory
         type: controlTarget
+        helpText: Optional Agent Storage control where Context writes compacted session memory rows.
       - key: providerControl
         label: Provider
         type: controlTarget
+        helpText: Provider Context uses to summarize older history during compaction.
+      - key: compactPrompt
+        label: Compact Prompt
+        type: textarea
+        rows: 8
+        supportsPort: true
+        helpText: Prompt used when Context summarizes older history during compaction. Use {{transcript}} to place the transcript explicitly; otherwise Context appends it automatically.
       - key: permissions
         label: Permissions
         type: permissions
@@ -124,24 +149,31 @@ control:
       - key: maxRows
         label: Max Rows
         type: number
+        helpText: Maximum number of durable history rows Context reads when preparing provider input.
       - key: maxMemoryRows
         label: Max Memory Rows
         type: number
+        helpText: Maximum number of memory rows Context scans when finding the latest compacted session memory.
       - key: restoreRecentReads
         label: Restore Reads
         type: checkbox
+        helpText: Re-read recently used files in bounded slices after compaction when permissions allow.
       - key: maxRestoredFiles
         label: Max Restored Files
         type: number
+        helpText: Maximum number of recently read files Context may restore after compaction.
       - key: microcompact
         label: Microcompact
         type: checkbox
+        helpText: Clear old large tool result text from provider context while preserving recent results.
       - key: microcompactKeepRecentToolResults
         label: Keep Tool Results
         type: number
+        helpText: Number of latest large tool results kept verbatim during microcompact.
       - key: microcompactMinToolResultChars
         label: Tool Result Chars
         type: number
+        helpText: Minimum text length before a tool result is eligible for microcompact clearing.
     info:
       sections:
         - title: CONTEXT

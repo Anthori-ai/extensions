@@ -223,7 +223,7 @@ typeDefinitions:
         description: Whether this is the first provider round or a later round after tool activity.
       maxChars:
         type: number
-        description: Maximum number of characters Context should return for the next provider call after Agent applies the selected provider model's context limit and Max percentage.
+        description: Maximum number of characters Context should return for the next provider call after Agent applies the selected provider model's context limit, Max percentage, and reserves space for Agent-owned system prompt and visible tool definitions.
       forceCompact:
         type: boolean
         description: True when Agent is explicitly asking Context to compact durable history now instead of only compacting when near the budget.

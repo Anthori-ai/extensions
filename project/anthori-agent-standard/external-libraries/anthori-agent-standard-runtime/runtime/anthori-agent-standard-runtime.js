@@ -1045,16 +1045,19 @@ function agentContextControl(payload, host) {
     return adjustTailStartForToolPairs(rows, start);
   }
 
+  const defaultCompactPrompt = [
+    "Summarize the earlier part of this coding-agent conversation so a future assistant can continue without losing important state.",
+    "",
+    "Preserve concrete facts: user goals, decisions, constraints, file paths, code locations, commands, tool results, errors, offsets, current hypotheses, and unfinished next steps.",
+    "Do not include generic filler. Do not invent details. If a detail may matter later, keep it.",
+  ].join("\n");
+
   function compactPrompt(transcript) {
-    return [
-      "Summarize the earlier part of this coding-agent conversation so a future assistant can continue without losing important state.",
-      "",
-      "Preserve concrete facts: user goals, decisions, constraints, file paths, code locations, commands, tool results, errors, offsets, current hypotheses, and unfinished next steps.",
-      "Do not include generic filler. Do not invent details. If a detail may matter later, keep it.",
-      "",
-      "Transcript to summarize:",
-      transcript,
-    ].join("\n");
+    const configuredPrompt = normalizeString(config && config.compactPrompt) || defaultCompactPrompt;
+    if (configuredPrompt.includes("{{transcript}}")) {
+      return configuredPrompt.replace(/\{\{\s*transcript\s*\}\}/g, transcript);
+    }
+    return [configuredPrompt, "", "Transcript to summarize:", transcript].join("\n");
   }
 
   function parseToolArguments(toolCall) {

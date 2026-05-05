@@ -594,9 +594,7 @@ function buildContextRequest(messages, phase, round, config, providerContext, ho
   if (providerContext && typeof providerContext === "object") {
     const maxContextTokens = finiteNumber(providerContext.maxContextTokens, 0);
     if (maxContextTokens > 0) {
-      const maxContextPercent = resolveMaxContextPercent(config);
-      const availableInputTokens = Math.max(0, Math.floor(maxContextTokens * (maxContextPercent / 100)));
-      request.maxChars = availableInputTokens * 4;
+      request.maxChars = availableContextMessageChars(providerContext, config, options && options.toolDefinitions);
     }
   }
   if (options && typeof options === "object" && !Array.isArray(options)) {
@@ -667,6 +665,18 @@ function estimateToolDefinitionChars(definition) {
   return total;
 }
 
+function estimateAgentOverheadChars(config, toolDefinitions) {
+  const tools = Array.isArray(toolDefinitions) ? toolDefinitions : [];
+  return configString(config, "systemPrompt").length +
+    tools.reduce((sum, definition) => sum + estimateToolDefinitionChars(definition), 0);
+}
+
+function availableContextMessageChars(providerContext, config, toolDefinitions) {
+  const availableChars = availableInputCharsForProviderContext(providerContext, config);
+  if (availableChars <= 0) return 0;
+  return Math.max(1, availableChars - estimateAgentOverheadChars(config, toolDefinitions));
+}
+
 function validateProviderRequestBudget(messages, toolDefinitions, config, providerContext) {
   const availableChars = availableInputCharsForProviderContext(providerContext, config);
   if (availableChars <= 0) return;
@@ -703,12 +713,12 @@ function validateProviderRequestBudget(messages, toolDefinitions, config, provid
   );
 }
 
-function resolveContextMessages(messages, phase, round, config, providerContext, host) {
+function resolveContextMessages(messages, phase, round, config, providerContext, host, options) {
   const contextControl = configString(config, "contextControl");
   if (!contextControl) return messages;
   const invoked = host.graph.invoke({
     controlId: contextControl,
-    input: buildContextRequest(messages, phase, round, config, providerContext, host),
+    input: buildContextRequest(messages, phase, round, config, providerContext, host, options),
   });
   if (!invoked || !invoked.ok) {
     throw new Error(normalizeString(invoked && invoked.error && invoked.error.message) || "context control failed");
@@ -4526,6 +4536,10 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
   const providerContext = configString(config, "contextControl")
     ? resolveProviderMetadata(providerTarget, host)
     : null;
+  const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds, {
+    toolCatalogVisible: state.toolCatalogVisible === true,
+  });
+  const toolDefinitions = toolRequest.tools;
   const preparedMessages = resolveContextMessages(
     configString(config, "contextControl") ? state.pendingContextMessages : state.conversation,
     agentPullToolPhase(state.round),
@@ -4533,16 +4547,13 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
     config,
     providerContext,
     host,
+    { toolDefinitions: toolDefinitions },
   );
   const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
-  const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds, {
-    toolCatalogVisible: state.toolCatalogVisible === true,
-  });
   if (agentToolRequestConsumesListedCatalog(toolRequest)) {
     state.toolCatalogVisible = false;
   }
   state.toolNameMap = toolRequest.toolNameMap;
-  const toolDefinitions = toolRequest.tools;
   validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
   return {
     request: {
@@ -5394,6 +5405,10 @@ async function agentControl(payload, host) {
         }
       }
       const phase = round === 0 ? "initial" : "tool-round";
+      const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds, {
+        toolCatalogVisible: toolCatalogVisible,
+      });
+      const toolDefinitions = toolRequest.tools;
       // Context now receives only the new messages for this round. Without a
       // Context control, Agent still falls back to its full in-memory execution
       // transcript so direct Agent calls keep the old simple behavior.
@@ -5404,16 +5419,13 @@ async function agentControl(payload, host) {
         config,
         providerContext,
         host,
+        { toolDefinitions: toolDefinitions },
       );
       const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
-      const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds, {
-        toolCatalogVisible: toolCatalogVisible,
-      });
       if (agentToolRequestConsumesListedCatalog(toolRequest)) {
         toolCatalogVisible = false;
       }
       toolNameMap = toolRequest.toolNameMap;
-      const toolDefinitions = toolRequest.tools;
       validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
       let providerCall;
       const emitPulledAgentChunk = pullOutput
