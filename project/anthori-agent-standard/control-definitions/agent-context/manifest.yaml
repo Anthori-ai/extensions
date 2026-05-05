@@ -1,0 +1,150 @@
+format: 1
+id: agent-context
+name: Context
+description: Builds provider-ready agent context from durable history and session memory, with optional compaction.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Context
+        description: Return replay-safe context messages for the next provider round.
+        input: anthori.agent.foundation.ContextRequest
+        output:
+          type: array
+          items: anthori.agent.foundation.ContextMessage
+        outputFormat: anthori.agent.foundation.ContextMessage[]
+control:
+  visible: true
+  libraryPath: agent
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      runtimeOverride: false
+      default: anthori-agent-standard-runtime
+    runtimeActionForward:
+      type: string
+      runtimeOverride: false
+      default: agent-context-control
+    historyControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: true
+      targetControlRef: controls/1/extensions/anthori.agent.standard/definitions/agent-storage
+      description: Agent Storage control that stores durable conversation history.
+    memoryControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: false
+      targetControlRef: controls/1/extensions/anthori.agent.standard/definitions/agent-storage
+      description: Agent Storage control used for compacted session memory rows.
+    providerControl:
+      type: controlTarget
+      runtimeOverride: false
+      required: false
+      targetControlRef: controls/1/extensions/anthori.agent.foundation/definitions/text-provider-base
+      description: Text provider used to summarize older history during compaction.
+    permissions:
+      type: array
+      description: File permissions this control may request when restoring recently read file content after compaction.
+      items:
+        type: object
+        required: [capability, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [file]
+            default: file
+          access:
+            type: array
+            description: File operations this permission row covers.
+            items:
+              type: string
+              enum: [read]
+          scope:
+            type: string
+            description: Relative or absolute file or folder path.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a folder-like scope that covers descendants.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+    maxRows:
+      type: number
+      required: false
+      default: 2000
+    maxMemoryRows:
+      type: number
+      required: false
+      default: 50
+    restoreRecentReads:
+      type: boolean
+      required: false
+      default: true
+    maxRestoredFiles:
+      type: number
+      required: false
+      default: 5
+    microcompact:
+      type: boolean
+      required: false
+      default: true
+    microcompactKeepRecentToolResults:
+      type: number
+      required: false
+      default: 8
+    microcompactMinToolResultChars:
+      type: number
+      required: false
+      default: 2000
+  ui:
+    fields:
+      - key: historyControl
+        label: History
+        type: controlTarget
+      - key: memoryControl
+        label: Memory
+        type: controlTarget
+      - key: providerControl
+        label: Provider
+        type: controlTarget
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: file
+        accessOptions: [read]
+        matchOptions: [exact, prefix]
+        helpText: "File resources Context may request when restoring recently read file content after compaction."
+      - key: maxRows
+        label: Max Rows
+        type: number
+      - key: maxMemoryRows
+        label: Max Memory Rows
+        type: number
+      - key: restoreRecentReads
+        label: Restore Reads
+        type: checkbox
+      - key: maxRestoredFiles
+        label: Max Restored Files
+        type: number
+      - key: microcompact
+        label: Microcompact
+        type: checkbox
+      - key: microcompactKeepRecentToolResults
+        label: Keep Tool Results
+        type: number
+      - key: microcompactMinToolResultChars
+        label: Tool Result Chars
+        type: number
+    info:
+      sections:
+        - title: CONTEXT
+          kind: text
+          text: |
+            Context selects replay-safe messages from Agent Storage. When history approaches the configured budget or Agent asks for compaction, it summarizes older rows into session memory and preserves the recent tail verbatim.

@@ -1,10 +1,11 @@
 format: 1
 id: agent-storage
-name: Agent Storage
+name: Storage
 description: Message-aware storage for agent history with table-style CRUD plus streamed reply assembly.
 baseControlRef: controls/1/extensions/anthori.storage.foundation/definitions/table-base
 control:
   visible: true
+  libraryPath: agent
   contracts:
     caller:
       contracts:
@@ -260,6 +261,72 @@ control:
             items: anthori.agent.foundation.ContextMessage
             description: Matching replay-safe context messages.
           outputFormat: anthori.agent.foundation.ContextMessage[]
+        - id: select
+          name: Select Context Rows
+          description: Select stored row envelopes whose row payload is normalized to replay-safe context messages. This keeps storage row ids available for compaction without exposing provider-unsafe message fields.
+          showWhen:
+            key: access
+            equals: read
+          input:
+            type: object
+            required:
+              - action
+              - kind
+            properties:
+              action:
+                type: string
+                enum:
+                  - select
+              kind:
+                type: string
+                enum:
+                  - contextRows
+                description: Return row envelopes with replay-safe context message rows.
+              where:
+                type: object
+                description: Filter object used to match stored rows.
+              orderBy:
+                type: array
+                description: Optional ordering rules for selected rows.
+                items:
+                  type: object
+                  required:
+                    - field
+                  properties:
+                    field:
+                      type: string
+                      description: Field name to sort by.
+                    direction:
+                      type: string
+                      description: Sort direction. Defaults to asc.
+                      enum:
+                        - asc
+                        - desc
+                  additionalProperties: false
+              limit:
+                type: number
+                description: Optional row limit for select.
+              maxChars:
+                type: number
+                description: Optional maximum JSON character count for the returned context row envelope array. Agent Storage trims the oldest selected rows until the result fits.
+            additionalProperties: false
+          inputFormat: |-
+            {
+              action:"select"
+              kind:"contextRows"
+              where?:object
+              orderBy?:{
+                field:string
+                direction?:"asc" | "desc"
+              }[]
+              limit?:number
+              maxChars?:number
+            }
+          output:
+            type: array
+            items: StoredContextMessageEnvelope
+            description: Matching row envelopes with replay-safe context message rows.
+          outputFormat: StoredContextMessageEnvelope[]
         - id: update
           name: Update
           description: Update stored agent messages by filter.

@@ -37,6 +37,9 @@ typeDefinitions:
         type: array
         description: The message body as an ordered list of parts.
         items: anthori.standard.MessagePart
+      metadata:
+        type: object
+        description: Durable Anthori-side metadata used by storage and context controls. Context selection omits this from provider replay.
     additionalProperties: false
   StoredSystemMessage:
     type: object
@@ -53,6 +56,9 @@ typeDefinitions:
         type: array
         description: The message body as an ordered list of parts.
         items: anthori.standard.MessagePart
+      metadata:
+        type: object
+        description: Durable Anthori-side metadata used by storage and context controls. Context selection omits this from provider replay.
     additionalProperties: false
   StoredAgentMessage:
     type: object
@@ -75,6 +81,10 @@ typeDefinitions:
         type: array
         description: The message body as an ordered list of parts.
         items: anthori.standard.MessagePart
+      toolCalls:
+        type: array
+        description: Tool calls requested by this stored agent message.
+        items: anthori.standard.ToolCall
       speaker:
         type: string
         description: Optional display name shown beside the message.
@@ -85,6 +95,9 @@ typeDefinitions:
       model:
         type: string
         description: Effective model used for this message when available.
+      metadata:
+        type: object
+        description: Durable Anthori-side metadata used by storage and context controls. Context selection omits this from provider replay.
     additionalProperties: false
   StoredToolResultMessage:
     type: object
@@ -112,6 +125,9 @@ typeDefinitions:
       name:
         type: string
         description: Optional tool name associated with this tool result message.
+      metadata:
+        type: object
+        description: Durable Anthori-side metadata used by storage and context controls. Context selection omits this from provider replay.
     additionalProperties: false
   StoredMessage:
     anyOf:
@@ -133,6 +149,9 @@ typeDefinitions:
       parts:
         type: array
         items: anthori.standard.MessagePart
+      toolCalls:
+        type: array
+        items: anthori.standard.ToolCall
       attachments:
         type: array
         items:
@@ -146,6 +165,8 @@ typeDefinitions:
         type: string
       model:
         type: string
+      metadata:
+        type: object
     additionalProperties: false
   StoredMessageEnvelope:
     type: object
@@ -169,6 +190,29 @@ typeDefinitions:
         type: number
         description: Storage-assigned turn for session or execution scoped rows when applicable.
       row: StoredMessage
+    additionalProperties: false
+  StoredContextMessageEnvelope:
+    type: object
+    description: Stored Agent Storage row envelope with a replay-safe context message row.
+    required:
+      - id
+      - created
+      - updated
+      - row
+    properties:
+      id:
+        type: number
+        description: Storage-assigned row id.
+      created:
+        type: string
+        description: Storage-assigned creation timestamp.
+      updated:
+        type: string
+        description: Storage-assigned last update timestamp.
+      turn:
+        type: number
+        description: Storage-assigned turn for session or execution scoped rows when applicable.
+      row: anthori.agent.foundation.ContextMessage
     additionalProperties: false
   StreamWriteEvent:
     type: object
@@ -221,5 +265,6 @@ typeDefinitions:
 controlDefinitions:
   - control-definitions/agent
   - control-definitions/agent-storage
+  - control-definitions/agent-context
 externalLibraries:
   - external-libraries/anthori-agent-standard-runtime

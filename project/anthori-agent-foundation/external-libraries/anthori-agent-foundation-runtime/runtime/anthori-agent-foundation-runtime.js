@@ -3,6 +3,9 @@
 const AGENT_TOOL_LOADER_ID = "anthori.agent.tools.load";
 const AGENT_TOOL_LOADER_NAME = "load_tools";
 const AGENT_TOOL_LOADER_TITLE = "Agent: Load Tools";
+const AGENT_TOOL_LISTER_ID = "anthori.agent.tools.list";
+const AGENT_TOOL_LISTER_NAME = "list_tools";
+const AGENT_TOOL_LISTER_TITLE = "Agent: List Tools";
 
 function normalizeString(value) {
   return String(value == null ? "" : value).trim();
@@ -414,6 +417,13 @@ function asContextMessages(input, label) {
   throw new Error(sourceLabel + " must be a message history array");
 }
 
+function asOptionalContextMessages(input, label) {
+  if (Array.isArray(input) && input.length === 0) {
+    return [];
+  }
+  return asContextMessages(input, label);
+}
+
 function normalizeTextProviderTool(tool) {
   if (!tool || typeof tool !== "object" || Array.isArray(tool)) return null;
   const name = normalizeString(tool.name);
@@ -576,7 +586,7 @@ function resolveProviderMetadata(providerTarget, host) {
   };
 }
 
-function buildContextRequest(messages, phase, round, config, providerContext, host) {
+function buildContextRequest(messages, phase, round, config, providerContext, host, options) {
   const request = {
     messages: clone(messages),
     phase: normalizeString(phase) || "initial",
@@ -587,6 +597,15 @@ function buildContextRequest(messages, phase, round, config, providerContext, ho
       const maxContextPercent = resolveMaxContextPercent(config);
       const availableInputTokens = Math.max(0, Math.floor(maxContextTokens * (maxContextPercent / 100)));
       request.maxChars = availableInputTokens * 4;
+    }
+  }
+  if (options && typeof options === "object" && !Array.isArray(options)) {
+    if (options.forceCompact === true) {
+      request.forceCompact = true;
+    }
+    const reason = normalizeString(options.reason);
+    if (reason) {
+      request.reason = reason;
     }
   }
   return request;
@@ -695,6 +714,33 @@ function resolveContextMessages(messages, phase, round, config, providerContext,
     throw new Error(normalizeString(invoked && invoked.error && invoked.error.message) || "context control failed");
   }
   return asContextMessages(invoked.output, "context control output");
+}
+
+function forceCompactContextMessages(messages, phase, round, config, providerTarget, host, reason) {
+  const contextControl = configString(config, "contextControl");
+  if (!contextControl) {
+    return {
+      ok: false,
+      message: "Context compaction is unavailable because no Context control is configured.",
+      messages: clone(Array.isArray(messages) ? messages : []),
+    };
+  }
+  const providerContext = providerTarget ? resolveProviderMetadata(providerTarget, host) : null;
+  const invoked = host.graph.invoke({
+    controlId: contextControl,
+    input: buildContextRequest(messages, phase, round, config, providerContext, host, {
+      forceCompact: true,
+      reason: reason,
+    }),
+  });
+  if (!invoked || !invoked.ok) {
+    throw new Error(normalizeString(invoked && invoked.error && invoked.error.message) || "context compaction failed");
+  }
+  return {
+    ok: true,
+    message: "Context compacted.",
+    messages: asOptionalContextMessages(invoked.output, "context compaction output"),
+  };
 }
 
 function appendHistoryMessages(messages, config, host) {
@@ -1321,8 +1367,13 @@ function normalizeAgentSignalDecision(value) {
         action: "cancel",
         reason: normalizeString(value.reason),
       };
+    case "compact":
+      return {
+        action: "compact",
+        reason: normalizeString(value.reason),
+      };
     default:
-      throw new Error('Agent On Signal action must be "ignore", "queue", "interrupt", or "cancel"');
+      throw new Error('Agent On Signal action must be "ignore", "queue", "interrupt", "compact", or "cancel"');
   }
 }
 
@@ -1350,8 +1401,13 @@ function normalizeAgentMessageDecision(value) {
         action: "cancel",
         reason: normalizeString(value.reason),
       };
+    case "compact":
+      return {
+        action: "compact",
+        reason: normalizeString(value.reason),
+      };
     default:
-      throw new Error('Agent On Message action must be "pass", "replace", "drop", or "cancel"');
+      throw new Error('Agent On Message action must be "pass", "replace", "drop", "compact", or "cancel"');
   }
 }
 
@@ -1388,11 +1444,14 @@ async function runAgentSignalScript(currentControlId, config, signal, state, hos
   }
 }
 
-async function runAgentMessageScript(currentControlId, config, message, state, host) {
+async function runAgentMessageScriptDecision(currentControlId, config, message, state, host) {
   const normalizedMessage = normalizeAgentMessageEntry(message);
   const source = configString(config, "onMessage");
   if (!source) {
-    return normalizedMessage.messages;
+    return {
+      action: "pass",
+      messages: normalizedMessage.messages,
+    };
   }
   const asyncEnabled = configValue(config, "onMessageAsync") === true;
   const context = buildAgentHookContext(currentControlId, config, state, host);
@@ -1423,13 +1482,58 @@ async function runAgentMessageScript(currentControlId, config, message, state, h
   }
   switch (decision.action) {
     case "pass":
-      return normalizedMessage.messages;
+      return {
+        action: "pass",
+        messages: normalizedMessage.messages,
+      };
     case "replace":
-      return decision.messages;
+      return {
+        action: "replace",
+        messages: decision.messages,
+      };
     case "drop":
-      return [];
+      return {
+        action: "drop",
+        messages: [],
+      };
+    case "cancel":
+      return {
+        action: "cancel",
+        reason: decision.reason,
+      };
+    case "compact":
+      return {
+        action: "compact",
+        reason: decision.reason,
+      };
+    default:
+      throw new Error("unsupported Agent On Message action");
+  }
+}
+
+async function applyExecutedToolMessageScript(executed, currentControlId, config, message, state, host) {
+  const fallbackMessages = Array.isArray(executed && executed.messages)
+    ? clone(executed.messages)
+    : [];
+  const decision = await runAgentMessageScriptDecision(currentControlId, config, message, state, host);
+
+  switch (decision.action) {
+    case "pass":
+    case "replace":
+    case "drop":
+      executed.messages = Array.isArray(decision.messages) ? decision.messages : [];
+      return executed;
     case "cancel":
       throw createAgentMessageCancelError(decision.reason);
+    case "compact":
+      // Tool-result compaction is deferred until the complete tool batch has
+      // been appended, so compaction never summarizes an incomplete
+      // tool-call/tool-result boundary.
+      executed.messages = fallbackMessages;
+      executed.compact = {
+        reason: normalizeString(decision.reason),
+      };
+      return executed;
     default:
       throw new Error("unsupported Agent On Message action");
   }
@@ -1522,32 +1626,34 @@ async function checkpointAgentSignals(currentControlId, config, state, signalSta
         : null,
     }, host);
     if (decision.action === "queue" || decision.action === "interrupt") {
-      let nextMessages = [];
-      try {
-        nextMessages = await runAgentMessageScript(currentControlId, config, {
-          source: "signal",
-          messages: decision.messages,
-          signal: signal,
-        }, {
-          phase: normalizeString(state && state.phase),
-          round: finiteNumber(state && state.round, 0),
-          canInterrupt: !!(state && state.canInterrupt),
-          queuedMessages: signalState && Array.isArray(signalState.pendingMessages)
-            ? signalState.pendingMessages.length
-            : 0,
-          active: state && state.active && typeof state.active === "object" && !Array.isArray(state.active)
-            ? clone(state.active)
-            : null,
-        }, host);
-      } catch (error) {
-        if (isAgentMessageCancelError(error)) {
-          return {
-            action: "cancel",
-            reason: normalizeString(error.reason) || normalizeString(error.message),
-          };
-        }
-        throw error;
+      const nextDecision = await runAgentMessageScriptDecision(currentControlId, config, {
+        source: "signal",
+        messages: decision.messages,
+        signal: signal,
+      }, {
+        phase: normalizeString(state && state.phase),
+        round: finiteNumber(state && state.round, 0),
+        canInterrupt: !!(state && state.canInterrupt),
+        queuedMessages: signalState && Array.isArray(signalState.pendingMessages)
+          ? signalState.pendingMessages.length
+          : 0,
+        active: state && state.active && typeof state.active === "object" && !Array.isArray(state.active)
+          ? clone(state.active)
+          : null,
+      }, host);
+      if (nextDecision.action === "cancel") {
+        return {
+          action: "cancel",
+          reason: normalizeString(nextDecision.reason),
+        };
       }
+      if (nextDecision.action === "compact") {
+        return {
+          action: "compact",
+          reason: normalizeString(nextDecision.reason),
+        };
+      }
+      const nextMessages = Array.isArray(nextDecision.messages) ? nextDecision.messages : [];
       queueAgentSignalMessages(signalState, nextMessages);
       return {
         action: decision.action,
@@ -2765,6 +2871,25 @@ function buildLoadToolsCatalogText(entries) {
   return lines.join("\n");
 }
 
+function buildListToolsDefinition() {
+  return {
+    id: AGENT_TOOL_LISTER_ID,
+    title: AGENT_TOOL_LISTER_TITLE,
+    name: AGENT_TOOL_LISTER_NAME,
+    description: [
+      "List available tools before loading tool details.",
+      "Use list_tools when no tools are loaded and you need to inspect available tools.",
+      "When calling list_tools, call only list_tools in this response.",
+      "After this tool returns, call load_tools if you need a tool.",
+    ].join("\n"),
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {},
+    },
+  };
+}
+
 function buildLoadToolsDefinition(entries) {
   const catalogText = buildLoadToolsCatalogText(entries);
   return {
@@ -2796,11 +2921,11 @@ function buildLoadToolsDefinition(entries) {
   };
 }
 
-function buildAgentToolRequest(currentControlId, config, host, loadedToolIds) {
+function buildAgentToolRequest(currentControlId, config, host, loadedToolIds, options) {
   const catalog = buildAgentToolCatalog(currentControlId, config, host);
   const toolNameMap = {};
-  if (catalog.entries.length === 0) {
-    return { tools: [], toolNameMap };
+  if (catalog.definitionEntries.length === 0) {
+    return { tools: [], toolNameMap, loadedCount: 0, unloadedCount: 0, loadToolsVisible: false, listToolsVisible: false };
   }
   if (!agentLazyToolLoadingEnabled(config)) {
     return {
@@ -2809,13 +2934,23 @@ function buildAgentToolRequest(currentControlId, config, host, loadedToolIds) {
         return providerVisibleToolDefinition(entry.definition, entry.externalName);
       }),
       toolNameMap,
+      loadedCount: catalog.entries.length,
+      unloadedCount: 0,
+      loadToolsVisible: false,
+      listToolsVisible: false,
     };
   }
   const loaded = loadedToolIdMap(loadedToolIds);
+  const toolCatalogVisible = options && options.toolCatalogVisible === true;
   const tools = [];
   const unloaded = [];
+  let loadedCount = 0;
   for (const entry of catalog.entries) {
+    if (!Array.isArray(entry.definitionEntries) || entry.definitionEntries.length === 0) {
+      continue;
+    }
     if (loaded[entry.groupId]) {
+      loadedCount += 1;
       for (const definitionEntry of Array.isArray(entry.definitionEntries) ? entry.definitionEntries : []) {
         toolNameMap[definitionEntry.externalName] = definitionEntry.toolId;
         tools.push(providerVisibleToolDefinition(definitionEntry.definition, definitionEntry.externalName));
@@ -2824,14 +2959,26 @@ function buildAgentToolRequest(currentControlId, config, host, loadedToolIds) {
       unloaded.push(entry);
     }
   }
+  let loadToolsVisible = false;
+  let listToolsVisible = false;
   if (unloaded.length > 0) {
-    tools.unshift(buildLoadToolsDefinition(unloaded));
+    if (loadedCount > 0 || toolCatalogVisible) {
+      loadToolsVisible = true;
+      tools.unshift(buildLoadToolsDefinition(unloaded));
+    } else {
+      listToolsVisible = true;
+      tools.unshift(buildListToolsDefinition());
+    }
   }
-  return { tools, toolNameMap };
+  return { tools, toolNameMap, loadedCount, unloadedCount: unloaded.length, loadToolsVisible, listToolsVisible };
 }
 
 function buildToolDefinitions(currentControlId, config, host, loadedToolIds) {
   return buildAgentToolRequest(currentControlId, config, host, loadedToolIds).tools;
+}
+
+function agentToolRequestConsumesListedCatalog(toolRequest) {
+  return !!(toolRequest && toolRequest.loadToolsVisible === true && finiteNumber(toolRequest.loadedCount, 0) === 0);
 }
 
 function toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap) {
@@ -2896,6 +3043,10 @@ function isLoadToolsToolCall(toolCall) {
   return toolCallName(toolCall) === AGENT_TOOL_LOADER_NAME;
 }
 
+function isListToolsToolCall(toolCall) {
+  return toolCallName(toolCall) === AGENT_TOOL_LISTER_NAME;
+}
+
 function loadToolIdsFromToolCall(toolCall) {
   const args = normalizeToolArguments(toolCallArguments(toolCall)) || {};
   const rawIds = Object.prototype.hasOwnProperty.call(args, "ids")
@@ -2940,6 +3091,55 @@ function buildLoadToolsResultOutput(loadedEntries, unknownIds) {
     output.unknownIds = unknownIds.slice();
   }
   return output;
+}
+
+function buildListToolsResultOutput(entries) {
+  const listedEntries = (Array.isArray(entries) ? entries : [])
+    .filter((entry) => Array.isArray(entry && entry.definitionEntries) && entry.definitionEntries.length > 0);
+  return {
+    version: 1,
+    message: listedEntries.length > 0
+      ? "Tool catalog listed. Call load_tools next if you need a tool."
+      : "No tools are available.",
+    listed: listedEntries.map((entry) => ({
+      loadId: entry.loadId,
+      name: entry.externalName || entry.name,
+      title: entry.title,
+    })),
+  };
+}
+
+function buildListToolsResultMessage(toolCall, output) {
+  const providerOutput = {
+    version: 1,
+    message: normalizeString(output && output.message),
+  };
+  return {
+    role: "tool",
+    toolCallId: toolCallID(toolCall),
+    name: AGENT_TOOL_LISTER_NAME,
+    parts: [{ kind: "text", text: JSON.stringify(providerOutput) }],
+  };
+}
+
+function applyListToolsToolCalls(inputToolCalls, currentControlId, config, host) {
+  const catalog = buildAgentToolCatalog(currentControlId, config, host);
+  const output = buildListToolsResultOutput(catalog.entries);
+  const messages = [];
+  const trackedToolCalls = [];
+  for (const toolCall of Array.isArray(inputToolCalls) ? inputToolCalls : []) {
+    messages.push(buildListToolsResultMessage(toolCall, output));
+    trackedToolCalls.push(normalizeTrackedToolCall(toolCall, "list-tools-" + String(trackedToolCalls.length + 1), {
+      title: AGENT_TOOL_LISTER_TITLE,
+      status: "complete",
+      details: buildTrackedToolCallDetails(null, output, []),
+    }));
+  }
+  return {
+    messages,
+    toolCalls: trackedToolCalls,
+    listedCount: Array.isArray(output.listed) ? output.listed.length : 0,
+  };
 }
 
 function buildLoadToolsResultMessage(toolCall, output) {
@@ -3004,7 +3204,7 @@ function mergeTrackedToolCalls(toolCalls, additions) {
   return next;
 }
 
-function buildLoadToolsAgentMessage(response, loadTrackedToolCalls) {
+function buildInternalToolAgentMessage(response, trackedToolCalls) {
   const agentMessage = buildAgentMessage({
     text: response.text,
     reasoningText: response.reasoningText,
@@ -3012,7 +3212,7 @@ function buildLoadToolsAgentMessage(response, loadTrackedToolCalls) {
     finishReason: response.finishReason,
     model: response.model,
   });
-  agentMessage.parts = setToolCallParts(agentMessage.parts, loadTrackedToolCalls);
+  agentMessage.parts = setToolCallParts(agentMessage.parts, trackedToolCalls);
   return agentMessage;
 }
 
@@ -3124,6 +3324,12 @@ async function invokePullableTool(definition, invokeInput, host, currentControlI
       }
       if (signalDecision.action === "cancel") {
         throw createAgentSignalCancelError(signalDecision.reason);
+      }
+      if (signalDecision.action === "compact") {
+        const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
+        forceCompactContextMessages([], agentPullToolPhase(round), round, config, providerTarget, host, signalDecision.reason);
+        delayPullLoop(host);
+        continue;
       }
       if (!peekAgentTaskReady(taskId, host)) {
         delayPullLoop(host);
@@ -3304,7 +3510,7 @@ async function executeToolCall(toolCall, currentControlId, config, host, signalS
     ? { value: invoked.output, details: null }
     : unwrapDetailedInvokeResult(invoked);
   const executed = buildExecutedToolCallResult(toolCall, definition, invoked, invokedResult, host);
-  executed.messages = await runAgentMessageScript(currentControlId, config, {
+  return applyExecutedToolMessageScript(executed, currentControlId, config, {
     source: "tool",
     messages: executed.messages,
     tool: buildAgentMessageToolInfo(toolCall, definition),
@@ -3317,7 +3523,6 @@ async function executeToolCall(toolCall, currentControlId, config, host, signalS
       : 0,
     active: null,
   }, host);
-  return executed;
 }
 
 function buildExecutedToolCallResult(toolCall, definition, invoked, invokedResult, host) {
@@ -3812,6 +4017,22 @@ async function callPullableProviderControl(currentControlId, providerTarget, req
       if (signalDecision.action === "cancel") {
         throw createAgentSignalCancelError(signalDecision.reason);
       }
+      if (signalDecision.action === "compact") {
+        const compactResult = forceCompactContextMessages(
+          [],
+          agentPullToolPhase(round),
+          round,
+          config,
+          providerTarget,
+          host,
+          signalDecision.reason,
+        );
+        if (typeof onChunk === "function") {
+          onChunk(buildAgentCompactMessage(compactResult), null);
+        }
+        delayPullLoop(host);
+        continue;
+      }
       if (!peekAgentTaskReady(taskId, host)) {
         delayPullLoop(host);
         continue;
@@ -3920,11 +4141,13 @@ function normalizeAgentPullTaskState(raw) {
   state.loadedToolIds = Array.isArray(state.loadedToolIds)
     ? normalizeLoadedToolIds(state.loadedToolIds)
     : null;
+  state.toolCatalogVisible = state.toolCatalogVisible === true;
   state.toolNameMap = normalizeToolNameMap(state.toolNameMap);
   state.providerUsage = normalizeAgentProviderUsage(state.providerUsage, { internal: true });
   delete state.transientProviderMessages;
   if (!Array.isArray(state.pendingEvents)) state.pendingEvents = [];
   if (!Array.isArray(state.historySeedPending)) state.historySeedPending = [];
+  state.pendingToolCompactReason = normalizeString(state.pendingToolCompactReason);
   if (!state.signalState || typeof state.signalState !== "object" || Array.isArray(state.signalState)) {
     state.signalState = {};
   }
@@ -4013,8 +4236,10 @@ function createAgentPullInitialState(currentControlId, inputMessages, config, ow
     currentToolCalls: [],
     pendingToolCalls: [],
     loadedToolIds: [],
+    toolCatalogVisible: false,
     toolNameMap: {},
     providerUsage: null,
+    pendingToolCompactReason: "",
     pendingEvents: [],
     historySeedPending: clone(inputMessages),
     signalState: { pendingMessages: [] },
@@ -4206,6 +4431,38 @@ function buildAgentPullChunkEvent(state, message, speaker, metadata) {
   };
 }
 
+function buildAgentCompactMessage(result) {
+  const text = normalizeString(result && result.message) || "Context compaction requested.";
+  return {
+    role: "agent",
+    parts: [
+      {
+        kind: "text",
+        text: text,
+      },
+    ],
+  };
+}
+
+function buildAgentPullCompactEvent(state, result, speaker) {
+  return buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(buildAgentCompactMessage(result)), speaker, null);
+}
+
+function queueAgentPullCompactEvent(state, result, speaker) {
+  const compactEvent = buildAgentPullCompactEvent(state, result, speaker);
+  if (!compactEvent) return;
+
+  queueAgentPullEvent(state, compactEvent.phase, compactEvent.content, compactEvent.metadata);
+}
+
+function emitAgentPullCompactResult(taskId, state, result, speaker, host) {
+  const compactEvent = buildAgentPullCompactEvent(state, result, speaker);
+  if (compactEvent) {
+    return emitAgentPullResult(taskId, state, compactEvent, host);
+  }
+  return storeEmptyAgentPullStep(taskId, state, host);
+}
+
 function buildAgentPullTerminalEvent(phase, metadataContent) {
   const event = {
     phase: normalizeString(phase).toLowerCase(),
@@ -4278,7 +4535,12 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
     host,
   );
   const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
-  const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds);
+  const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds, {
+    toolCatalogVisible: state.toolCatalogVisible === true,
+  });
+  if (agentToolRequestConsumesListedCatalog(toolRequest)) {
+    state.toolCatalogVisible = false;
+  }
   state.toolNameMap = toolRequest.toolNameMap;
   const toolDefinitions = toolRequest.tools;
   validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
@@ -4363,6 +4625,9 @@ function advanceAgentPullToolResult(state, executed, config, host) {
   appendHistoryMessages(executed.messages, config, host);
   state.conversation = [...state.conversation, ...executed.messages];
   state.pendingContextMessages = [...state.pendingContextMessages, ...clone(executed.messages)];
+  if (executed && executed.compact) {
+    state.pendingToolCompactReason = normalizeString(executed.compact.reason) || "Tool requested context compaction";
+  }
   state.pendingToolCalls.shift();
   state.active = null;
   if (state.pendingToolCalls.length === 0) {
@@ -4370,6 +4635,16 @@ function advanceAgentPullToolResult(state, executed, config, host) {
     state.toolAgentIndex = -1;
   }
   return statusMessage;
+}
+
+function takeAgentPullToolCompactReason(state) {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return "";
+  if (Array.isArray(state.pendingToolCalls) && state.pendingToolCalls.length > 0) return "";
+
+  const reason = normalizeString(state.pendingToolCompactReason);
+  state.pendingToolCompactReason = "";
+
+  return reason;
 }
 
 async function advanceAgentPullProviderOutcome(taskId, state, providerCall, currentControlId, config, speaker, host) {
@@ -4427,8 +4702,9 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
   if (loadToolCalls.length > 0) {
     const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, state.loadedToolIds);
     const loadTrackedToolCalls = loadResult.toolCalls;
-    const loadAgentMessage = buildLoadToolsAgentMessage(response, loadTrackedToolCalls);
+    const loadAgentMessage = buildInternalToolAgentMessage(response, loadTrackedToolCalls);
     state.loadedToolIds = loadResult.loadedToolIds;
+    state.toolCatalogVisible = false;
     state.trackedToolCalls = mergeTrackedToolCalls(state.trackedToolCalls, loadTrackedToolCalls);
     state.currentToolCalls = loadTrackedToolCalls;
     state.conversation = [...state.conversation, loadAgentMessage, ...loadResult.messages];
@@ -4442,6 +4718,32 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     const chunkMessage = providerMetadata.chunkWrote === true
       ? agentToolStatusChunkMessage(loadAgentMessage)
       : loadAgentMessage;
+    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(chunkMessage), speaker, null);
+    if (chunkEvent) {
+      return emitAgentPullResult(taskId, state, chunkEvent, host);
+    }
+    return storeEmptyAgentPullStep(taskId, state, host);
+  }
+
+  const listToolCalls = response.toolCalls.filter((toolCall) => isListToolsToolCall(toolCall));
+  if (listToolCalls.length > 0) {
+    const listResult = applyListToolsToolCalls(listToolCalls, currentControlId, config, host);
+    const listTrackedToolCalls = listResult.toolCalls;
+    const listAgentMessage = buildInternalToolAgentMessage(response, listTrackedToolCalls);
+    state.toolCatalogVisible = listResult.listedCount > 0;
+    state.trackedToolCalls = mergeTrackedToolCalls(state.trackedToolCalls, listTrackedToolCalls);
+    state.currentToolCalls = listTrackedToolCalls;
+    state.conversation = [...state.conversation, listAgentMessage, ...listResult.messages];
+    appendHistoryMessages([listAgentMessage], config, host);
+    appendHistoryMessages(listResult.messages, config, host);
+    state.pendingContextMessages = [clone(listAgentMessage), ...clone(listResult.messages)];
+    state.pendingToolCalls = [];
+    state.active = null;
+    state.toolAgentIndex = -1;
+    state.round += 1;
+    const chunkMessage = providerMetadata.chunkWrote === true
+      ? agentToolStatusChunkMessage(listAgentMessage)
+      : listAgentMessage;
     const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(chunkMessage), speaker, null);
     if (chunkEvent) {
       return emitAgentPullResult(taskId, state, chunkEvent, host);
@@ -4513,6 +4815,18 @@ async function advanceActiveAgentProviderTask(taskId, state, currentControlId, c
     state.currentToolCalls = [];
     state.round += 1;
     return storeEmptyAgentPullStep(taskId, state, host);
+  }
+  if (signalDecision.action === "compact") {
+    const compactResult = forceCompactContextMessages(
+      state.pendingContextMessages,
+      agentPullToolPhase(state.round),
+      state.round,
+      config,
+      active.target,
+      host,
+      signalDecision.reason,
+    );
+    return emitAgentPullCompactResult(taskId, state, compactResult, speaker, host);
   }
   if (!peekAgentTaskReady(active.taskId, host)) {
     state.active = active;
@@ -4590,6 +4904,20 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
     if (!toolUsesInternalPullDriver(definition)) {
       const executed = await executeToolCall(toolCall, currentControlId, config, host, state.signalState, state.round, state.loadedToolIds, state.toolNameMap);
       const statusMessage = advanceAgentPullToolResult(state, executed, config, host);
+      const compactReason = takeAgentPullToolCompactReason(state);
+      if (compactReason) {
+        const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
+        const compactResult = forceCompactContextMessages(
+          state.pendingContextMessages,
+          agentPullToolPhase(state.round),
+          state.round,
+          config,
+          providerTarget,
+          host,
+          compactReason,
+        );
+        queueAgentPullCompactEvent(state, compactResult, speaker);
+      }
       const chunkEvent = buildAgentPullChunkEvent(
         state,
         buildAgentLiveOutputMessage(agentToolStatusChunkMessage(statusMessage)),
@@ -4598,6 +4926,10 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
       );
       if (chunkEvent) {
         return emitAgentPullResult(taskId, state, chunkEvent, host);
+      }
+      const queued = emitQueuedAgentPullEvent(taskId, state, host);
+      if (queued) {
+        return queued;
       }
       return storeEmptyAgentPullStep(taskId, state, host);
     }
@@ -4661,6 +4993,19 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
     state.round += 1;
     return storeEmptyAgentPullStep(taskId, state, host);
   }
+  if (signalDecision.action === "compact") {
+    const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
+    const compactResult = forceCompactContextMessages(
+      state.pendingContextMessages,
+      agentPullToolPhase(state.round),
+      state.round,
+      config,
+      providerTarget,
+      host,
+      signalDecision.reason,
+    );
+    return emitAgentPullCompactResult(taskId, state, compactResult, speaker, host);
+  }
   if (!peekAgentTaskReady(active.taskId, host)) {
     return storeEmptyAgentPullStep(taskId, state, host);
   }
@@ -4691,7 +5036,7 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
     { value: invoked.output, details: null },
     host,
   );
-  executed.messages = await runAgentMessageScript(currentControlId, config, {
+  await applyExecutedToolMessageScript(executed, currentControlId, config, {
     source: "tool",
     messages: executed.messages,
     tool: buildAgentMessageToolInfo(active.toolCall, active.definition),
@@ -4705,6 +5050,20 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
     active: null,
   }, host);
   const statusMessage = advanceAgentPullToolResult(state, executed, config, host);
+  const compactReason = takeAgentPullToolCompactReason(state);
+  if (compactReason) {
+    const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
+    const compactResult = forceCompactContextMessages(
+      state.pendingContextMessages,
+      agentPullToolPhase(state.round),
+      state.round,
+      config,
+      providerTarget,
+      host,
+      compactReason,
+    );
+    queueAgentPullCompactEvent(state, compactResult, speaker);
+  }
   const chunkEvent = buildAgentPullChunkEvent(
     state,
     buildAgentLiveOutputMessage(agentToolStatusChunkMessage(statusMessage)),
@@ -4713,6 +5072,10 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
   );
   if (chunkEvent) {
     return emitAgentPullResult(taskId, state, chunkEvent, host);
+  }
+  const queued = emitQueuedAgentPullEvent(taskId, state, host);
+  if (queued) {
+    return queued;
   }
   return storeEmptyAgentPullStep(taskId, state, host);
 }
@@ -4786,6 +5149,19 @@ async function stepAgentPullTask(payload, pull, currentControlId, config, speake
         host,
       );
     }
+    if (pendingSignalDecision.action === "compact") {
+      const providerTarget = resolveBoundProviderTarget(activeControlId, config, host);
+      const compactResult = forceCompactContextMessages(
+        state.pendingContextMessages,
+        agentPullToolPhase(state.round),
+        state.round,
+        config,
+        providerTarget,
+        host,
+        pendingSignalDecision.reason,
+      );
+      return emitAgentPullCompactResult(taskId, state, compactResult, speaker, host);
+    }
     if (hasPendingAgentSignalMessages(state.signalState)) {
       const injectedMessages = drainAgentSignalMessages(state.signalState);
       if (injectedMessages.length > 0) {
@@ -4835,27 +5211,36 @@ async function agentControl(payload, host) {
       const rawInputMessages = asMessages(pull.payload && pull.payload.messages, "agent input");
       let inputMessages = rawInputMessages;
       let cancelledAtStart = "";
-      try {
-        inputMessages = await runAgentMessageScript(currentControlId, config, {
-          source: "input",
-          messages: rawInputMessages,
-        }, {
-          phase: "initial-input",
-          round: 0,
-          canInterrupt: false,
-          queuedMessages: 0,
-          active: null,
-        }, host);
-      } catch (error) {
-        if (!isAgentMessageCancelError(error)) {
-          throw error;
-        }
-        cancelledAtStart = normalizeString(error.reason) || normalizeString(error.message);
+      let compactAtStart = null;
+      const inputDecision = await runAgentMessageScriptDecision(currentControlId, config, {
+        source: "input",
+        messages: rawInputMessages,
+      }, {
+        phase: "initial-input",
+        round: 0,
+        canInterrupt: false,
+        queuedMessages: 0,
+        active: null,
+      }, host);
+      if (inputDecision.action === "cancel") {
+        cancelledAtStart = normalizeString(inputDecision.reason) || "agent cancelled by message hook";
         inputMessages = [];
+      } else if (inputDecision.action === "compact") {
+        const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
+        compactAtStart = forceCompactContextMessages([], "initial", 0, config, providerTarget, host, inputDecision.reason);
+        inputMessages = [];
+      } else {
+        inputMessages = Array.isArray(inputDecision.messages) ? inputDecision.messages : [];
       }
       const initialState = createAgentPullInitialState(currentControlId, inputMessages, config, pull.ownerInvocationId);
       if (cancelledAtStart) {
         initialState.pendingEvents.push(buildAgentPullTerminalEvent("cancel", { reason: cancelledAtStart }));
+      } else if (compactAtStart) {
+        const compactEvent = buildAgentPullCompactEvent(initialState, compactAtStart, speaker);
+        if (compactEvent) {
+          initialState.pendingEvents.push(compactEvent);
+        }
+        initialState.pendingEvents.push(buildAgentPullTerminalEvent("end", { compacted: true }));
       }
       const started = host.task.start({
         kind: "agent",
@@ -4863,7 +5248,7 @@ async function agentControl(payload, host) {
         request: initialState,
       });
       const taskId = requirePullTaskID(started, "start");
-      if (!cancelledAtStart) {
+      if (!cancelledAtStart && !compactAtStart) {
         try {
           await primeAgentPullStartTask(taskId, initialState, currentControlId, config, host);
         } catch (error) {
@@ -4925,31 +5310,32 @@ async function agentControl(payload, host) {
   }
   const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
   const rawInputMessages = asMessages(payload.input, "agent input");
-  let inputMessages;
-  try {
-    inputMessages = await runAgentMessageScript(currentControlId, config, {
-      source: "input",
-      messages: rawInputMessages,
-    }, {
-      phase: "initial-input",
-      round: 0,
-      canInterrupt: false,
-      queuedMessages: 0,
-      active: null,
-    }, host);
-  } catch (error) {
-    if (!isAgentMessageCancelError(error)) {
-      throw error;
-    }
+  const inputDecision = await runAgentMessageScriptDecision(currentControlId, config, {
+    source: "input",
+    messages: rawInputMessages,
+  }, {
+    phase: "initial-input",
+    round: 0,
+    canInterrupt: false,
+    queuedMessages: 0,
+    active: null,
+  }, host);
+  if (inputDecision.action === "cancel") {
     const cancelledOutput = {
       cancelled: true,
     };
-    const reason = normalizeString(error.reason) || normalizeString(error.message);
+    const reason = normalizeString(inputDecision.reason);
     if (reason) {
       cancelledOutput.reason = reason;
     }
     return speaker ? { output: cancelledOutput, metadata: { speaker: speaker } } : { output: cancelledOutput };
   }
+  if (inputDecision.action === "compact") {
+    const compactResult = forceCompactContextMessages([], "initial", 0, config, providerTarget, host, inputDecision.reason);
+    const compactOutput = buildAgentCompactMessage(compactResult);
+    return speaker ? { output: compactOutput, metadata: { speaker: speaker } } : { output: compactOutput };
+  }
+  const inputMessages = Array.isArray(inputDecision.messages) ? inputDecision.messages : [];
   if (!providerTarget) {
     const passthroughMessages = resolveContextMessages(inputMessages, "initial", 0, config, null, host);
     const passthrough = Array.isArray(passthroughMessages) && passthroughMessages.length > 0
@@ -4967,6 +5353,7 @@ async function agentControl(payload, host) {
     let trackedToolCalls = [];
     let pendingContextMessages = clone(inputMessages);
     let loadedToolIds = [];
+    let toolCatalogVisible = false;
     let toolNameMap = {};
     let providerUsage = null;
     const signalState = { pendingMessages: [] };
@@ -4983,6 +5370,20 @@ async function agentControl(payload, host) {
       }, signalState, host);
       if (pendingSignalDecision.action === "cancel") {
         throw createAgentSignalCancelError(pendingSignalDecision.reason);
+      }
+      if (pendingSignalDecision.action === "compact") {
+        const compactResult = forceCompactContextMessages(
+          pendingContextMessages,
+          round === 0 ? "initial" : "tool-round",
+          round,
+          config,
+          providerTarget,
+          host,
+          pendingSignalDecision.reason,
+        );
+        if (pullOutput) {
+          emitAgentPullChunk(buildAgentLiveOutputMessage(buildAgentCompactMessage(compactResult)), speaker, null, host);
+        }
       }
       if (hasPendingAgentSignalMessages(signalState)) {
         const injectedMessages = drainAgentSignalMessages(signalState);
@@ -5005,7 +5406,12 @@ async function agentControl(payload, host) {
         host,
       );
       const providerConversation = withSystemPrompt(asContextMessages(preparedMessages, "provider input messages"), configString(config, "systemPrompt"));
-      const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds);
+      const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds, {
+        toolCatalogVisible: toolCatalogVisible,
+      });
+      if (agentToolRequestConsumesListedCatalog(toolRequest)) {
+        toolCatalogVisible = false;
+      }
       toolNameMap = toolRequest.toolNameMap;
       const toolDefinitions = toolRequest.tools;
       validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
@@ -5078,8 +5484,9 @@ async function agentControl(payload, host) {
       if (loadToolCalls.length > 0) {
         const loadResult = applyLoadToolsToolCalls(loadToolCalls, currentControlId, config, host, loadedToolIds);
         const loadTrackedToolCalls = loadResult.toolCalls;
-        const loadAgentMessage = buildLoadToolsAgentMessage(response, loadTrackedToolCalls);
+        const loadAgentMessage = buildInternalToolAgentMessage(response, loadTrackedToolCalls);
         loadedToolIds = loadResult.loadedToolIds;
+        toolCatalogVisible = false;
         trackedToolCalls = mergeTrackedToolCalls(trackedToolCalls, loadTrackedToolCalls);
         conversation = [...conversation, loadAgentMessage, ...loadResult.messages];
         appendHistoryMessages([loadAgentMessage], config, host);
@@ -5089,6 +5496,27 @@ async function agentControl(payload, host) {
           const chunkMessage = providerMetadata.chunkWrote === true
             ? agentToolStatusChunkMessage(loadAgentMessage)
             : loadAgentMessage;
+          if (hasAgentChunkContent(chunkMessage)) {
+            emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
+          }
+        }
+        continue agent_round;
+      }
+      const listToolCalls = response.toolCalls.filter((toolCall) => isListToolsToolCall(toolCall));
+      if (listToolCalls.length > 0) {
+        const listResult = applyListToolsToolCalls(listToolCalls, currentControlId, config, host);
+        const listTrackedToolCalls = listResult.toolCalls;
+        const listAgentMessage = buildInternalToolAgentMessage(response, listTrackedToolCalls);
+        toolCatalogVisible = listResult.listedCount > 0;
+        trackedToolCalls = mergeTrackedToolCalls(trackedToolCalls, listTrackedToolCalls);
+        conversation = [...conversation, listAgentMessage, ...listResult.messages];
+        appendHistoryMessages([listAgentMessage], config, host);
+        appendHistoryMessages(listResult.messages, config, host);
+        pendingContextMessages = [clone(listAgentMessage), ...clone(listResult.messages)];
+        if (pullOutput && hasAgentChunkContent(listAgentMessage)) {
+          const chunkMessage = providerMetadata.chunkWrote === true
+            ? agentToolStatusChunkMessage(listAgentMessage)
+            : listAgentMessage;
           if (hasAgentChunkContent(chunkMessage)) {
             emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
           }
@@ -5113,6 +5541,7 @@ async function agentControl(payload, host) {
       conversation = [...conversation, agentMessage];
       appendHistoryMessages([agentMessage], config, host);
       pendingContextMessages = [clone(agentMessage)];
+      let pendingToolCompactReason = "";
       for (const toolCall of response.toolCalls) {
         let executed;
         try {
@@ -5147,6 +5576,23 @@ async function agentControl(payload, host) {
         appendHistoryMessages(executed.messages, config, host);
         conversation = [...conversation, ...executed.messages];
         pendingContextMessages = [...pendingContextMessages, ...clone(executed.messages)];
+        if (executed.compact) {
+          pendingToolCompactReason = normalizeString(executed.compact.reason) || "Tool requested context compaction";
+        }
+      }
+      if (pendingToolCompactReason) {
+        const compactResult = forceCompactContextMessages(
+          pendingContextMessages,
+          round === 0 ? "initial" : "tool-round",
+          round,
+          config,
+          providerTarget,
+          host,
+          pendingToolCompactReason,
+        );
+        if (pullOutput) {
+          emitAgentPullChunk(buildAgentLiveOutputMessage(buildAgentCompactMessage(compactResult)), speaker, null, host);
+        }
       }
     }
     const emptyMessage = emptyAgentMessage();

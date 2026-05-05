@@ -6,3 +6,5 @@ timeoutSeconds: 10
 actions:
   - id: agent-storage-control
     name: Agent Storage Control
+  - id: agent-context-control
+    name: Agent Context Control

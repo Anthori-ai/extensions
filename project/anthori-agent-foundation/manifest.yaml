@@ -224,6 +224,12 @@ typeDefinitions:
       maxChars:
         type: number
         description: Maximum number of characters Context should return for the next provider call after Agent applies the selected provider model's context limit and Max percentage.
+      forceCompact:
+        type: boolean
+        description: True when Agent is explicitly asking Context to compact durable history now instead of only compacting when near the budget.
+      reason:
+        type: string
+        description: Optional human-readable reason for an explicit compaction request.
     additionalProperties: false
   StreamEvent:
     type: object

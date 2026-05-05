@@ -15,19 +15,23 @@ projectDefaults:
   channels:
     - id: chat
       ensure: ifMissing
-      contracts:
-        - id: chat_input
-          name: Chat Input
-          description: The event object the chat pane sends when a user submits a message.
-          mode: in
-          formatText: anthori.app.chat.InputEvent
-          format: InputEvent
-        - id: chat_output
-          name: Chat Output
-          description: The value the chat pane expects for agent output, including pull-delivered replies.
-          mode: out
-          formatText: anthori.app.chat.Output
-          format: Output
+      streams:
+        - id: in
+          description: Chat input events submitted by the user.
+          contracts:
+            - id: chat_user
+              name: Chat Input
+              description: The event object the chat pane sends when a user submits a message.
+              formatText: anthori.app.chat.InputEvent
+              format: InputEvent
+        - id: out
+          description: Chat output frames shown as assistant messages.
+          contracts:
+            - id: chat_agent
+              name: Chat Output
+              description: The value the chat pane expects for agent output, including pull-delivered replies.
+              formatText: anthori.app.chat.Output
+              format: Output
 typeDefinitions:
   InputEvent:
     type: object

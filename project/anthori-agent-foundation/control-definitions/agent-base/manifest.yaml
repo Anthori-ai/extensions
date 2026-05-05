@@ -450,7 +450,8 @@ control:
         Return
         { action: "pass" },
         { action: "replace", messages: [...] },
-        { action: "drop" }, or
+        { action: "drop" },
+        { action: "compact", reason: "..." }, or
         { action: "cancel", reason: "..." }.
         alert(value) is also available there. It always writes to the session log, and it only pauses while Debug Mode is on.
     onMessageAsync:
@@ -468,7 +469,8 @@ control:
         Optional JavaScript run when one configured signal becomes ready.
         The script receives (signal, context). context.self.controls exposes this control's bound Controls rows, and the script should return an action object such as
         { action: "queue", messages: [...] },
-        { action: "interrupt", messages: [...] }, or
+        { action: "interrupt", messages: [...] },
+        { action: "compact", reason: "..." }, or
         { action: "cancel", reason: "..." }.
         alert(value) is also available there. It always writes to the session log, and it only pauses while Debug Mode is on.
     onSignalAsync:
@@ -490,7 +492,7 @@ control:
       required: false
       default: []
       targetCapability: signal
-      description: Ordered signal targets that Agent probes between pull checkpoints. When On Signal is configured, Agent consumes one ready signal at a time and lets that script decide whether to queue new messages, interrupt the current pullable task, or cancel the Agent call.
+      description: Ordered signal targets that Agent probes between pull checkpoints. When On Signal is configured, Agent consumes one ready signal at a time and lets that script decide whether to queue new messages, interrupt the current pullable task, compact Context, or cancel the Agent call.
   ui:
     fields:
       - key: onMessage
@@ -599,4 +601,4 @@ control:
         - title: SIGNALS
           kind: text
           text: |
-            Signals are optional. When one connected signal becomes ready, Agent probes it quietly first, then consumes the ready signal and runs On Signal on the Agent control itself. On Signal receives (signal, context), can call helper controls bound on the Agent through context.self.controls, and returns one explicit decision: ignore, queue new messages for the next reply, interrupt the current pullable task with new messages, or cancel the Agent call.
+            Signals are optional. When one connected signal becomes ready, Agent probes it quietly first, then consumes the ready signal and runs On Signal on the Agent control itself. On Signal receives (signal, context), can call helper controls bound on the Agent through context.self.controls, and returns one explicit decision: ignore, queue new messages for the next reply, interrupt the current pullable task with new messages, compact Context, or cancel the Agent call.
