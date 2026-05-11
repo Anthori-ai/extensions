@@ -1,0 +1,23 @@
+format: 1
+id: shell-rm
+name: Rm
+description: rm shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Rm
+        description: Deletes one or more paths. Supports `-r`, `-R`, and `-f`.
+        input:
+          type: string
+          description: Args or full `rm` command string, such as `-rf tmp/output` or `rm -rf tmp/output`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-rm

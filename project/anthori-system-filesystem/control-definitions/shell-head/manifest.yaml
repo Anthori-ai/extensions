@@ -1,0 +1,23 @@
+format: 1
+id: shell-head
+name: Head
+description: head shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Head
+        description: Reads the first lines or bytes of a file. Supports `-n N`, `-N`, `--lines=N`, `-c N`, `--bytes=N`, and one path.
+        input:
+          type: string
+          description: Args or full `head` command string, such as `-n 40 src/app.js` or `head -n 40 src/app.js`.
+        output:
+          type: string
+          description: Selected file stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-head

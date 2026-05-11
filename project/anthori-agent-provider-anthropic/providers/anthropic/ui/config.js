@@ -76,9 +76,10 @@
     const providerApi = getProviderApi()
     const apiKeyInput = document.getElementById("anthropic-api-key")
     const modelSelect = document.getElementById("anthropic-model")
+    const contextLimitInput = document.getElementById("anthropic-context-limit")
     const status = document.getElementById("anthropic-status")
 
-    if (!providerApi || !apiKeyInput || !modelSelect || !status) {
+    if (!providerApi || !apiKeyInput || !modelSelect || !contextLimitInput || !status) {
       return
     }
 
@@ -138,22 +139,36 @@
       modelSelect.value = cleanSelectedValue
     }
 
+    function readPositiveIntegerInput(input) {
+      const raw = String(input?.value || "").trim()
+      if (!raw) return 0
+      const parsed = Number.parseInt(raw, 10)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    }
+
     function applyValues(values) {
       const normalized = sanitizeConfig(values)
       apiKeyInput.value = String(normalized.apiKey || "")
       renderModelOptions([], String(normalized.llmModel || ""))
+      contextLimitInput.value = normalized.maxContextTokens == null
+        ? ""
+        : String(normalized.maxContextTokens)
     }
 
     function readValues() {
       const values = {}
       const apiKey = String(apiKeyInput.value || "").trim()
       const model = String(modelSelect.value || "").trim()
+      const contextLimit = readPositiveIntegerInput(contextLimitInput)
 
       if (apiKey) {
         values.apiKey = apiKey
       }
       if (model) {
         values.llmModel = model
+      }
+      if (contextLimit > 0) {
+        values.maxContextTokens = contextLimit
       }
       // Provider-level timeout override was removed so execution/control timeout remains the only budget source.
       return values
@@ -233,6 +248,8 @@
       void commitApiKey()
     })
     modelSelect.addEventListener("change", flushDraftSync)
+    contextLimitInput.addEventListener("input", queueDraftSync)
+    contextLimitInput.addEventListener("change", flushDraftSync)
 
     void load()
   }

@@ -809,10 +809,6 @@ function agentContextControl(payload, host) {
   const maxTailChars = contextBudget > 0 ? Math.max(targetTailChars, Math.floor(contextBudget * 0.55)) : 0;
   const minTailTextMessages = 6;
   const summaryInputBudget = contextBudget > 0 ? Math.max(8000, Math.floor(contextBudget * 0.6)) : 120000;
-  const microcompactEnabled = configBoolean(config, "microcompact", true);
-  const microcompactKeepRecentToolResults = Math.max(0, Math.floor(configNumber(config, "microcompactKeepRecentToolResults", 8)));
-  const microcompactMinToolResultChars = Math.max(0, Math.floor(configNumber(config, "microcompactMinToolResultChars", 2000)));
-  const microcompactClearedText = "[Old tool result content cleared during context microcompact. The compact summary and recent preserved messages retain important details.]";
   const restoreRecentReads = configBoolean(config, "restoreRecentReads", true);
   const maxRestoredFiles = Math.max(0, Math.floor(configNumber(config, "maxRestoredFiles", 5)));
   const restoredFileBudget = contextBudget > 0 ? Math.min(50000, Math.max(8000, Math.floor(contextBudget * 0.18))) : 50000;
@@ -936,68 +932,6 @@ function agentContextControl(payload, host) {
       if (isObject(part && part.toolCall)) toolCalls.push(part.toolCall);
     }
     return toolCalls;
-  }
-
-  function toolCallNameById(messages) {
-    const names = new Map();
-    for (const message of asArray(messages)) {
-      for (const toolCall of toolCallsForMessage(message)) {
-        const id = normalizeString(toolCall && toolCall.id);
-        const name = normalizeString(toolCall && toolCall.name).toLowerCase();
-        if (id && name) names.set(id, name);
-      }
-    }
-    return names;
-  }
-
-  function microcompactMessages(messages) {
-    const working = asArray(messages).map(clone);
-    if (!microcompactEnabled) {
-      return {
-        messages: working,
-        stats: {
-          clearedToolResults: 0,
-          clearedToolResultChars: 0,
-          clearedToolResultIds: [],
-          keptRecentToolResults: 0,
-        },
-      };
-    }
-    const nameById = toolCallNameById(working);
-    const candidates = [];
-    for (const message of working) {
-      if (normalizeString(message && message.role).toLowerCase() !== "tool") continue;
-      const id = normalizeString(message.toolCallId);
-      const text = messageText(message);
-      if (!id || text.length < microcompactMinToolResultChars) continue;
-      candidates.push({
-        id: id,
-        name: normalizeString(message.name || nameById.get(id)).toLowerCase(),
-        chars: text.length,
-      });
-    }
-    const keep = new Set(candidates.slice(-microcompactKeepRecentToolResults).map((candidate) => candidate.id));
-    const clear = new Map(candidates.filter((candidate) => !keep.has(candidate.id)).map((candidate) => [candidate.id, candidate]));
-    const clearedToolIds = [];
-    let clearedChars = 0;
-    for (const message of working) {
-      if (normalizeString(message && message.role).toLowerCase() !== "tool") continue;
-      const id = normalizeString(message.toolCallId);
-      const candidate = clear.get(id);
-      if (!candidate) continue;
-      clearedToolIds.push(id);
-      clearedChars += candidate.chars;
-      message.parts = [{ kind: "text", text: microcompactClearedText }];
-    }
-    return {
-      messages: working,
-      stats: {
-        clearedToolResults: clearedToolIds.length,
-        clearedToolResultChars: clearedChars,
-        clearedToolResultIds: clearedToolIds,
-        keptRecentToolResults: Math.min(candidates.length, microcompactKeepRecentToolResults),
-      },
-    };
   }
 
   function adjustTailStartForToolPairs(rows, startIndex) {
@@ -1500,10 +1434,10 @@ function agentContextControl(payload, host) {
     const liveRows = historyRows.filter((entry) => rowId(entry) > previousThroughId);
     const memoryMessage = latestMemory ? normalizeStoredMessageForContext(rowMessage(latestMemory)) : null;
     const activeMessages = [memoryMessage].concat(normalizeRowsForContext(liveRows)).filter(Boolean);
-    const activeContext = microcompactMessages(withRestoredFileContent(activeMessages, latestMemory ? rowMessage(latestMemory) : null));
+    const activeContext = withRestoredFileContent(activeMessages, latestMemory ? rowMessage(latestMemory) : null);
 
-    if (!forceCompact && (compactThreshold <= 0 || contextChars(activeContext.messages) <= compactThreshold || liveRows.length <= 2)) {
-      return wrapValue(trimToBudget(activeContext.messages));
+    if (!forceCompact && (compactThreshold <= 0 || contextChars(activeContext) <= compactThreshold || liveRows.length <= 2)) {
+      return wrapValue(trimToBudget(activeContext));
     }
 
     const tailStart = chooseTailStart(liveRows);
@@ -1511,7 +1445,7 @@ function agentContextControl(payload, host) {
     const tailRows = liveRows.slice(tailStart);
 
     if (rowsToSummarize.length === 0) {
-      return wrapValue(trimToBudget(activeContext.messages));
+      return wrapValue(trimToBudget(activeContext));
     }
 
     const throughId = rowsToSummarize.reduce((max, entry) => Math.max(max, rowId(entry)), previousThroughId);
@@ -1521,7 +1455,6 @@ function agentContextControl(payload, host) {
     const restoredFiles = recentReadDescriptors(rowsToSummarize, tailRows, maxRestoredFiles);
     const restoreText = restoredContextForRows(rowsToSummarize);
     const summary = summarizeRows(rowsForSummary);
-    const tailMicrocompact = microcompactMessages(normalizeRowsForContext(tailRows)).stats;
     const summaryMessage = compactSummaryMessage(summary, restoreText, throughId, rowsToSummarize.length, preservedFromId, {
       previousCompactedThroughId: previousThroughId,
       summarizedFromId: rowsToSummarize.length > 0 ? rowId(rowsToSummarize[0]) : 0,
@@ -1541,13 +1474,12 @@ function agentContextControl(payload, host) {
       summaryOutputChars: summary.length,
       restoredFiles: restoredFiles,
       restoreBudgetChars: restoredFileBudget,
-      microcompact: tailMicrocompact,
     });
 
     insertMemoryMessage(summaryMessage);
 
-    const compactedContext = microcompactMessages(withRestoredFileContent([normalizeStoredMessageForContext(summaryMessage)].concat(normalizeRowsForContext(tailRows)).filter(Boolean), summaryMessage));
-    return wrapValue(trimToBudget(compactedContext.messages));
+    const compactedContext = withRestoredFileContent([normalizeStoredMessageForContext(summaryMessage)].concat(normalizeRowsForContext(tailRows)).filter(Boolean), summaryMessage);
+    return wrapValue(trimToBudget(compactedContext));
   } catch (error) {
     return wrapError(normalizeString(error && error.message) || String(error));
   }

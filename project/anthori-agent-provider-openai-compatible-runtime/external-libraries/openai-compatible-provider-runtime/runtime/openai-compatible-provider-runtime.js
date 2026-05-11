@@ -586,7 +586,7 @@ function looksLikeSchemaObject(value)
   {
     return false;
   }
-  var keys = ["type", "properties", "items", "enum", "anyOf", "oneOf", "allOf", "additionalProperties", "required", "description", "default", "format", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"];
+  var keys = ["type", "properties", "items", "enum", "anyOf", "oneOf", "allOf", "additionalProperties", "required", "description", "default", "format", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength", "$ref", "$defs", "definitions"];
   for (var i = 0; i < keys.length; i += 1)
   {
     if (Object.prototype.hasOwnProperty.call(value, keys[i]))
@@ -640,6 +640,28 @@ function normalizeSchemaFragment(value)
     if (copy.items && typeof copy.items === "object" && !Array.isArray(copy.items))
     {
       copy.items = normalizeSchemaFragment(copy.items);
+    }
+    if (copy.$defs && typeof copy.$defs === "object" && !Array.isArray(copy.$defs))
+    {
+      var defs = {};
+      var defKeys = Object.keys(copy.$defs).sort();
+      for (var d = 0; d < defKeys.length; d += 1)
+      {
+        var defKey = defKeys[d];
+        defs[defKey] = normalizeSchemaFragment(copy.$defs[defKey]);
+      }
+      copy.$defs = defs;
+    }
+    if (copy.definitions && typeof copy.definitions === "object" && !Array.isArray(copy.definitions))
+    {
+      var definitions = {};
+      var definitionKeys = Object.keys(copy.definitions).sort();
+      for (var n = 0; n < definitionKeys.length; n += 1)
+      {
+        var definitionKey = definitionKeys[n];
+        definitions[definitionKey] = normalizeSchemaFragment(copy.definitions[definitionKey]);
+      }
+      copy.definitions = definitions;
     }
     return copy;
   }

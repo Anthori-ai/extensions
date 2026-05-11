@@ -1,0 +1,12 @@
+format: 1
+id: control
+name: Control
+description: High-level control, section, system area, or documentation entrypoint node for Anthori diagram documents.
+baseControlRef: controls/1/executable
+control:
+  visible: true
+  category: app
+  ui:
+    libraryContext:
+      kind: diagram
+      documentKind: anthori.diagram

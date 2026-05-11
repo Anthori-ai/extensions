@@ -1,0 +1,23 @@
+format: 1
+id: shell-find
+name: Find
+description: find shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Find
+        description: Finds paths. Supports optional root path, `-maxdepth N`, `-mindepth N`, `-name GLOB`, `-iname GLOB`, `-path GLOB`, `! -path GLOB`, `-not -path GLOB`, `-path GLOB -prune`, `-type f`, `-type d`, and `-print`.
+        input:
+          type: string
+          description: Args or full `find` command string, such as `src -maxdepth 2 -name "*.js" -type f`, `find . -not -path "*/node_modules/*" -name "*.js"`, or `find src -maxdepth 2 -name "*.js" -type f`.
+        output:
+          type: string
+          description: Matching path stdout lines. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-find

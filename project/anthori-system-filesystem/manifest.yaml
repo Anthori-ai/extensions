@@ -16,6 +16,7 @@ externalLibraries:
   - external-libraries/anthori-filesystem-runtime
 controlDefinitions:
   - control-definitions/filesystem-base
+  - control-definitions/shell-base
   - control-definitions/chmod
   - control-definitions/chown
   - control-definitions/copy
@@ -27,7 +28,27 @@ controlDefinitions:
   - control-definitions/list
   - control-definitions/read
   - control-definitions/read-lines
+  - control-definitions/read-outline
   - control-definitions/rename
   - control-definitions/find
+  - control-definitions/patch
   - control-definitions/write
   - control-definitions/write-lines
+  - control-definitions/shell-rg
+  - control-definitions/shell-ls
+  - control-definitions/shell-find
+  - control-definitions/shell-sed
+  - control-definitions/shell-nl
+  - control-definitions/shell-cat
+  - control-definitions/shell-head
+  - control-definitions/shell-tail
+  - control-definitions/shell-wc
+  - control-definitions/shell-stat
+  - control-definitions/shell-exists
+  - control-definitions/shell-mkdir
+  - control-definitions/shell-touch
+  - control-definitions/shell-rm
+  - control-definitions/shell-cp
+  - control-definitions/shell-mv
+  - control-definitions/shell-chmod
+  - control-definitions/shell-chown

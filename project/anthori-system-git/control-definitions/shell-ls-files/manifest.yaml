@@ -1,0 +1,29 @@
+format: 1
+id: shell-ls-files
+name: Ls Files
+description: git ls-files shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Ls Files
+        description: Runs `git ls-files`.
+        input:
+          type: string
+          description: Args or full `git ls-files` command string, such as `src` or `git ls-files src`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-ls-files
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git ls-files
+          reason: Inspect tracked repository files.

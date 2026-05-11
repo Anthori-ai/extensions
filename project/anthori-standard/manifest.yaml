@@ -200,6 +200,15 @@ typeDefinitions:
       totalTokens:
         type: number
         description: Total token count when available.
+      contextTokens:
+        type: number
+        description: Current provider request context size in tokens. Uses provider input tokens when available, otherwise Agent's estimate.
+      contextBudgetTokens:
+        type: number
+        description: Configured provider input budget in tokens for this request after Agent applies Max Context Percent.
+      contextWindowTokens:
+        type: number
+        description: Selected provider model context window in tokens for this request.
       timeToFirstTokenMs:
         type: number
         description: Milliseconds from provider request start to first streamed output chunk when available.

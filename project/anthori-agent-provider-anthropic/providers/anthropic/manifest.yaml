@@ -24,6 +24,13 @@ configSchema:
       label: Model
       placeholder: claude-sonnet-4-6
       helpKey: provider.anthropic.config.model.help
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+      helpKey: provider.anthropic.config.contextLimit.help
 runtime:
   kind: library
   libraryId: anthropic-provider-runtime
@@ -32,6 +39,6 @@ runtime:
     respondText: respond-text
 ui:
   configAssetPath: ui/config.html
-  configHeight: 172
+  configHeight: 224
 control:
   visible: false

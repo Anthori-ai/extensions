@@ -19,3 +19,5 @@ controlDefinitions:
   - control-definitions/collection
   - control-definitions/state
   - control-definitions/config
+  - control-definitions/format-validate
+  - control-definitions/format-convert

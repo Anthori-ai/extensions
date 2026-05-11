@@ -1,0 +1,23 @@
+format: 1
+id: shell-chown
+name: Chown
+description: chown shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Chown
+        description: Changes owner and group for one or more paths. Supports `owner:group path...`.
+        input:
+          type: string
+          description: Args or full `chown` command string, such as `user:group path` or `chown user:group path`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-chown

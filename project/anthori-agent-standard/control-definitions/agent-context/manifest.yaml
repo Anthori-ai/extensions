@@ -104,21 +104,6 @@ control:
       required: false
       default: 5
       description: Maximum number of recently read files Context may restore after compaction.
-    microcompact:
-      type: boolean
-      required: false
-      default: true
-      description: Clear old large tool result text from provider context while preserving recent results.
-    microcompactKeepRecentToolResults:
-      type: number
-      required: false
-      default: 8
-      description: Number of latest large tool results kept verbatim during microcompact.
-    microcompactMinToolResultChars:
-      type: number
-      required: false
-      default: 2000
-      description: Minimum text length before a tool result is eligible for microcompact clearing.
   ui:
     fields:
       - key: historyControl
@@ -162,18 +147,6 @@ control:
         label: Max Restored Files
         type: number
         helpText: Maximum number of recently read files Context may restore after compaction.
-      - key: microcompact
-        label: Microcompact
-        type: checkbox
-        helpText: Clear old large tool result text from provider context while preserving recent results.
-      - key: microcompactKeepRecentToolResults
-        label: Keep Tool Results
-        type: number
-        helpText: Number of latest large tool results kept verbatim during microcompact.
-      - key: microcompactMinToolResultChars
-        label: Tool Result Chars
-        type: number
-        helpText: Minimum text length before a tool result is eligible for microcompact clearing.
     info:
       sections:
         - title: CONTEXT

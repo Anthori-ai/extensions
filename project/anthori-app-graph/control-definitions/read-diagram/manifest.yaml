@@ -1,0 +1,40 @@
+format: 1
+id: read-diagram
+name: Read
+description: Reads a diagram document as structured data.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Read Diagram
+        description: Read a workspace-relative diagram document. Summary mode omits bulky config fields. Use Review Diagram when only semantic content is needed.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+          propertyOrder:
+            - path
+            - mode
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram path, such as Game.diagram/diagram.yaml.
+            mode:
+              type: string
+              enum:
+                - summary
+                - full
+              default: summary
+              description: Use full only when config, editor data, screen elements, or markdown are needed.
+        output:
+          type: object
+          description: Structured diagram document with path, packagePath, title, revision, modifiedAt, controls, conduits, and proposals when present.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: read-diagram

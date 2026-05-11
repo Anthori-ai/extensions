@@ -1,0 +1,23 @@
+format: 1
+id: shell-wc
+name: Wc
+description: wc shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Wc
+        description: Counts lines or bytes. Supports `-l`, `-c`, and one or more paths.
+        input:
+          type: string
+          description: Args or full `wc` command string, such as `-l src/app.js` or `wc -l src/app.js`.
+        output:
+          type: string
+          description: Count stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-wc

@@ -105,6 +105,18 @@
         </div>
       </label>
 
+      <label class="editor-settings-row inspector-field-row" for="openai-context-limit" id="openai-context-limit-row" data-field-help-key="provider.openai.ui.contextLimit.help" hidden>
+        <span class="inspector-field-title">Max Context</span>
+        <input
+          id="openai-context-limit"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Provider default"
+          inputmode="numeric"
+        />
+      </label>
+
       <label class="editor-settings-row inspector-field-row" for="openai-reasoning" id="openai-reasoning-row" data-field-help-key="provider.openai.ui.reasoning.help" hidden>
         <span class="inspector-field-title">Reasoning</span>
         <select id="openai-reasoning" class="prompt-input">

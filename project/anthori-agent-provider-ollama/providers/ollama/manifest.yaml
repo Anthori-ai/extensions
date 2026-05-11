@@ -24,6 +24,13 @@ configSchema:
       label: Model
       placeholder: local-model-id
       helpKey: provider.ollama.config.model.help
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+      helpKey: provider.ollama.config.contextLimit.help
     reasoningEffort:
       type: string
       label: Reasoning
@@ -42,6 +49,6 @@ runtime:
     listModels: list-models
 ui:
   configAssetPath: ui/config.html
-  configHeight: 244
+  configHeight: 296
 control:
   visible: false

@@ -1,0 +1,291 @@
+format: 1
+id: read-layout
+name: Read Layout
+description: Reads the rendered layout of the current project graph.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Read Layout
+        description: Read measured control and conduit layout for the current project graph.
+        input:
+          type: object
+          description: Layout read options.
+          additionalProperties: false
+          propertyOrder:
+            - minimumSpacing
+          properties:
+            minimumSpacing:
+              type: number
+              default: 24
+              description: Minimum desired gap between non-group controls. Pairs closer than this appear in spacingWarnings.
+        output:
+          type: object
+          description: Rendered graph layout.
+          additionalProperties: false
+          required:
+            - revision
+            - minimumSpacing
+            - bounds
+            - controls
+            - hiddenControlIds
+            - conduits
+            - overlaps
+            - spacingWarnings
+          propertyOrder:
+            - revision
+            - minimumSpacing
+            - bounds
+            - controls
+            - hiddenControlIds
+            - conduits
+            - overlaps
+            - spacingWarnings
+          properties:
+            revision:
+              type: integer
+              description: Current graph revision.
+            minimumSpacing:
+              type: number
+              description: Minimum spacing used for spacingWarnings.
+            bounds:
+              $ref: "#/$defs/bounds"
+            controls:
+              type: array
+              description: Rendered controls and annotations.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - type
+                  - title
+                  - x
+                  - y
+                  - width
+                  - height
+                  - right
+                  - bottom
+                properties:
+                  id:
+                    type: string
+                    description: Control id.
+                  type:
+                    type: string
+                    description: Control type.
+                  title:
+                    type: string
+                    description: Control title.
+                  x:
+                    type: number
+                    description: Left graph coordinate.
+                  y:
+                    type: number
+                    description: Top graph coordinate.
+                  width:
+                    type: number
+                    description: Rendered width.
+                  height:
+                    type: number
+                    description: Rendered height.
+                  right:
+                    type: number
+                    description: Right graph coordinate.
+                  bottom:
+                    type: number
+                    description: Bottom graph coordinate.
+            hiddenControlIds:
+              type: array
+              description: Controls hidden by collapsed graph branches.
+              items:
+                type: string
+            conduits:
+              type: array
+              description: Rendered conduit routes.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - fromControlId
+                  - fromControlPortId
+                  - toControlId
+                  - toControlPortId
+                  - points
+                  - fromAnchor
+                  - toAnchor
+                  - bounds
+                  - route
+                properties:
+                  id:
+                    type: string
+                    description: Conduit id.
+                  fromControlId:
+                    type: string
+                    description: Source control id.
+                  fromControlPortId:
+                    type: string
+                    description: Source port id.
+                  toControlId:
+                    type: string
+                    description: Target control id.
+                  toControlPortId:
+                    type: string
+                    description: Target port id.
+                  role:
+                    type: string
+                    description: Conduit role.
+                  colorId:
+                    type: string
+                    description: Conduit color id.
+                  hidden:
+                    type: boolean
+                    description: Whether the conduit is hidden.
+                  points:
+                    type: array
+                    description: Authored conduit bend points.
+                    items:
+                      $ref: "#/$defs/integerPoint"
+                  fromAnchor:
+                    $ref: "#/$defs/point"
+                  toAnchor:
+                    $ref: "#/$defs/point"
+                  bounds:
+                    $ref: "#/$defs/bounds"
+                  route:
+                    type: array
+                    description: Full measured route from source anchor through bend points to target anchor.
+                    items:
+                      $ref: "#/$defs/point"
+                  sourceAnchor:
+                    $ref: "#/$defs/anchor"
+                  targetAnchor:
+                    $ref: "#/$defs/anchor"
+            overlaps:
+              type: array
+              description: Non-group control pairs whose rendered boxes overlap.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - aId
+                  - bId
+                  - overlapX
+                  - overlapY
+                properties:
+                  aId:
+                    type: string
+                    description: First control id.
+                  bId:
+                    type: string
+                    description: Second control id.
+                  overlapX:
+                    type: number
+                    description: Horizontal overlap.
+                  overlapY:
+                    type: number
+                    description: Vertical overlap.
+            spacingWarnings:
+              type: array
+              description: Non-group control pairs closer than minimumSpacing.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - aId
+                  - bId
+                  - horizontalGap
+                  - verticalGap
+                properties:
+                  aId:
+                    type: string
+                    description: First control id.
+                  bId:
+                    type: string
+                    description: Second control id.
+                  horizontalGap:
+                    type: number
+                    description: Horizontal gap, or 0 when horizontal ranges overlap.
+                  verticalGap:
+                    type: number
+                    description: Vertical gap, or 0 when vertical ranges overlap.
+          $defs:
+            point:
+              type: object
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Horizontal graph coordinate.
+                y:
+                  type: number
+                  description: Vertical graph coordinate.
+            integerPoint:
+              type: object
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: integer
+                  description: Horizontal graph coordinate.
+                y:
+                  type: integer
+                  description: Vertical graph coordinate.
+            anchor:
+              type: object
+              additionalProperties: false
+              required:
+                - x
+                - y
+              properties:
+                x:
+                  type: number
+                  description: Anchor x value.
+                y:
+                  type: number
+                  description: Anchor y value.
+                normalized:
+                  type: boolean
+                  description: Whether x and y are normalized inside the endpoint control.
+            bounds:
+              type: object
+              additionalProperties: false
+              required:
+                - x
+                - y
+                - width
+                - height
+                - right
+                - bottom
+              properties:
+                x:
+                  type: number
+                  description: Left graph coordinate.
+                y:
+                  type: number
+                  description: Top graph coordinate.
+                width:
+                  type: number
+                  description: Width.
+                height:
+                  type: number
+                  description: Height.
+                right:
+                  type: number
+                  description: Right graph coordinate.
+                bottom:
+                  type: number
+                  description: Bottom graph coordinate.
+control:
+  visible: true
+  libraryPath: app/project/graph
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: read-layout

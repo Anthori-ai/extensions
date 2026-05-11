@@ -19,6 +19,11 @@ entries:
     target: providers.unslothStudio.config.model
     format: text
     text: Optional model id. Unsloth Studio usually routes requests to the active loaded model.
+  - key: provider.unslothStudio.config.contextLimit.help
+    kind: field_tip
+    target: providers.unslothStudio.config.contextLimit
+    format: text
+    text: Optional cap, in tokens, for Agent context sizing. Anthori uses the lower of this value and the model's reported context limit.
   - key: provider.unslothStudio.config.reasoning.help
     kind: field_tip
     target: providers.unslothStudio.config.reasoning
@@ -39,6 +44,11 @@ entries:
     target: providers.unslothStudio.ui.model
     format: text
     text: Optional default model. Leave empty to use the active loaded model reported by Unsloth Studio.
+  - key: provider.unslothStudio.ui.contextLimit.help
+    kind: field_tip
+    target: providers.unslothStudio.ui.contextLimit
+    format: text
+    text: Optional cap, in tokens, for Agent context sizing. Leave blank to use the provider-reported model limit.
   - key: provider.unslothStudio.ui.reasoning.help
     kind: field_tip
     target: providers.unslothStudio.ui.reasoning

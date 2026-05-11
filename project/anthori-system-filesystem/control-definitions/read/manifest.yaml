@@ -1,7 +1,7 @@
 format: 1
 id: read
 name: Read
-description: Reads from a file.
+description: Reads from a file. Used with the Write tool.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
@@ -46,9 +46,9 @@ contracts:
                     offset:{{offset}}
                     limit:{{limit}}
                     bytesRead:{{bytesRead}}{{#nextOffset}}
-                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{rangeKey}}` is a byte-range handle for Write.
+                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#byteRangeKey}}
+                    byteRangeKey:{{byteRangeKey}}{{/byteRangeKey}}
+                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{byteRangeKey}}` is the byteRangeKey for exactly the returned byte range, formatted as `bytes:startOffset-endOffset:fingerprint`. The visible offsets are for orientation only. Copy the key as-is; do not edit the offsets or invent keys.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded file read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection.
@@ -82,9 +82,9 @@ contracts:
                     offset:{{offset}}
                     limit:{{limit}}
                     bytesRead:{{bytesRead}}{{#nextOffset}}
-                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{rangeKey}}` is a byte-range handle for Write.
+                    nextOffset:{{nextOffset}}{{/nextOffset}}{{#byteRangeKey}}
+                    byteRangeKey:{{byteRangeKey}}{{/byteRangeKey}}
+                  description: Mustache text template. `{{fileHash}}` is the current file hash; `{{nextOffset}}` continues a limited read; `{{byteRangeKey}}` is the byteRangeKey for exactly the returned byte range, formatted as `bytes:startOffset-endOffset:fingerprint`. The visible offsets are for orientation only. Copy the key as-is; do not edit the offsets or invent keys.
               additionalProperties: false
         output:
           type: string
@@ -156,7 +156,7 @@ contracts:
             - limit
             - bytesRead
             - nextOffset
-            - rangeKey
+            - byteRangeKey
           required:
             - content
             - fileByteCount
@@ -186,9 +186,9 @@ contracts:
             nextOffset:
               type: number
               description: Byte offset to pass on the next call when more content is available. Omitted when the read reached the end of the file.
-            rangeKey:
+            byteRangeKey:
               type: string
-              description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.
+              description: byteRangeKey for exactly the returned byte range, formatted as `bytes:startOffset-endOffset:fingerprint`. The visible offsets are for orientation only. Copy the key as-is; do not edit the offsets or invent keys. To edit a different range, call Read for that exact range first. Omitted when no bytes were returned.
           additionalProperties: false
       - id: start
         toolVisible: false
@@ -321,7 +321,7 @@ contracts:
               additionalProperties: false
             - type: object
               required: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead]
-              propertyOrder: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead, nextOffset, rangeKey]
+              propertyOrder: [phase, taskId, sequence, fileByteCount, fileHash, offset, limit, bytesRead, nextOffset, byteRangeKey]
               properties:
                 phase:
                   type: string
@@ -350,9 +350,9 @@ contracts:
                 nextOffset:
                   type: number
                   description: Byte offset to pass on the next call when more content is available. Omitted when the read reached the end of the file.
-                rangeKey:
+                byteRangeKey:
                   type: string
-                  description: Byte range key for the returned content, formatted as an opaque base62 token. Omitted when no bytes were returned.
+                  description: byteRangeKey for exactly the returned byte range, formatted as `bytes:startOffset-endOffset:fingerprint`. The visible offsets are for orientation only. Copy the key as-is; do not edit the offsets or invent keys. To edit a different range, call Read for that exact range first. Omitted when no bytes were returned.
               additionalProperties: false
             - type: object
               required: [phase, taskId, sequence]

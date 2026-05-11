@@ -232,7 +232,7 @@ function looksLikeSchemaObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
-  var keys = ["type", "properties", "items", "enum", "anyOf", "oneOf", "allOf", "additionalProperties", "required", "description", "default", "format", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength"];
+  var keys = ["type", "properties", "items", "enum", "anyOf", "oneOf", "allOf", "additionalProperties", "required", "description", "default", "format", "minimum", "maximum", "minItems", "maxItems", "minLength", "maxLength", "$ref", "$defs", "definitions"];
   for (var i = 0; i < keys.length; i += 1) {
     if (Object.prototype.hasOwnProperty.call(value, keys[i])) {
       return true;
@@ -764,6 +764,24 @@ function normalizeSchemaFragment(value) {
     if (copy.items && typeof copy.items === "object" && !Array.isArray(copy.items)) {
       copy.items = normalizeSchemaFragment(copy.items);
     }
+    if (copy.$defs && typeof copy.$defs === "object" && !Array.isArray(copy.$defs)) {
+      var defs = {};
+      var defKeys = Object.keys(copy.$defs).sort();
+      for (var d = 0; d < defKeys.length; d += 1) {
+        var defKey = defKeys[d];
+        defs[defKey] = normalizeSchemaFragment(copy.$defs[defKey]);
+      }
+      copy.$defs = defs;
+    }
+    if (copy.definitions && typeof copy.definitions === "object" && !Array.isArray(copy.definitions)) {
+      var definitions = {};
+      var definitionKeys = Object.keys(copy.definitions).sort();
+      for (var n = 0; n < definitionKeys.length; n += 1) {
+        var definitionKey = definitionKeys[n];
+        definitions[definitionKey] = normalizeSchemaFragment(copy.definitions[definitionKey]);
+      }
+      copy.definitions = definitions;
+    }
     if (Array.isArray(copy.anyOf)) {
       copy.anyOf = normalizeSchemaCombiners(copy.anyOf);
     }
@@ -824,6 +842,51 @@ function normalizeToolParametersSchema(value) {
   return normalized;
 }
 
+function normalizeToolInputMode(value) {
+  var text = trim(value).toLowerCase();
+  if (text === "freeformtext" || text === "freeform_text" || text === "freeform-text") {
+    return "freeformText";
+  }
+  if (text === "object") {
+    return "object";
+  }
+  return "";
+}
+
+function toolUsesFreeformText(tool) {
+  return normalizeToolInputMode(tool && tool.inputMode) === "freeformText";
+}
+
+function requestHasFreeformTextTools(request) {
+  if (!request || !Array.isArray(request.tools)) {
+    return false;
+  }
+  for (var i = 0; i < request.tools.length; i += 1) {
+    if (toolUsesFreeformText(request.tools[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function requestFreeformToolNameMap(request) {
+  var names = {};
+  if (!request || !Array.isArray(request.tools)) {
+    return names;
+  }
+  for (var i = 0; i < request.tools.length; i += 1) {
+    var tool = request.tools[i];
+    if (!toolUsesFreeformText(tool)) {
+      continue;
+    }
+    var name = trim(tool && tool.name);
+    if (name !== "") {
+      names[name] = true;
+    }
+  }
+  return names;
+}
+
 function buildChatTools(request) {
   var tools = [];
   if (!request || !Array.isArray(request.tools)) {
@@ -836,6 +899,9 @@ function buildChatTools(request) {
     }
     var name = trim(tool.name);
     if (name === "") {
+      continue;
+    }
+    if (toolUsesFreeformText(tool)) {
       continue;
     }
     tools.push({
@@ -862,6 +928,14 @@ function buildResponsesTools(request) {
     }
     var name = trim(tool.name);
     if (name === "") {
+      continue;
+    }
+    if (toolUsesFreeformText(tool)) {
+      tools.push({
+        type: "custom",
+        name: name,
+        description: trim(tool.description)
+      });
       continue;
     }
     tools.push({
@@ -905,6 +979,73 @@ function buildChatToolCalls(raw) {
     });
   }
   return toolCalls;
+}
+
+function toolCallOpenAIToolType(call) {
+  if (!call || typeof call !== "object" || Array.isArray(call)) {
+    return "";
+  }
+  var direct = trim(call.type || call.Type).toLowerCase();
+  if (direct === "custom" || direct === "custom_tool_call") {
+    return "custom";
+  }
+  var metadata = call.metadata && typeof call.metadata === "object" && !Array.isArray(call.metadata)
+    ? call.metadata
+    : (call.Metadata && typeof call.Metadata === "object" && !Array.isArray(call.Metadata) ? call.Metadata : null);
+  var openai = metadata && metadata.openai && typeof metadata.openai === "object" && !Array.isArray(metadata.openai)
+    ? metadata.openai
+    : null;
+  var toolCallType = trim(openai && (openai.toolCallType || openai.type)).toLowerCase();
+  if (toolCallType === "custom" || toolCallType === "custom_tool_call") {
+    return "custom";
+  }
+  if (normalizeToolInputMode(openai && openai.inputMode) === "freeformText") {
+    return "custom";
+  }
+  return "";
+}
+
+function buildResponsesToolCallItems(raw) {
+  var items = [];
+  if (!Array.isArray(raw)) {
+    return items;
+  }
+  for (var i = 0; i < raw.length; i += 1) {
+    var call = raw[i];
+    if (!call || typeof call !== "object" || Array.isArray(call)) {
+      continue;
+    }
+    var fn = call.function && typeof call.function === "object"
+      ? call.function
+      : (call.Function && typeof call.Function === "object" ? call.Function : {});
+    var name = trim(fn.name || fn.Name || call.name || call.Name);
+    if (name === "") {
+      continue;
+    }
+    var callID = trim(call.id || call.ID);
+    var argumentsText = fn.arguments !== null && fn.arguments !== undefined
+      ? String(fn.arguments)
+      : (call.arguments !== null && call.arguments !== undefined ? String(call.arguments) : "");
+    if (toolCallOpenAIToolType(call) === "custom") {
+      items.push({
+        type: "custom_tool_call",
+        call_id: callID,
+        name: name,
+        input: argumentsText
+      });
+      continue;
+    }
+    if (trim(argumentsText) === "") {
+      argumentsText = "{}";
+    }
+    items.push({
+      type: "function_call",
+      call_id: callID,
+      name: name,
+      arguments: argumentsText
+    });
+  }
+  return items;
 }
 
 function normalizeMessageText(entry) {
@@ -1228,6 +1369,9 @@ function modelPrefersResponsesApi(model) {
 }
 
 function requestUsesResponsesApi(request, model, config) {
+  if (requestHasFreeformTextTools(request || {})) {
+    return true;
+  }
   if (requestHasAttachments(request || {})) {
     return true;
   }
@@ -1344,6 +1488,8 @@ function collectChatMessages(request) {
 
 function collectResponsesInput(request, includeAssistantContent, config, model) {
   var items = [];
+  var freeformToolNames = requestFreeformToolNameMap(request || {});
+  var customToolCallIDs = {};
   if (request && Array.isArray(request.messages) && request.messages.length > 0) {
     for (var i = 0; i < request.messages.length; i += 1) {
       var entry = request.messages[i];
@@ -1357,11 +1503,19 @@ function collectResponsesInput(request, includeAssistantContent, config, model) 
         if (toolCallId === "") {
           continue;
         }
-        items.push({
-          type: "function_call_output",
-          call_id: toolCallId,
-          output: normalizeMessageText(entry)
-        });
+        if (customToolCallIDs[toolCallId] || freeformToolNames[trim(entry.name)]) {
+          items.push({
+            type: "custom_tool_call_output",
+            call_id: toolCallId,
+            output: normalizeMessageText(entry)
+          });
+        } else {
+          items.push({
+            type: "function_call_output",
+            call_id: toolCallId,
+            output: normalizeMessageText(entry)
+          });
+        }
         continue;
       }
       if (role === "system") {
@@ -1382,14 +1536,26 @@ function collectResponsesInput(request, includeAssistantContent, config, model) 
         });
       }
       if (role === "assistant" && Array.isArray(entry.toolCalls)) {
-        var toolCalls = buildChatToolCalls(entry.toolCalls);
+        var toolCalls = buildResponsesToolCallItems(entry.toolCalls);
         for (var j = 0; j < toolCalls.length; j += 1) {
           var call = toolCalls[j];
+          if (trim(call.type) === "custom_tool_call") {
+            if (trim(call.call_id) !== "") {
+              customToolCallIDs[trim(call.call_id)] = true;
+            }
+            items.push({
+              type: "custom_tool_call",
+              call_id: trim(call.call_id),
+              name: trim(call.name),
+              input: call.input === null || call.input === undefined ? "" : String(call.input)
+            });
+            continue;
+          }
           items.push({
             type: "function_call",
-            call_id: trim(call.id),
-            name: trim(call.function && call.function.name),
-            arguments: trim(call.function && call.function.arguments) || "{}"
+            call_id: trim(call.call_id),
+            name: trim(call.name),
+            arguments: trim(call.arguments) || "{}"
           });
         }
       }
@@ -1826,18 +1992,33 @@ function collectCodexResponseToolCalls(response) {
   }
   for (var i = 0; i < response.output.length; i += 1) {
     var item = response.output[i];
-    if (!item || typeof item !== "object" || Array.isArray(item) || trim(item.type) !== "function_call") {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    var itemType = trim(item.type);
+    if (itemType !== "function_call" && itemType !== "custom_tool_call") {
       continue;
     }
     var name = trim(item.name);
     if (name === "") {
       continue;
     }
-    toolCalls.push({
+    var toolCall = {
       id: trim(item.call_id || item.id),
       name: name,
-      arguments: trim(item.arguments) || "{}"
-    });
+      arguments: itemType === "custom_tool_call"
+        ? (item.input === null || item.input === undefined ? "" : String(item.input))
+        : (trim(item.arguments) || "{}")
+    };
+    if (itemType === "custom_tool_call") {
+      toolCall.metadata = {
+        openai: {
+          toolCallType: "custom",
+          inputMode: "freeformText"
+        }
+      };
+    }
+    toolCalls.push(toolCall);
   }
   return toolCalls;
 }
@@ -1953,11 +2134,21 @@ function finalizeRuntimeToolCalls(accumulator) {
     if (name === "") {
       continue;
     }
-    toolCalls.push({
+    var toolCall = {
       id: trim(item.id),
       name: name,
       arguments: trim(item.arguments) || "{}"
-    });
+    };
+    if (trim(item.kind).toLowerCase() === "custom" || trim(item.type).toLowerCase() === "custom") {
+      toolCall.arguments = item.arguments === null || item.arguments === undefined ? "" : String(item.arguments);
+      toolCall.metadata = {
+        openai: {
+          toolCallType: "custom",
+          inputMode: "freeformText"
+        }
+      };
+    }
+    toolCalls.push(toolCall);
   }
   return toolCalls;
 }
@@ -2023,7 +2214,11 @@ function mergeResponsesToolCallEvent(accumulator, event) {
   var isOutputItemEvent = type === "response.output_item.added" || type === "response.output_item.done";
   if (isOutputItemEvent) {
     var item = event.item;
-    if (!item || typeof item !== "object" || Array.isArray(item) || trim(item.type) !== "function_call") {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return;
+    }
+    var itemType = trim(item.type);
+    if (itemType !== "function_call" && itemType !== "custom_tool_call") {
       return;
     }
     var itemRefs = {
@@ -2040,12 +2235,16 @@ function mergeResponsesToolCallEvent(accumulator, event) {
     if (itemRefs.itemID !== "") {
       itemEntry.itemID = itemRefs.itemID;
     }
+    if (itemType === "custom_tool_call") {
+      itemEntry.kind = "custom";
+    }
     var itemName = trim(item.name || event.name);
     if (itemName !== "") {
       itemEntry.name = itemName;
     }
-    if (item.arguments !== null && item.arguments !== undefined) {
-      var itemArguments = String(item.arguments);
+    var rawArguments = itemType === "custom_tool_call" ? item.input : item.arguments;
+    if (rawArguments !== null && rawArguments !== undefined) {
+      var itemArguments = String(rawArguments);
       if (trim(itemArguments) !== "") {
         if (type === "response.output_item.done" || itemEntry.arguments === "") {
           itemEntry.arguments = itemArguments;
@@ -2056,7 +2255,9 @@ function mergeResponsesToolCallEvent(accumulator, event) {
   }
   var isFunctionArgumentEvent = type === "response.function_call_arguments.delta" ||
     type === "response.function_call_arguments.done";
-  if (!isFunctionArgumentEvent) {
+  var isCustomInputEvent = type === "response.custom_tool_call_input.delta" ||
+    type === "response.custom_tool_call_input.done";
+  if (!isFunctionArgumentEvent && !isCustomInputEvent) {
     return;
   }
   var argumentRefs = {
@@ -2073,18 +2274,22 @@ function mergeResponsesToolCallEvent(accumulator, event) {
   if (argumentRefs.itemID !== "") {
     argumentEntry.itemID = argumentRefs.itemID;
   }
+  if (isCustomInputEvent) {
+    argumentEntry.kind = "custom";
+  }
   var argumentName = trim(event.name);
   if (argumentName !== "") {
     argumentEntry.name = argumentName;
   }
-  if (type === "response.function_call_arguments.delta") {
+  if (type === "response.function_call_arguments.delta" || type === "response.custom_tool_call_input.delta") {
     if (event.delta !== null && event.delta !== undefined && String(event.delta) !== "") {
       argumentEntry.arguments += String(event.delta);
     }
     return;
   }
-  if (event.arguments !== null && event.arguments !== undefined && trim(String(event.arguments)) !== "") {
-    argumentEntry.arguments = String(event.arguments);
+  var finalArguments = isCustomInputEvent ? event.input : event.arguments;
+  if (finalArguments !== null && finalArguments !== undefined && trim(String(finalArguments)) !== "") {
+    argumentEntry.arguments = String(finalArguments);
   }
 }
 

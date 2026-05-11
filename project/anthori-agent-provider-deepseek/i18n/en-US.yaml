@@ -14,6 +14,11 @@ entries:
     target: providers.deepseek.config.model
     format: text
     text: Optional default model ID for controls and assistant requests that do not override it.
+  - key: provider.deepseek.config.contextLimit.help
+    kind: field_tip
+    target: providers.deepseek.config.contextLimit
+    format: text
+    text: Optional cap, in tokens, for Agent context sizing. Anthori uses the lower of this value and the model's reported context limit.
   - key: provider.deepseek.config.reasoning.help
     kind: field_tip
     target: providers.deepseek.config.reasoning

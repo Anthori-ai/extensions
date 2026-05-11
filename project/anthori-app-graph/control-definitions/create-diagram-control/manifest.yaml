@@ -1,0 +1,102 @@
+format: 1
+id: create-diagram-control
+name: Create Control
+description: Creates a control in a diagram document.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create Diagram Control
+        description: Add a control to a diagram. Use kind for built-in diagram controls and controlRef only for a specific control definition.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - title
+            - x
+            - y
+          propertyOrder:
+            - path
+            - title
+            - x
+            - y
+            - id
+            - type
+            - kind
+            - controlRef
+            - description
+            - config
+            - editor
+            - references
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            title:
+              type: string
+              description: Control title.
+            x:
+              type: integer
+              description: Control x coordinate.
+            y:
+              type: integer
+              description: Control y coordinate.
+            id:
+              type: string
+              description: Optional control id. Omit to generate one.
+            type:
+              type: string
+              enum:
+                - control
+                - group
+                - note
+              default: control
+              description: Graph control type.
+            kind:
+              type: string
+              enum:
+                - control
+                - document
+                - screen
+              default: control
+              description: Built-in diagram control kind.
+            controlRef:
+              type: string
+              description: Optional explicit control definition reference.
+            description:
+              type: string
+              description: Optional control description.
+            config:
+              type: object
+              description: Optional control config.
+            editor:
+              type: object
+              description: Optional editor metadata.
+            references:
+              type: array
+              description: Optional references with path, label, and description.
+              items:
+                type: object
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+            - controlId
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+            controlId:
+              type: string
+control:
+  visible: true
+  libraryPath: app/diagram/control
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-diagram-control

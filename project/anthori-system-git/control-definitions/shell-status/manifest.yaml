@@ -1,0 +1,29 @@
+format: 1
+id: shell-status
+name: Status
+description: git status shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Status
+        description: Runs `git status`.
+        input:
+          type: string
+          description: Args or full `git status` command string, such as `--short` or `git status --short`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-status
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git status
+          reason: Inspect repository status.

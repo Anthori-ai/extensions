@@ -1,0 +1,29 @@
+format: 1
+id: shell-diff
+name: Diff
+description: git diff shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Diff
+        description: Runs `git diff`.
+        input:
+          type: string
+          description: Args or full `git diff` command string, such as `--stat`, `-- client/src/app.js`, or `git diff --stat`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-diff
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git diff
+          reason: Inspect repository diffs.

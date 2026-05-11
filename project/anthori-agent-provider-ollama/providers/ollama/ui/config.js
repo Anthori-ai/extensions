@@ -76,6 +76,7 @@
     const root = document.getElementById("ollama-config-root")
     const baseUrlInput = document.getElementById("ollama-base-url")
     const modelSelect = document.getElementById("ollama-model")
+    const contextLimitInput = document.getElementById("ollama-context-limit")
     const reasoningSelect = document.getElementById("ollama-reasoning")
     const modelStatus = document.getElementById("ollama-model-status")
     const modelStatusSpinner = document.getElementById("ollama-model-status-spinner")
@@ -86,6 +87,7 @@
       !root ||
       !baseUrlInput ||
       !modelSelect ||
+      !contextLimitInput ||
       !reasoningSelect ||
       !modelStatus ||
       !modelStatusSpinner ||
@@ -120,10 +122,20 @@
       modelStatusSpinner.hidden = String(state || "").trim() !== "loading"
     }
 
+    function readPositiveIntegerInput(input) {
+      const raw = String(input?.value || "").trim()
+      if (!raw) return 0
+      const parsed = Number.parseInt(raw, 10)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    }
+
     function applyValues(values) {
       const normalized = sanitizeConfig(values)
       baseUrlInput.value = String(normalized.apiBaseUrl || DEFAULTS.apiBaseUrl)
       renderModelOptions([], String(normalized.llmModel || ""))
+      contextLimitInput.value = normalized.maxContextTokens == null
+        ? ""
+        : String(normalized.maxContextTokens)
       reasoningSelect.value = String(normalized.reasoningEffort || "").trim().toLowerCase()
     }
 
@@ -131,6 +143,7 @@
       const values = {}
       const baseUrl = String(baseUrlInput.value || "").trim()
       const model = String(modelSelect.value || "").trim()
+      const contextLimit = readPositiveIntegerInput(contextLimitInput)
       const reasoning = String(reasoningSelect.value || "").trim().toLowerCase()
 
       if (baseUrl) {
@@ -138,6 +151,9 @@
       }
       if (model) {
         values.llmModel = model
+      }
+      if (contextLimit > 0) {
+        values.maxContextTokens = contextLimit
       }
       if (reasoning) {
         values.reasoningEffort = reasoning
@@ -270,6 +286,8 @@
     modelSelect.addEventListener("change", () => {
       flushDraftSync()
     })
+    contextLimitInput.addEventListener("input", queueDraftSync)
+    contextLimitInput.addEventListener("change", flushDraftSync)
     reasoningSelect.addEventListener("change", () => {
       flushDraftSync()
     })

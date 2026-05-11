@@ -11,6 +11,10 @@ capabilities:
   - agent/text
 interfaces:
   - anthori.agent-text.v1
+tools:
+  inputModes:
+    - object
+    - freeformText
 configSchema:
   fields:
     apiKey:
@@ -22,6 +26,13 @@ configSchema:
       label: Model
       placeholder: gpt-5.5
       helpKey: provider.openai.config.model.help
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+      helpKey: provider.openai.config.contextLimit.help
     reasoningEffort:
       type: string
       label: Reasoning
@@ -40,6 +51,6 @@ runtime:
     listModels: list-models
 ui:
   configAssetPath: ui/config.html
-  configHeight: 224
+  configHeight: 276
 control:
   visible: false

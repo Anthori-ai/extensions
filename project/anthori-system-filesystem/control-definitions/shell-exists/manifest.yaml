@@ -1,0 +1,23 @@
+format: 1
+id: shell-exists
+name: Exists
+description: exists shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Exists
+        description: Returns `true` or `false` for each path.
+        input:
+          type: string
+          description: Args or full `exists` command string. Pass one or more paths, such as `src/app.js` or `exists src/app.js`.
+        output:
+          type: string
+          description: Boolean stdout result lines. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-exists

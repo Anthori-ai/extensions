@@ -20,7 +20,27 @@ actions:
   - id: copy
   - id: find
   - id: read-lines
+  - id: read-outline
   - id: write-lines
   - id: count-lines
   - id: chmod
   - id: chown
+  - id: patch
+  - id: shell-rg
+  - id: shell-ls
+  - id: shell-find
+  - id: shell-sed
+  - id: shell-nl
+  - id: shell-cat
+  - id: shell-head
+  - id: shell-tail
+  - id: shell-wc
+  - id: shell-stat
+  - id: shell-exists
+  - id: shell-mkdir
+  - id: shell-touch
+  - id: shell-rm
+  - id: shell-cp
+  - id: shell-mv
+  - id: shell-chmod
+  - id: shell-chown

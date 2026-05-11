@@ -1,0 +1,38 @@
+format: 1
+id: list-diagrams
+name: List
+description: Lists diagram packages or diagram documents in a package.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: List Diagrams
+        description: List project diagram packages, or pass a package/document path to list diagrams inside that package.
+        input:
+          type: object
+          additionalProperties: false
+          propertyOrder:
+            - path
+          properties:
+            path:
+              type: string
+              description: Optional workspace-relative .diagram package path or diagram document path.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - items
+          properties:
+            items:
+              type: array
+              description: Diagram entries with path, packagePath, title, description, modifiedAt, revision, and optional error.
+              items:
+                type: object
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: list-diagrams

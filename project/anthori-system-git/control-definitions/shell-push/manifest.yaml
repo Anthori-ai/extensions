@@ -1,0 +1,29 @@
+format: 1
+id: shell-push
+name: Push
+description: git push shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Push
+        description: Runs `git push`.
+        input:
+          type: string
+          description: Args or full `git push` command string, such as `origin main` or `git push origin main`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-push
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git push
+          reason: Contact Git remotes and push repository data.

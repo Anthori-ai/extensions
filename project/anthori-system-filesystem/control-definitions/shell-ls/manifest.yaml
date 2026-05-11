@@ -1,0 +1,23 @@
+format: 1
+id: shell-ls
+name: Ls
+description: ls shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Ls
+        description: Lists directory entries. Supports `-1`, `-l`, `-a`, `-A`, `-h`, `-R`, combined flags like `-lah`, `--recursive`, `--limit N`, and one optional path.
+        input:
+          type: string
+          description: Args or full `ls` command string, such as `-l src` or `ls -l src`.
+        output:
+          type: string
+          description: Listing stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-ls

@@ -1,0 +1,133 @@
+format: 1
+id: format-validate
+name: Validate
+description: Checks whether JSON or YAML content can be parsed.
+baseControlRef: controls/1/extensions/anthori.data.standard/definitions/data-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Validate
+        description: Checks whether JSON or YAML content can be parsed.
+        input:
+          description: Format validation request.
+          anyOf:
+            - type: object
+              description: Guarded validation from a file path.
+              propertyOrder: [path, fileHash, format]
+              required: [path, fileHash]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                fileHash:
+                  type: string
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation.
+                format:
+                  type: string
+                  enum: [auto, yaml, json]
+                  default: auto
+                  description: Format to validate. `auto` infers JSON or YAML from the file extension.
+              additionalProperties: false
+            - type: object
+              description: Dangerous unguarded validation from a file path for files that change too quickly to get a stable file hash.
+              propertyOrder: [path, dangerous, format]
+              required: [path, dangerous]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read.
+                format:
+                  type: string
+                  enum: [auto, yaml, json]
+                  default: auto
+                  description: Format to validate. `auto` infers JSON or YAML from the file extension.
+              additionalProperties: false
+            - type: object
+              description: Validation from inline content.
+              propertyOrder: [content, format]
+              required: [content, format]
+              properties:
+                content:
+                  type: string
+                  description: JSON or YAML content to validate.
+                format:
+                  type: string
+                  enum: [yaml, json]
+                  description: Format to validate.
+              additionalProperties: false
+        output:
+          type: object
+          description: Validation result.
+          required: [valid, format]
+          propertyOrder: [valid, format, error, fileHash, fileLineCount]
+          properties:
+            valid:
+              type: boolean
+              description: True when the content parsed successfully.
+            format:
+              type: string
+              enum: [yaml, json]
+              description: Format that was validated.
+            error:
+              type: string
+              description: Parser error text when validation failed.
+            fileHash:
+              type: string
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
+            fileLineCount:
+              type: number
+              description: Total number of lines in the file.
+          additionalProperties: false
+control:
+  visible: true
+  libraryPath: data/format
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: format-validate
+    permissions:
+      type: array
+      description: File permissions this control may request before reading paths.
+      items:
+        type: object
+        required: [capability, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [file]
+            default: file
+          access:
+            type: array
+            description: File operations this permission row covers.
+            items:
+              type: string
+              enum: [read, write]
+          scope:
+            type: string
+            description: Relative or absolute file or folder path.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a folder-like scope that covers descendants.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+  ui:
+    fieldOrder: [permissions]
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: file
+        accessOptions: [read, write]
+        matchOptions: [exact, prefix]
+        helpText: "File resources this control is allowed to request. Validation path input needs read access."

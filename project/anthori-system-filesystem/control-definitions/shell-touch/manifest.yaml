@@ -1,0 +1,23 @@
+format: 1
+id: shell-touch
+name: Touch
+description: touch shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Touch
+        description: Creates empty files when missing. Existing files are left unchanged. Supports `-p`/`--parents` and one or more paths.
+        input:
+          type: string
+          description: Args or full `touch` command string, such as `-p tmp/new.txt` or `touch -p tmp/new.txt`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-touch

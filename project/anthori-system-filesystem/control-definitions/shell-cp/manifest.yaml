@@ -1,0 +1,23 @@
+format: 1
+id: shell-cp
+name: Cp
+description: cp shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Cp
+        description: Copies a source path to a destination path. Tolerates common flags such as `-r`, `-R`, `-a`, `-p`, and `-f`.
+        input:
+          type: string
+          description: Args or full `cp` command string, such as `src/file.js tmp/file.js` or `cp src/file.js tmp/file.js`.
+        output:
+          type: string
+          description: Command stdout text. Successful copies return an empty string; invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-cp

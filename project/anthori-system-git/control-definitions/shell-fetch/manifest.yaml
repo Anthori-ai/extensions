@@ -1,0 +1,29 @@
+format: 1
+id: shell-fetch
+name: Fetch
+description: git fetch shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Fetch
+        description: Runs `git fetch`.
+        input:
+          type: string
+          description: Args or full `git fetch` command string, such as `--all --prune` or `git fetch --all --prune`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-fetch
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git fetch
+          reason: Contact Git remotes and fetch repository data.

@@ -1,0 +1,32 @@
+format: 1
+id: review-diagram
+name: Review
+description: Reads a diagram document as LLM-friendly review content.
+baseControlRef: controls/1/extensions/anthori.app.graph/definitions/graph-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Review Diagram
+        description: Read a workspace-relative diagram document without layout data. Returns semantic control content, basic conduit relationships, proposals, modified timestamps, and the current date.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+          propertyOrder:
+            - path
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram path, such as Game.diagram/diagram.yaml.
+        output:
+          type: object
+          description: Content-focused diagram review with path, packagePath, title, revision, modifiedAt, currentDate, controls, conduits, and proposals.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: review-diagram

@@ -27,6 +27,23 @@ controlDefinitions:
   - control-definitions/create-conduit-color
   - control-definitions/delete-conduit-color
   - control-definitions/list-conduit-colors
+  - control-definitions/read-layout
+  - control-definitions/write-layout
+  - control-definitions/read-diagram-layout
+  - control-definitions/set-diagram-layout
+  - control-definitions/list-diagrams
+  - control-definitions/read-diagram
+  - control-definitions/review-diagram
+  - control-definitions/validate-diagram
+  - control-definitions/propose-diagram-changes
+  - control-definitions/create-diagram
+  - control-definitions/update-diagram
+  - control-definitions/create-diagram-control
+  - control-definitions/update-diagram-control
+  - control-definitions/delete-diagram-control
+  - control-definitions/create-diagram-conduit
+  - control-definitions/update-diagram-conduit
+  - control-definitions/delete-diagram-conduit
   - control-definitions/move-control
   - control-definitions/list-history
   - control-definitions/history-info

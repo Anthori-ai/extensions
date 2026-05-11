@@ -93,6 +93,7 @@
     const apiKeyInput = document.getElementById("unsloth-studio-api-key")
     const baseUrlInput = document.getElementById("unsloth-studio-base-url")
     const modelSelect = document.getElementById("unsloth-studio-model")
+    const contextLimitInput = document.getElementById("unsloth-studio-context-limit")
     const reasoningSelect = document.getElementById("unsloth-studio-reasoning")
     const statusEl = document.getElementById("unsloth-studio-status")
 
@@ -102,6 +103,7 @@
       !apiKeyInput ||
       !baseUrlInput ||
       !modelSelect ||
+      !contextLimitInput ||
       !reasoningSelect ||
       !statusEl
     ) {
@@ -237,11 +239,21 @@
       modelSelect.value = cleanSelectedValue
     }
 
+    function readPositiveIntegerInput(input) {
+      const raw = String(input?.value || "").trim()
+      if (!raw) return 0
+      const parsed = Number.parseInt(raw, 10)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    }
+
     function applyValues(configValues, userSecretValues) {
       const normalized = sanitizeConfig(configValues)
       applyUserSecretsValues(userSecretValues)
       baseUrlInput.value = String(normalized.apiBaseUrl || DEFAULTS.apiBaseUrl)
       renderModelOptions([], String(normalized.llmModel || ""), modelPlaceholder())
+      contextLimitInput.value = normalized.maxContextTokens == null
+        ? ""
+        : String(normalized.maxContextTokens)
       reasoningSelect.value = String(normalized.reasoningEffort || "").trim().toLowerCase()
     }
 
@@ -249,6 +261,7 @@
       const values = {}
       const baseUrl = String(baseUrlInput.value || "").trim()
       const model = String(modelSelect.value || "").trim()
+      const contextLimit = readPositiveIntegerInput(contextLimitInput)
       const reasoning = String(reasoningSelect.value || "").trim().toLowerCase()
 
       if (baseUrl) {
@@ -256,6 +269,9 @@
       }
       if (model) {
         values.llmModel = model
+      }
+      if (contextLimit > 0) {
+        values.maxContextTokens = contextLimit
       }
       if (reasoning) {
         values.reasoningEffort = reasoning
@@ -368,6 +384,8 @@
       void refreshModels()
     })
     modelSelect.addEventListener("change", flushDraftSync)
+    contextLimitInput.addEventListener("input", queueDraftSync)
+    contextLimitInput.addEventListener("change", flushDraftSync)
     reasoningSelect.addEventListener("change", flushDraftSync)
 
     void load()

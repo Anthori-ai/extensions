@@ -1,0 +1,72 @@
+format: 1
+id: patch
+name: Patch
+description: Add, delete, modify, and move files.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Patch
+        description: |-
+          Applies a raw patch string to add, delete, modify, or move one or more files. Input is patch text, not JSON. File paths come from patch headers.
+
+          ---INPUT FORMAT---
+
+          ~Add: path
+          +new file line
+          +blank lines in the new file are written as a line containing only +
+
+          ~Delete: path
+
+          ~Update: path
+          @@
+           unchanged context line
+          -removed line
+          +added line
+
+          ~Move: from-path -> to-path
+          @@
+           unchanged context line
+          -removed line
+          +added line
+
+          ---RULES---
+
+          - Use one or more `~Add:`, `~Delete:`, `~Update:`, or `~Move:` sections.
+          - `~Move: from-path -> to-path` can move only, or move and modify when followed by `@@` chunks.
+          - Add-file content lines must start with `+`.
+          - Update and move chunks start with `@@`.
+          - Update and move chunk lines must start with a space for unchanged context, `-` for removed lines, or `+` for added lines.
+          - Each update or move chunk must include enough unchanged context or removed lines to match exactly one location in the current file. No matches or multiple matches fail the call.
+
+          ---EXAMPLE---
+
+          ~Add: docs/new-guide.md
+          +# New Guide
+          +
+          +This file was added by a patch.
+          ~Update: src/app.js
+          @@
+           function startApp()
+           {
+          -  console.log("starting")
+          +  console.log("starting app")
+           }
+          ~Move: src/old-name.js -> src/new-name.js
+          ~Delete: tmp/old-note.txt
+        input:
+          type: string
+          description: |-
+            Raw Anthori patch text. Do not wrap in JSON. Do not add begin/end markers.
+
+            Use `~Add: path` followed by `+` content lines to create a file. Use `~Delete: path` to delete a file. Use `~Update: path` and one or more `@@` chunks to modify a file. Use `~Move: from-path -> to-path` to move a file, optionally followed by `@@` chunks to move and modify. Update/move chunk lines must use prefixes: space for unchanged context, `-` for removed lines, and `+` for added lines. Each chunk must include enough context or removed lines to match exactly one location.
+        output:
+          type: string
+          description: Patch result text. Successful patches return `Done!`; invalid patch text, context mismatches, or ambiguous multiple matches fail the call. Context errors include the file path, chunk number, and expected context/removal lines or matching line numbers.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: patch

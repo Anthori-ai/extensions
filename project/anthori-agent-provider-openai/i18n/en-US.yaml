@@ -14,6 +14,11 @@ entries:
     target: providers.openai.config.model
     format: text
     text: Optional default model id for controls and assistant requests that do not override it.
+  - key: provider.openai.config.contextLimit.help
+    kind: field_tip
+    target: providers.openai.config.contextLimit
+    format: text
+    text: Optional cap, in tokens, for Agent context sizing. Anthori uses the lower of this value and the model's reported context limit.
   - key: provider.openai.config.timeout.help
     kind: field_tip
     target: providers.openai.config.timeout
@@ -29,6 +34,11 @@ entries:
     target: providers.openai.ui.model
     format: text
     text: Optional default model to use when a control does not set one.
+  - key: provider.openai.ui.contextLimit.help
+    kind: field_tip
+    target: providers.openai.ui.contextLimit
+    format: text
+    text: Optional cap, in tokens, for Agent context sizing. Leave blank to use the provider-reported model limit.
   - key: provider.openai.ui.timeout.help
     kind: field_tip
     target: providers.openai.ui.timeout

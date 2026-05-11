@@ -1,0 +1,23 @@
+format: 1
+id: shell-rg
+name: Rg
+description: rg shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Rg
+        description: Searches file contents, or lists files when `--files` is present. Supports common args such as `-n`, `-i`, `-F`, `-l`, `-g`, `-t`, `--type`, `--hidden`, `--no-ignore`, `--files`, `--max-depth`, `--limit`, `-m`, pattern, and optional paths.
+        input:
+          type: string
+          description: Args or full `rg` command string, such as `-n "pattern" src`, `rg -n "pattern" src`, or `rg --files -g "*.js" src`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command stdout text. No matches return an empty string; invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-rg

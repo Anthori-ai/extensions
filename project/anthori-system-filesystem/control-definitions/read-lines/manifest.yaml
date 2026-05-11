@@ -1,7 +1,7 @@
 format: 1
 id: read-lines
 name: Read Lines
-description: Reads lines from a file.
+description: Reads lines from a file. Recommended for reading source code files. Used with the Write Lines tool.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
@@ -11,7 +11,7 @@ contracts:
         activeWhen:
           config:
             outputFormat: text
-        description: Reads lines from a file.
+        description: Reads lines from a file. Recommended for reading source code files.
         input:
           description: Line read request.
           anyOf:
@@ -40,13 +40,13 @@ contracts:
                     startLine:{{startLine}}
                     endLine:{{endLine}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
 
                     lines:
                     {{#lines}}{{lineNumber}}:{{line}}
                     {{/lines}}
-                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text.
+                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text; `{{lineRangeKey}}` is the lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded line read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection. Prefer a small `startLine`/`endLine` range; avoid reading the whole file unless the whole file is needed.
@@ -72,13 +72,13 @@ contracts:
                     startLine:{{startLine}}
                     endLine:{{endLine}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
 
                     lines:
                     {{#lines}}{{lineNumber}}:{{line}}
                     {{/lines}}
-                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text.
+                  description: Mustache text template. `{{#lines}}...{{/lines}}` repeats once per line with `{{lineNumber}}` and `{{line}}`; `{{content}}` is the selected raw line text; `{{lineRangeKey}}` is the lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
               additionalProperties: false
         output:
           type: string
@@ -88,7 +88,7 @@ contracts:
         activeWhen:
           config:
             outputFormat: json
-        description: Reads lines from a file.
+        description: Reads lines from a file. Recommended for reading source code files.
         input:
           description: Line read request.
           anyOf:
@@ -138,7 +138,7 @@ contracts:
             - lines
             - fileHash
             - fileLineCount
-            - rangeKey
+            - lineRangeKey
           required:
             - startLine
             - endLine
@@ -177,9 +177,9 @@ contracts:
             fileLineCount:
               type: number
               description: Total line count for the file.
-            rangeKey:
+            lineRangeKey:
               type: string
-              description: Line range key for the returned range, formatted as an opaque base62 token. Write Lines replace/delete edits this entire returned range; if you only want a subset, call Read Lines again for exactly that subset before writing. Omitted when no lines were returned.
+              description: lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys. Write Lines replace/delete applies to the entire keyed range; insert anchors before or after the entire keyed range. To edit a different range, call Read Lines for that exact range first. Omitted when no lines were returned.
           additionalProperties: false
       - id: start
         toolVisible: false
@@ -217,13 +217,13 @@ contracts:
                     startLine:{{startLine}}
                     endLine:{{endLine}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
 
                     lines:
                     {{#lines}}{{lineNumber}}:{{line}}
                     {{/lines}}
-                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line.
+                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line; `{{lineRangeKey}}` is the lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
               additionalProperties: false
             - type: object
               description: Dangerous unguarded pull line read for files that change too quickly to get a stable file hash, such as actively appended logs. This bypasses stale-read detection.
@@ -255,13 +255,13 @@ contracts:
                     startLine:{{startLine}}
                     endLine:{{endLine}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
 
                     lines:
                     {{#lines}}{{lineNumber}}:{{line}}
                     {{/lines}}
-                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line.
+                  description: Mustache text template for text output. `{{#lines}}...{{/lines}}` repeats once per line; `{{lineRangeKey}}` is the lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
               additionalProperties: false
         output:
           type: object
@@ -325,7 +325,7 @@ contracts:
               additionalProperties: false
             - type: object
               required: [phase, taskId, sequence, startLine, endLine, fileHash, fileLineCount]
-              propertyOrder: [phase, taskId, sequence, startLine, endLine, fileHash, fileLineCount, rangeKey]
+              propertyOrder: [phase, taskId, sequence, startLine, endLine, fileHash, fileLineCount, lineRangeKey]
               properties:
                 phase:
                   type: string
@@ -348,9 +348,9 @@ contracts:
                 fileLineCount:
                   type: number
                   description: Total line count for the file.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key for the returned range, formatted as an opaque base62 token. Omitted when no lines were returned.
+                  description: lineRangeKey for exactly the returned line range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys. To edit a different range, call Read Lines for that exact range first. Omitted when no lines were returned.
               additionalProperties: false
             - type: object
               required: [phase, taskId, sequence]

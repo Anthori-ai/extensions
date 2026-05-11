@@ -1,0 +1,23 @@
+format: 1
+id: document
+name: Document
+description: Markdown document node for Anthori diagram documents.
+baseControlRef: controls/1/executable
+control:
+  visible: true
+  category: app
+  ui:
+    libraryContext:
+      kind: diagram
+      documentKind: anthori.diagram
+    fields:
+      - key: markdown
+        label: Markdown
+        type: textarea
+        language: markdown
+        rows: 14
+        placeholder: |
+          ## Overview
+
+          Explain what this part of the system is and what someone should look at first.
+        helpText: Markdown content rendered directly on the diagram node.

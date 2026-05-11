@@ -26,6 +26,13 @@ configSchema:
       dataSource:
         kind: providerModels
         emptyLabel: Use provider default
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+      helpKey: provider.openrouter.config.contextLimit.help
 runtime:
   kind: library
   libraryId: openai-compatible-provider-runtime

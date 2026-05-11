@@ -341,6 +341,14 @@ contracts:
                 maxContextTokens:
                   type: number
                   description: Maximum provider context length for the selected model.
+                context:
+                  type: object
+                  description: Provider context metadata.
+                  properties:
+                    maxTokens:
+                      type: number
+                      description: Maximum provider context length for the selected model.
+                  additionalProperties: false
                 model:
                   type: string
                   description: Effective model used for this metadata lookup.
@@ -355,6 +363,16 @@ contracts:
                   description: Effective provider interface ids for this metadata lookup.
                   items:
                     type: string
+                tools:
+                  type: object
+                  description: Provider tool-call capability metadata.
+                  properties:
+                    inputModes:
+                      type: array
+                      description: Supported provider-facing tool input modes.
+                      items:
+                        type: string
+                  additionalProperties: false
               additionalProperties: false
       contextControl:
         contracts:
@@ -483,6 +501,26 @@ control:
       type: number
       required: false
       default: 250
+    maxInlineToolResultChars:
+      type: number
+      required: false
+      default: 50000
+      description: Maximum serialized tool-result characters Agent keeps inline before storing the full result in the active session files directory and returning a bounded preview plus filesystem path.
+    maxInlineToolResultsPerRoundChars:
+      type: number
+      required: false
+      default: 100000
+      description: Maximum aggregate serialized tool-result characters Agent keeps inline for multiple same-round tool calls before storing the full batch in the active session files directory.
+    toolResultPreviewChars:
+      type: number
+      required: false
+      default: 2000
+      description: Maximum preview characters included inline when Agent stores a large tool result in the active session files directory.
+    toolResultReadLimitChars:
+      type: number
+      required: false
+      default: 20000
+      description: Suggested filesystem Read limit Agent includes with stored large tool-result descriptors.
     timeoutSeconds:
       type: number
       required: false

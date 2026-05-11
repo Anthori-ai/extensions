@@ -1,0 +1,8 @@
+format: 1
+id: anthori.app.diagram
+name: Diagram
+scope: app
+version: 1.0.0
+description: Enables Anthori's built-in diagram document editor for .diagram files.
+controlDefinitions:
+  - control-definitions

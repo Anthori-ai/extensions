@@ -1,0 +1,23 @@
+format: 1
+id: shell-stat
+name: Stat
+description: stat shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Stat
+        description: Reads file metadata for one or more paths.
+        input:
+          type: string
+          description: Args or full `stat` command string, such as `src/app.js` or `stat src/app.js`.
+        output:
+          type: string
+          description: Metadata stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-stat

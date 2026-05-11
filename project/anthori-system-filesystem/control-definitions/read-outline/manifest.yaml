@@ -1,0 +1,174 @@
+format: 1
+id: read-outline
+name: Read Outline
+description: >-
+  Reads a supported source/data file and returns a structured outline of its symbols or sections. Supports: `.go`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.swift`, `.swiftinterface`, `.md`, `.markdown`, `.json`, `.yaml`, `.yml`, `.html`, `.htm`, `.css`, `.scss`, `.less`, `.py`, `.pyw`, `.rs`, `.cs`, `.csx`. Recommended to call before reading a file, when supported.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+contracts:
+  caller:
+    contracts:
+      - id: yaml
+        name: Read Outline
+        activeWhen:
+          config:
+            outputFormat: yaml
+        description: Returns the symbols or sections in a file with nested line ranges.
+        input:
+          description: Outline read request.
+          anyOf:
+            - type: object
+              description: Guarded outline read with a `fileHash` integrity check.
+              propertyOrder: [path, fileHash, maxDepth]
+              required: [path, fileHash]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                fileHash:
+                  type: string
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
+                maxDepth:
+                  type: number
+                  description: Optional maximum outline depth. `1` returns only top-level items; omit or use `0` for all levels.
+              additionalProperties: false
+            - type: object
+              description: Dangerous unguarded outline read for files that change too quickly to get a stable file hash.
+              propertyOrder: [path, dangerous, maxDepth]
+              required: [path, dangerous]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read.
+                maxDepth:
+                  type: number
+                  description: Optional maximum outline depth. `1` returns only top-level items; omit or use `0` for all levels.
+              additionalProperties: false
+        output:
+          type: string
+          description: YAML outline text.
+      - id: json
+        name: Read Outline
+        activeWhen:
+          config:
+            outputFormat: json
+        description: Returns the symbols or sections in a file with nested line ranges.
+        input:
+          description: Outline read request.
+          anyOf:
+            - type: object
+              description: Guarded structured outline read.
+              propertyOrder: [path, fileHash, maxDepth]
+              required: [path, fileHash]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                fileHash:
+                  type: string
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation. Use the `fileHash` returned by Info or another file operation for this same file.
+                maxDepth:
+                  type: number
+                  description: Optional maximum outline depth. `1` returns only top-level items; omit or use `0` for all levels.
+              additionalProperties: false
+            - type: object
+              description: Dangerous unguarded structured outline read for files that change too quickly to get a stable file hash.
+              propertyOrder: [path, dangerous, maxDepth]
+              required: [path, dangerous]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read.
+                maxDepth:
+                  type: number
+                  description: Optional maximum outline depth. `1` returns only top-level items; omit or use `0` for all levels.
+              additionalProperties: false
+        output:
+          type: object
+          description: File outline result.
+          required: [fileHash, fileLineCount, items]
+          propertyOrder: [fileHash, fileLineCount, language, items]
+          properties:
+            fileHash:
+              type: string
+              description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
+            fileLineCount:
+              type: number
+              description: Total number of lines in the file.
+            language:
+              type: string
+              description: Inferred language identifier used for outline extraction.
+            items:
+              type: array
+              description: Top-level outline items. Nested items are carried in each item's `children` array.
+              items:
+                $ref: "#/$defs/outlineItem"
+          additionalProperties: false
+          $defs:
+            outlineItem:
+              type: object
+              required: [kind, name, startLine, endLine, lineRangeKey, depth]
+              propertyOrder: [kind, name, detail, comment, startLine, endLine, lineRangeKey, depth, children]
+              properties:
+                kind:
+                  type: string
+                  enum: [section, symbol, file, module, namespace, package, class, method, property, field, constructor, enum, interface, function, variable, constant, string, number, boolean, array, object, key, null, enum-member, struct, event, operator, type, type-parameter, heading, element, selector, media, supports, container, keyframes, font-face, layer, at-rule]
+                  description: Outline item kind.
+                name:
+                  type: string
+                  description: Symbol, heading, or section name.
+                detail:
+                  type: string
+                  description: Compact signature or generated detail.
+                comment:
+                  type: string
+                  description: Attached leading comment text, normalized without source comment markers where practical.
+                startLine:
+                  type: number
+                  description: First inclusive 1-based line covered by this item. Attached leading comments are included.
+                endLine:
+                  type: number
+                  description: Last inclusive 1-based line covered by this item.
+                lineRangeKey:
+                  type: string
+                  description: lineRangeKey for exactly the returned outline item range, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys. To edit a different range, call Read Lines for that exact range first.
+                depth:
+                  type: number
+                  description: Zero-based outline nesting depth.
+                children:
+                  type: array
+                  description: Nested outline items. Child entries have the same shape as top-level items.
+                  items:
+                    $ref: "#/$defs/outlineItem"
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: read-outline
+    outputFormat:
+      type: string
+      enum: [yaml, json]
+      default: yaml
+      description: Output format.
+  ui:
+    fieldOrder: [outputFormat, permissions]
+    fields:
+      - key: outputFormat
+        label: Output
+        type: select
+        dataSource:
+          kind: static
+          options:
+            - label: YAML
+              value: yaml
+            - label: JSON
+              value: json

@@ -1,0 +1,29 @@
+format: 1
+id: shell-branch
+name: Branch
+description: git branch shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Branch
+        description: Lists branches with `git branch`. Mutating branch options are not supported.
+        input:
+          type: string
+          description: Args or full `git branch` command string, such as `--show-current`, `-a`, or `git branch --list "feature/*"`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args, mutating branch options, or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-branch
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git branch
+          reason: Inspect repository branches.

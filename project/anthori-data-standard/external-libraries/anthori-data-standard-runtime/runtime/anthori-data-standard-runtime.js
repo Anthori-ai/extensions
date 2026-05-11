@@ -27,4 +27,6 @@ function callData(action, payload, host) {
 module.exports = {
   "collection-control": function (payload, host) { return callData("collection", payload, host); },
   "config-control": function (payload, host) { return callData("config", payload, host); },
+  "format-validate": function (payload, host) { return callData("format.validate", payload, host); },
+  "format-convert": function (payload, host) { return callData("format.convert", payload, host); },
 };

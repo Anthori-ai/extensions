@@ -1,0 +1,23 @@
+format: 1
+id: shell-mv
+name: Mv
+description: mv shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Mv
+        description: Renames or moves a source path to a destination path. Tolerates `-f`.
+        input:
+          type: string
+          description: Args or full `mv` command string, such as `old/path new/path` or `mv old/path new/path`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-mv

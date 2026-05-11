@@ -1,0 +1,69 @@
+format: 1
+id: screen
+name: Screen
+description: Screen or page mockup node for Anthori diagram documents.
+baseControlRef: controls/1/executable
+control:
+  visible: true
+  category: app
+  ui:
+    libraryContext:
+      kind: diagram
+      documentKind: anthori.diagram
+    embeddedEditor:
+      kind: screen
+      elementsField: elements
+    fields:
+      - key: route
+        label: Route
+        type: text
+        placeholder: /path or screen id
+        helpText: Route, screen id, state, or page name represented by this mockup.
+      - key: backgroundImage
+        label: Background Image
+        type: text
+        placeholder: images/screen.png, URL, or data:image URI
+        pickerSelection: file
+        pickerTitle: Choose Background Image
+        pickerMessage: Browse the project workspace for a screen background image.
+        pickerSelectLabel: Use Image
+        pickerShowFiles: true
+        pickerAllowCreate: false
+        pickerValueMode: workspaceRelative
+        pickerAllowedFileExtensions:
+          - .png
+          - .jpg
+          - .jpeg
+          - .gif
+          - .webp
+          - .svg
+          - .avif
+        helpText: Optional bitmap or SVG background for the screen preview. Workspace-relative paths are served from the current project; URL and data:image sources render directly.
+      - key: backgroundColor
+        label: Background Color
+        type: text
+        placeholder: "#111827"
+        helpText: Optional viewport background color used when no image is provided.
+      - key: elements
+        label: Elements
+        type: textarea
+        rows: 10
+        placeholder: |
+          - type: heading
+            label: Dashboard
+            x: 48
+            y: 40
+            w: 240
+            h: 44
+          - type: button
+            label: Save
+            x: 188
+            y: 40
+            w: 140
+            h: 40
+        helpText: Structured list of positioned UI elements maintained by screen edit mode. Each row can use type, label, x, y, w, h, tone, fill, color, src, or items.
+      - key: notes
+        label: Notes
+        type: textarea
+        rows: 4
+        helpText: Interaction, layout, responsive, or implementation notes for this screen.

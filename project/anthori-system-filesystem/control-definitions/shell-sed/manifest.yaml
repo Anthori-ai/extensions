@@ -1,0 +1,23 @@
+format: 1
+id: shell-sed
+name: Sed
+description: sed shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Sed
+        description: Reads printed line ranges. Supports `-n 'START,ENDp' file`, `-e 'START,ENDp' file`, and repeated sed print commands joined by `&&` or `;`.
+        input:
+          type: string
+          description: Args or full `sed` command string, such as `-n '100,160p' src/app.js`, `sed -n '100,160p' src/app.js`, or `sed -n '100,160p' src/app.js && sed -n '220,240p' src/app.js`. Optional output pipe to `head` or `tail` is supported for a single sed command; redirection is not supported.
+        output:
+          type: string
+          description: Printed stdout lines. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-sed

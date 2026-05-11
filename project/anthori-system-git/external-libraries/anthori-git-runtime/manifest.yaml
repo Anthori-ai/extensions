@@ -1,0 +1,26 @@
+format: 1
+id: anthori-git-runtime
+name: Git Runtime
+version: 1.0.0
+entry: runtime/anthori-git-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: shell-status
+  - id: shell-diff
+  - id: shell-log
+  - id: shell-show
+  - id: shell-branch
+  - id: shell-ls-files
+  - id: shell-blame
+  - id: shell-add
+  - id: shell-restore
+  - id: shell-commit
+  - id: shell-switch
+  - id: shell-stash
+  - id: shell-fetch
+  - id: shell-pull
+  - id: shell-push

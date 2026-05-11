@@ -6,6 +6,10 @@ const AGENT_TOOL_LOADER_TITLE = "Agent: Load Tools";
 const AGENT_TOOL_LISTER_ID = "anthori.agent.tools.list";
 const AGENT_TOOL_LISTER_NAME = "list_tools";
 const AGENT_TOOL_LISTER_TITLE = "Agent: List Tools";
+const DEFAULT_MAX_INLINE_TOOL_RESULT_CHARS = 50000;
+const DEFAULT_MAX_INLINE_TOOL_RESULTS_PER_ROUND_CHARS = 100000;
+const DEFAULT_TOOL_RESULT_PREVIEW_CHARS = 2000;
+const DEFAULT_TOOL_RESULT_READ_LIMIT_CHARS = 20000;
 
 function normalizeString(value) {
   return String(value == null ? "" : value).trim();
@@ -122,6 +126,12 @@ function withProviderMetadataOutput(result, target) {
   delete next.providerRef;
   if (id) next.providerId = id;
   if (definitionId) next.providerDefinitionId = definitionId;
+  if (!next.context && finiteNumber(next.maxContextTokens, 0) > 0) {
+    next.context = { maxTokens: finiteNumber(next.maxContextTokens, 0) };
+  }
+  if (!next.tools || typeof next.tools !== "object" || Array.isArray(next.tools)) {
+    next.tools = providerToolsFromTarget(target);
+  }
   return next;
 }
 
@@ -435,7 +445,60 @@ function normalizeTextProviderTool(tool) {
   next.parameters = tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters)
     ? clone(tool.parameters)
     : { type: "object", properties: {} };
+  const inputMode = normalizeProviderToolInputMode(tool.inputMode);
+  if (inputMode) next.inputMode = inputMode;
   return next;
+}
+
+function normalizeProviderToolInputMode(value) {
+  const text = normalizeString(value);
+  const lower = text.toLowerCase();
+  if (lower === "object") return "object";
+  if (lower === "freeformtext" || lower === "freeform_text" || lower === "freeform-text") return "freeformText";
+  return "";
+}
+
+function normalizeProviderToolInputModes(value) {
+  const raw = Array.isArray(value) ? value : [];
+  const modes = [];
+  const seen = {};
+  for (const entry of raw) {
+    const mode = normalizeProviderToolInputMode(entry);
+    if (!mode || seen[mode]) continue;
+    seen[mode] = true;
+    modes.push(mode);
+  }
+  if (modes.length === 0) return ["object"];
+  if (!seen.object) modes.unshift("object");
+  return modes;
+}
+
+function normalizeProviderToolsMetadata(value) {
+  const raw = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    inputModes: normalizeProviderToolInputModes(raw.inputModes),
+  };
+}
+
+function providerTools(provider) {
+  return normalizeProviderToolsMetadata(provider && provider.tools);
+}
+
+function providerToolsFromTarget(target) {
+  const provider = optionalControlObject(target, "provider");
+  return providerTools(provider);
+}
+
+function providerToolInputModesFromContext(providerContext, providerTarget) {
+  const contextTools = providerContext && providerContext.tools && typeof providerContext.tools === "object" && !Array.isArray(providerContext.tools)
+    ? providerContext.tools
+    : null;
+  if (contextTools) return normalizeProviderToolInputModes(contextTools.inputModes);
+  return normalizeProviderToolInputModes(providerToolsFromTarget(providerTarget).inputModes);
+}
+
+function providerToolInputModesSupportFreeformText(value) {
+  return normalizeProviderToolInputModes(value).indexOf("freeformText") >= 0;
 }
 
 function asTextProviderRequest(input, label) {
@@ -494,6 +557,19 @@ function resolveMaxContextPercent(config) {
   return 90;
 }
 
+function providerConfiguredMaxContextTokens(config) {
+  const raw = configValue(config, "maxContextTokens");
+  if (raw === undefined || raw === null || raw === "") return 0;
+  const parsed = Math.floor(finiteNumber(raw, 0));
+  return parsed > 0 ? parsed : 0;
+}
+
+function providerEffectiveMaxContextTokens(modelMaxContextTokens, config) {
+  const configuredMaxContextTokens = providerConfiguredMaxContextTokens(config);
+  if (configuredMaxContextTokens <= 0) return modelMaxContextTokens;
+  return Math.min(modelMaxContextTokens, configuredMaxContextTokens);
+}
+
 function findProviderModelMetadata(result, modelId) {
   if (!result || typeof result !== "object" || Array.isArray(result)) return null;
   const items = Array.isArray(result.items) ? result.items : [];
@@ -529,6 +605,7 @@ function buildProviderMetadata(effectiveConfig, provider, metadataRequest, host)
     providerDefinitionId: configString(effectiveConfig, "providerDefinitionId") || providerDefinitionId(provider),
     providerInterfaces: providerInterfaces(provider),
     model: normalizeString((metadataRequest && metadataRequest.model) || effectiveConfig.llmModel),
+    tools: providerTools(provider),
   };
   if (metadata.providerInterfaces.length === 0 && Array.isArray(effectiveConfig.providerInterfaces)) {
     metadata.providerInterfaces = clone(effectiveConfig.providerInterfaces);
@@ -552,14 +629,17 @@ function buildProviderMetadata(effectiveConfig, provider, metadataRequest, host)
   if (!modelMetadata && metadata.model && modelListAvailable) {
     throw new Error('model "' + metadata.model + '" is not available from this provider. Pick a model from the provider model list.');
   }
-  const maxContextTokens = finiteNumber(modelMetadata && modelMetadata.maxContextTokens, 0);
-  if (maxContextTokens <= 0) {
+  const modelMaxContextTokens = finiteNumber(modelMetadata && modelMetadata.maxContextTokens, 0);
+  if (modelMaxContextTokens <= 0) {
     if (!metadata.model) {
       throw new Error("model must be selected before Agent can size Context");
     }
     throw new Error('provider must expose a context limit for model "' + metadata.model + '" before Agent can size Context');
   }
-  metadata.maxContextTokens = maxContextTokens;
+  metadata.maxContextTokens = providerEffectiveMaxContextTokens(modelMaxContextTokens, effectiveConfig);
+  metadata.context = {
+    maxTokens: metadata.maxContextTokens,
+  };
   return metadata;
 }
 
@@ -569,7 +649,13 @@ function resolveProviderMetadata(providerTarget, host) {
   if (!metadata) {
     throw new Error("provider control must return metadata before Agent can size Context");
   }
-  const maxContextTokens = finiteNumber(metadata.maxContextTokens, 0);
+  const context = metadata.context && typeof metadata.context === "object" && !Array.isArray(metadata.context)
+    ? metadata.context
+    : null;
+  let maxContextTokens = finiteNumber(metadata.maxContextTokens, 0);
+  if (maxContextTokens <= 0) {
+    maxContextTokens = finiteNumber(context && context.maxTokens, 0);
+  }
   if (maxContextTokens <= 0) {
     const model = normalizeString(metadata.model);
     if (!model) {
@@ -583,6 +669,7 @@ function resolveProviderMetadata(providerTarget, host) {
     providerId: normalizeString(metadata.providerId),
     providerDefinitionId: normalizeString(metadata.providerDefinitionId),
     providerInterfaces: Array.isArray(metadata.providerInterfaces) ? clone(metadata.providerInterfaces) : [],
+    tools: normalizeProviderToolsMetadata(metadata.tools),
   };
 }
 
@@ -671,10 +758,34 @@ function estimateAgentOverheadChars(config, toolDefinitions) {
     tools.reduce((sum, definition) => sum + estimateToolDefinitionChars(definition), 0);
 }
 
+function estimateProviderRequestChars(messages, toolDefinitions, config) {
+  const messageChars = Array.isArray(messages)
+    ? messages.reduce((sum, message) => sum + estimateMessageChars(message), 0)
+    : 0;
+  return messageChars + estimateAgentOverheadChars(config, toolDefinitions);
+}
+
 function availableContextMessageChars(providerContext, config, toolDefinitions) {
   const availableChars = availableInputCharsForProviderContext(providerContext, config);
   if (availableChars <= 0) return 0;
   return Math.max(1, availableChars - estimateAgentOverheadChars(config, toolDefinitions));
+}
+
+function buildAgentContextUsage(messages, toolDefinitions, config, providerContext) {
+  const usage = {};
+  const estimatedChars = estimateProviderRequestChars(messages, toolDefinitions, config);
+  if (estimatedChars > 0) {
+    usage.contextTokens = Math.max(1, Math.ceil(estimatedChars / 4));
+  }
+  const maxContextTokens = finiteNumber(providerContext && providerContext.maxContextTokens, 0);
+  if (maxContextTokens > 0) {
+    usage.contextWindowTokens = maxContextTokens;
+  }
+  const availableChars = availableInputCharsForProviderContext(providerContext, config);
+  if (availableChars > 0) {
+    usage.contextBudgetTokens = Math.max(1, Math.floor(availableChars / 4));
+  }
+  return Object.keys(usage).length > 0 ? usage : null;
 }
 
 function validateProviderRequestBudget(messages, toolDefinitions, config, providerContext) {
@@ -1120,7 +1231,10 @@ function pullTerminalMessage(event, fallback) {
   return fallback;
 }
 
-function normalizeToolArguments(raw) {
+function normalizeToolArguments(raw, definition) {
+  if (normalizeProviderToolInputMode(definition && definition.inputMode) === "freeformText") {
+    return raw == null ? "" : String(raw);
+  }
   const text = normalizeString(raw);
   if (!text) return null;
   const parsed = JSON.parse(text);
@@ -1140,13 +1254,25 @@ function isEmptyPlainObject(value) {
 }
 
 function normalizeGraphInvokeArgs(input, definition) {
-  if (!definition || definition.expectsVoidInput !== true) {
-    return clone(input);
+  const wrapper = definition && definition.toolInputWrapper && typeof definition.toolInputWrapper === "object" && !Array.isArray(definition.toolInputWrapper)
+    ? definition.toolInputWrapper
+    : null;
+  let normalized = clone(input);
+  const wrapperKey = normalizeString(wrapper && wrapper.key);
+  if (wrapperKey) {
+    if (input && typeof input === "object" && !Array.isArray(input) && Object.prototype.hasOwnProperty.call(input, wrapperKey)) {
+      normalized = clone(input[wrapperKey]);
+    } else {
+      normalized = null;
+    }
   }
-  if (input == null || isEmptyPlainObject(input)) {
+  if (!definition || definition.expectsVoidInput !== true) {
+    return normalized;
+  }
+  if (normalized == null || isEmptyPlainObject(normalized)) {
     return null;
   }
-  return clone(input);
+  return normalized;
 }
 
 function normalizeToolName(value) {
@@ -2035,6 +2161,8 @@ function canonicalBoundControlInfo(info) {
   if (control) boundInfo.control = clone(control);
   const config = optionalControlObject(info, "config");
   if (config) boundInfo.config = clone(config);
+  const provider = optionalControlObject(info, "provider");
+  if (provider) boundInfo.provider = clone(provider);
   return boundInfo;
 }
 
@@ -2159,6 +2287,9 @@ function toolParameterSchema(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return { type: "object", properties: {} };
   }
+  if (isVoidInputSchema(input)) {
+    return { type: "object", properties: {} };
+  }
   if (normalizeString(input.type) === "object" || (input.properties && typeof input.properties === "object")) {
     return clone(input);
   }
@@ -2173,7 +2304,59 @@ function toolParameterSchema(input) {
     // model entirely.
     return clone(input);
   }
-  return { type: "object", properties: {} };
+  return clone(input);
+}
+
+function schemaTypeIncludesValue(type, value) {
+  const target = normalizeString(value).toLowerCase();
+  if (!target) return false;
+  if (Array.isArray(type)) {
+    return type.some((entry) => normalizeString(entry).toLowerCase() === target);
+  }
+  return normalizeString(type).toLowerCase() === target;
+}
+
+function schemaIsObjectLike(schema) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return false;
+  if (schemaTypeIncludesValue(schema.type, "object")) return true;
+  return !!(schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties));
+}
+
+function schemaIsFreeformTextLike(schema) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) return false;
+  return schemaTypeIncludesValue(schema.type, "string");
+}
+
+function providerToolInputShape(schema, providerToolInputModes) {
+  const base = toolParameterSchema(schema);
+  if (schemaIsObjectLike(base)) {
+    return {
+      parameters: base,
+      inputMode: "object",
+      wrapper: null,
+    };
+  }
+  if (schemaIsFreeformTextLike(base) && providerToolInputModesSupportFreeformText(providerToolInputModes)) {
+    return {
+      parameters: base,
+      inputMode: "freeformText",
+      wrapper: null,
+    };
+  }
+  return {
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["input"],
+      properties: {
+        input: base,
+      },
+    },
+    inputMode: "object",
+    wrapper: {
+      key: "input",
+    },
+  };
 }
 
 function callerContractVariants(contracts) {
@@ -2447,6 +2630,7 @@ function stripRepeatedAlternativePropertyDescriptions(schema, propertyCounts, se
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const description = normalizeString(value.description);
     if (!description) continue;
+    if (providerToolPropertyDescriptionMustRepeat(key)) continue;
     const signature = key + "\u0000" + description;
     if (!seenPropertyDescriptions || typeof seenPropertyDescriptions !== "object" || Array.isArray(seenPropertyDescriptions)) {
       seenPropertyDescriptions = {};
@@ -2477,6 +2661,7 @@ function stripRepeatedProviderToolPropertyDescriptions(schema, seenPropertyDescr
     if (!value || typeof value !== "object" || Array.isArray(value)) continue;
     const description = normalizeString(value.description);
     if (!description) continue;
+    if (providerToolPropertyDescriptionMustRepeat(key)) continue;
     const signature = key + "\u0000" + description;
     if (!seenPropertyDescriptions[signature]) {
       seenPropertyDescriptions[signature] = true;
@@ -2487,6 +2672,11 @@ function stripRepeatedProviderToolPropertyDescriptions(schema, seenPropertyDescr
     next.properties[key] = property;
   }
   return next;
+}
+
+function providerToolPropertyDescriptionMustRepeat(key) {
+  const normalized = normalizeString(key);
+  return normalized === "byteRangeKey" || normalized === "lineRangeKey";
 }
 
 function stripToolParameterKeys(schema, keys) {
@@ -2542,15 +2732,19 @@ function variantNeedsOwnerInvocationInjection(variant) {
 }
 
 function applyToolRuntimeArguments(args, definition, host) {
-  const next = args && typeof args === "object" && !Array.isArray(args) ? clone(args) : {};
   if (definition && definition.injectOwnerInvocationId === true) {
+    const next = args && typeof args === "object" && !Array.isArray(args) ? clone(args) : {};
     const invocationId = normalizeString(host && host.execution && host.execution.invocationId);
     if (!invocationId) {
       throw new Error("tool lifecycle start requires invocationId");
     }
     next.ownerInvocationId = invocationId;
+    return next;
   }
-  return next;
+  if (normalizeProviderToolInputMode(definition && definition.inputMode) !== "freeformText" && args == null) {
+    return {};
+  }
+  return clone(args);
 }
 
 function toolUsesInternalPullDriver(definition) {
@@ -2561,14 +2755,17 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
   const variants = callerContractVariants(info.contracts);
   const invokeControlId = normalizeString(overrides.invokeControlId) || info.id;
   const invokePath = Array.isArray(overrides.invokePath) ? normalizeStringList(overrides.invokePath) : [];
+  const providerToolInputModes = normalizeProviderToolInputModes(overrides.providerToolInputModes);
   const supportsPulling = definitionSupportsPulling(info);
   if (variants.length === 0) {
-    return [{
+    const inputShape = providerToolInputShape(toolParametersFromContracts(info.contracts), providerToolInputModes);
+    const definition = {
       id: info.id,
       title: info.name,
       name: buildToolTransportName(info.id, info.name),
       description: buildToolDescription(info, null, false),
-      parameters: toolParametersFromContracts(info.contracts),
+      parameters: inputShape.parameters,
+      inputMode: inputShape.inputMode,
       controlId: info.id,
       invokeControlId: invokeControlId,
       invokePath: invokePath,
@@ -2579,6 +2776,12 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
       executionMode: "invoke",
       injectOwnerInvocationId: false,
       expectsVoidInput: false,
+    };
+    if (inputShape.wrapper) {
+      definition.toolInputWrapper = inputShape.wrapper;
+    }
+    return [{
+      ...definition,
     }];
   }
 
@@ -2611,15 +2814,18 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
       if (splitAlternatives && alternative.key) titleParts.push(alternative.key);
       const title = titleParts.length > 0 ? info.name + ": " + titleParts.join(" ") : info.name;
       const literals = toolLiteralArgumentsFromSchema(alternative.schema);
+      const parameterSchema = stripRepeatedProviderToolPropertyDescriptions(
+        providerVisibleToolParameterSchema(alternative.schema, injectOwnerInvocationId ? ["ownerInvocationId"] : []),
+        seenProviderToolPropertyDescriptions
+      );
+      const inputShape = providerToolInputShape(parameterSchema, providerToolInputModes);
       const definition = {
         id: transportKey ? info.id + "#" + transportKey : info.id,
         title: title,
         name: buildToolTransportName(info.id, info.name, transportKey),
         description: buildToolDescription(info, variant, multipleVariants || splitAlternatives),
-        parameters: stripRepeatedProviderToolPropertyDescriptions(
-          providerVisibleToolParameterSchema(alternative.schema, injectOwnerInvocationId ? ["ownerInvocationId"] : []),
-          seenProviderToolPropertyDescriptions
-        ),
+        parameters: inputShape.parameters,
+        inputMode: inputShape.inputMode,
         controlId: info.id,
         invokeControlId: invokeControlId,
         invokePath: invokePath,
@@ -2632,6 +2838,9 @@ function toolDefinitionsFromInfo(info, overrides = {}) {
         toolContractId: baseKey,
         expectsVoidInput: isVoidInputSchema(variant.graphInput),
       };
+      if (inputShape.wrapper) {
+        definition.toolInputWrapper = inputShape.wrapper;
+      }
       if (Object.keys(literals).length > 0) {
         definition.toolLiteralArguments = literals;
       }
@@ -2664,7 +2873,7 @@ function toolGroupFromInfo(info, overrides = {}) {
   };
 }
 
-function resolveBoundToolGroups(currentControlId, config, host) {
+function resolveBoundToolGroups(currentControlId, config, host, options = {}) {
   if (normalizeString(currentControlId)) {
     const currentControlInfo = graphControlInfo(currentControlId, host);
     const targets = bindingFieldTargets(currentControlInfo, "tools");
@@ -2678,6 +2887,7 @@ function resolveBoundToolGroups(currentControlId, config, host) {
         const group = toolGroupFromInfo(info, {
           invokeControlId: invokeControlId,
           invokePath: invokePath,
+          providerToolInputModes: options.providerToolInputModes,
         });
         for (const definition of group.definitions) {
           // Purposeful: tool pullability must reflect the actual control Agent will
@@ -2695,14 +2905,16 @@ function resolveBoundToolGroups(currentControlId, config, host) {
   const groups = [];
   for (const controlId of configControlTargetList(config, "tools")) {
     const info = canonicalToolInfo(graphControlInfo(controlId, host));
-    groups.push(toolGroupFromInfo(info));
+    groups.push(toolGroupFromInfo(info, {
+      providerToolInputModes: options.providerToolInputModes,
+    }));
   }
   return groups;
 }
 
-function resolveBoundToolDefinitions(currentControlId, config, host) {
+function resolveBoundToolDefinitions(currentControlId, config, host, options = {}) {
   const resolved = [];
-  for (const group of resolveBoundToolGroups(currentControlId, config, host)) {
+  for (const group of resolveBoundToolGroups(currentControlId, config, host, options)) {
     for (const definition of Array.isArray(group.definitions) ? group.definitions : []) {
       resolved.push(definition);
     }
@@ -2716,13 +2928,16 @@ function toolDefinitionStableId(definition) {
 
 function providerVisibleToolDefinition(definition, externalName) {
   const name = normalizeString(externalName) || normalizeString(definition && definition.name);
-  return {
+  const tool = {
     id: name || definition.id,
     title: definition.title,
     name: name,
     description: definition.description,
     parameters: definition.parameters,
   };
+  const inputMode = normalizeProviderToolInputMode(definition && definition.inputMode);
+  if (inputMode && inputMode !== "object") tool.inputMode = inputMode;
+  return tool;
 }
 
 function agentOptimizeEnabled(config) {
@@ -2817,8 +3032,8 @@ function assignExternalToolNames(entries) {
   return assigned;
 }
 
-function buildAgentToolCatalog(currentControlId, config, host) {
-  const groups = resolveBoundToolGroups(currentControlId, config, host);
+function buildAgentToolCatalog(currentControlId, config, host, options = {}) {
+  const groups = resolveBoundToolGroups(currentControlId, config, host, options);
   const groupEntries = [];
   const definitionEntries = [];
   const seenGroupIds = {};
@@ -2887,10 +3102,7 @@ function buildListToolsDefinition() {
     title: AGENT_TOOL_LISTER_TITLE,
     name: AGENT_TOOL_LISTER_NAME,
     description: [
-      "List available tools before loading tool details.",
-      "Use list_tools when no tools are loaded and you need to inspect available tools.",
-      "When calling list_tools, call only list_tools in this response.",
-      "After this tool returns, call load_tools if you need a tool.",
+      "Lists available agent tools. This is an internal agent tool, not a developer namespace tool. After list_tools returns, it is hidden and load_tools is shown.",
     ].join("\n"),
     parameters: {
       type: "object",
@@ -2907,11 +3119,7 @@ function buildLoadToolsDefinition(entries) {
     title: AGENT_TOOL_LOADER_TITLE,
     name: AGENT_TOOL_LOADER_NAME,
     description: [
-      "Load tool details before calling tools.",
-      "Use load_tools only when you need an unloaded tool from the list below.",
-      "When calling load_tools, call only load_tools in this response.",
-      "After this tool returns, call the loaded tool(s) directly.",
-      "Loaded tools are not listed here.",
+      "Loads one or more agent tools by loadId. loadId values are catalog handles, not tool names. When load_tools is available, list_tools is intentionally hidden.",
       "Unloaded tools:",
       catalogText || "No unloaded tools are available.",
     ].join("\n"),
@@ -2924,7 +3132,7 @@ function buildLoadToolsDefinition(entries) {
           type: "array",
           minItems: 1,
           items: { type: "string" },
-          description: "loadId values from the available tool list.",
+          description: "loadId values from the available-tool list. These are catalog handles, not tool names.",
         },
       },
     },
@@ -2932,7 +3140,7 @@ function buildLoadToolsDefinition(entries) {
 }
 
 function buildAgentToolRequest(currentControlId, config, host, loadedToolIds, options) {
-  const catalog = buildAgentToolCatalog(currentControlId, config, host);
+  const catalog = buildAgentToolCatalog(currentControlId, config, host, options);
   const toolNameMap = {};
   if (catalog.definitionEntries.length === 0) {
     return { tools: [], toolNameMap, loadedCount: 0, unloadedCount: 0, loadToolsVisible: false, listToolsVisible: false };
@@ -2991,11 +3199,11 @@ function agentToolRequestConsumesListedCatalog(toolRequest) {
   return !!(toolRequest && toolRequest.loadToolsVisible === true && finiteNumber(toolRequest.loadedCount, 0) === 0);
 }
 
-function toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap) {
+function toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap, options = {}) {
   const map = {};
   const byToolId = {};
   if (loadedToolIds != null && agentLazyToolLoadingEnabled(config)) {
-    const catalog = buildAgentToolCatalog(currentControlId, config, host);
+      const catalog = buildAgentToolCatalog(currentControlId, config, host, options);
     const loaded = loadedToolIdMap(loadedToolIds);
     for (const entry of catalog.definitionEntries) {
       if (!loaded[entry.groupId]) continue;
@@ -3004,7 +3212,7 @@ function toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap) 
       map[entry.definition.id] = entry.definition;
     }
   } else {
-    for (const def of resolveBoundToolDefinitions(currentControlId, config, host)) {
+    for (const def of resolveBoundToolDefinitions(currentControlId, config, host, options)) {
       const toolId = toolDefinitionStableId(def);
       byToolId[toolId] = def;
       map[def.name] = def;
@@ -3490,13 +3698,13 @@ function applyToolLiteralArguments(args, definition) {
   return next;
 }
 
-async function executeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap) {
+async function invokeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap, providerToolInputModes) {
   const toolName = toolCallName(toolCall);
   if (!toolName) throw new Error("tool call name is required");
-  const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap)[toolName];
+  const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap, { providerToolInputModes: providerToolInputModes })[toolName];
   if (!definition) throw new Error("tool not found: " + toolName);
   const args = applyToolRuntimeArguments(
-    applyToolLiteralArguments(normalizeToolArguments(toolCallArguments(toolCall)), definition),
+    applyToolLiteralArguments(normalizeToolArguments(toolCallArguments(toolCall), definition), definition),
     definition,
     host,
   );
@@ -3519,11 +3727,16 @@ async function executeToolCall(toolCall, currentControlId, config, host, signalS
   const invokedResult = usedPulling
     ? { value: invoked.output, details: null }
     : unwrapDetailedInvokeResult(invoked);
-  const executed = buildExecutedToolCallResult(toolCall, definition, invoked, invokedResult, host);
+  return buildToolCallResultDraft(toolCall, definition, invoked, invokedResult, host);
+}
+
+async function executeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap, providerToolInputModes) {
+  const draft = await invokeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap, providerToolInputModes);
+  const executed = finalizeToolCallResultDrafts([draft], config, host)[0];
   return applyExecutedToolMessageScript(executed, currentControlId, config, {
     source: "tool",
     messages: executed.messages,
-    tool: buildAgentMessageToolInfo(toolCall, definition),
+    tool: buildAgentMessageToolInfo(executed.sourceToolCall, executed.definition),
   }, {
     phase: "tool-result",
     round: finiteNumber(round, 0),
@@ -3535,7 +3748,12 @@ async function executeToolCall(toolCall, currentControlId, config, host, signalS
   }, host);
 }
 
-function buildExecutedToolCallResult(toolCall, definition, invoked, invokedResult, host) {
+function buildExecutedToolCallResult(toolCall, definition, invoked, invokedResult, config, host) {
+  const draft = buildToolCallResultDraft(toolCall, definition, invoked, invokedResult, host);
+  return finalizeToolCallResultDrafts([draft], config, host)[0];
+}
+
+function buildToolCallResultDraft(toolCall, definition, invoked, invokedResult, host) {
   const toolName = toolCallName(toolCall) || normalizeString(definition && definition.name);
   const envelope = {
     version: 1,
@@ -3554,23 +3772,203 @@ function buildExecutedToolCallResult(toolCall, definition, invoked, invokedResul
       envelope.attachments = clone(invokedResult.value.attachments);
     }
   }
-  const parts = [{
-    role: "tool",
-    toolCallId: toolCallID(toolCall),
-    name: toolName,
-    parts: [{ kind: "text", text: JSON.stringify(envelope) }],
-  }];
-  if (envelope.attachments.length > 0) {
-    parts.push({ role: "user", parts: normalizeMessageParts([], envelope.attachments) });
-  }
   return {
-    messages: parts,
-    toolCall: normalizeTrackedToolCall(toolCall, "", {
+    sourceToolCall: clone(toolCall),
+    definition: clone(definition),
+    invoked: clone(invoked),
+    envelope: envelope,
+    serializedChars: JSON.stringify(envelope).length,
+    toolName: toolName,
+    trackedToolCall: normalizeTrackedToolCall(toolCall, "", {
       title: trackedToolCallTitle(definition, toolCall, host),
       status: invoked && invoked.ok ? "complete" : "error",
       details: buildTrackedToolCallDetails(invokedResult.details, envelope.output, envelope.attachments),
     }),
   };
+}
+
+function finalizeToolCallResultDrafts(drafts, config, host) {
+  const items = Array.isArray(drafts) ? drafts.filter((draft) => draft && typeof draft === "object" && !Array.isArray(draft)) : [];
+  const batchEnvelopes = providerVisibleToolResultBatchEnvelopes(items, config, host);
+  return items.map((draft, index) => {
+    const providerEnvelope = batchEnvelopes
+      ? batchEnvelopes[index]
+      : providerVisibleToolResultEnvelope(draft.envelope, draft.sourceToolCall, draft.toolName, config, host);
+    return buildExecutedToolCallResultFromDraft(draft, providerEnvelope);
+  });
+}
+
+function buildExecutedToolCallResultFromDraft(draft, providerEnvelope) {
+  const parts = [{
+    role: "tool",
+    toolCallId: toolCallID(draft.sourceToolCall),
+    name: draft.toolName,
+    parts: [{ kind: "text", text: JSON.stringify(providerEnvelope) }],
+  }];
+  if (providerEnvelope.attachments.length > 0) {
+    parts.push({ role: "user", parts: normalizeMessageParts([], providerEnvelope.attachments) });
+  }
+  return {
+    messages: parts,
+    toolCall: clone(draft.trackedToolCall),
+    sourceToolCall: clone(draft.sourceToolCall),
+    definition: clone(draft.definition),
+  };
+}
+
+function providerVisibleToolResultBatchEnvelopes(drafts, config, host) {
+  if (!Array.isArray(drafts) || drafts.length < 2) return null;
+  const totalChars = drafts.reduce((sum, draft) => sum + Math.max(0, finiteNumber(draft && draft.serializedChars, 0)), 0);
+  const maxInlineChars = Math.max(0, configNumber(config, "maxInlineToolResultsPerRoundChars", DEFAULT_MAX_INLINE_TOOL_RESULTS_PER_ROUND_CHARS));
+  if (totalChars <= maxInlineChars) return null;
+  const stored = writeSessionToolResultBatch(drafts, totalChars, host);
+  if (!stored) return null;
+  const totalPreviewChars = Math.max(0, configNumber(config, "toolResultPreviewChars", DEFAULT_TOOL_RESULT_PREVIEW_CHARS));
+  const previewChars = drafts.length > 0 ? Math.floor(totalPreviewChars / drafts.length) : 0;
+  const readLimitChars = Math.max(1, configNumber(config, "toolResultReadLimitChars", DEFAULT_TOOL_RESULT_READ_LIMIT_CHARS));
+  return drafts.map((draft, index) => {
+    const preview = toolResultPreview(draft.envelope.output, previewChars);
+    return {
+      version: draft.envelope.version,
+      output: {
+        outputStored: true,
+        reason: "tool_result_batch_too_large",
+        message: "Multiple same-round tool results were large in aggregate, so the full result batch was saved to a session file. Use filesystem Info on the path below to get fileHash, then use filesystem Read to inspect it.",
+        path: normalizeString(stored.path),
+        bytes: finiteNumber(stored.bytes, 0),
+        sha256: normalizeString(stored.sha256),
+        toolCallId: toolCallID(draft.sourceToolCall),
+        name: draft.toolName,
+        resultIndex: index,
+        resultCount: drafts.length,
+        batchChars: totalChars,
+        originalChars: Math.max(0, finiteNumber(draft.serializedChars, 0)),
+        previewChars: preview.length,
+        preview: preview,
+        read: {
+          tool: "Read",
+          requiresFileHash: true,
+          fileHashSource: "Call filesystem Info for this path first.",
+          argsWithoutFileHash: {
+            path: normalizeString(stored.path),
+            encoding: "utf8",
+            offset: 0,
+            limit: readLimitChars,
+          },
+        },
+      },
+      attachments: clone(draft.envelope.attachments),
+    };
+  });
+}
+
+function providerVisibleToolResultEnvelope(envelope, toolCall, toolName, config, host) {
+  const serialized = JSON.stringify(envelope);
+  const maxInlineChars = Math.max(0, configNumber(config, "maxInlineToolResultChars", DEFAULT_MAX_INLINE_TOOL_RESULT_CHARS));
+  if (serialized.length <= maxInlineChars) {
+    return envelope;
+  }
+  const stored = writeSessionToolResult(envelope, toolCall, toolName, serialized.length, config, host);
+  if (!stored) {
+    return envelope;
+  }
+  const previewChars = Math.max(0, configNumber(config, "toolResultPreviewChars", DEFAULT_TOOL_RESULT_PREVIEW_CHARS));
+  const preview = toolResultPreview(envelope.output, previewChars);
+  const readLimitChars = Math.max(1, configNumber(config, "toolResultReadLimitChars", DEFAULT_TOOL_RESULT_READ_LIMIT_CHARS));
+  return {
+    version: envelope.version,
+    output: {
+      outputStored: true,
+      reason: "tool_result_too_large",
+      message: "Tool output was large, so the full output was saved to a session file. Use filesystem Info on the path below to get fileHash, then use filesystem Read to inspect it.",
+      path: normalizeString(stored.path),
+      bytes: finiteNumber(stored.bytes, 0),
+      sha256: normalizeString(stored.sha256),
+      originalChars: serialized.length,
+      previewChars: preview.length,
+      preview: preview,
+      read: {
+        tool: "Read",
+        requiresFileHash: true,
+        fileHashSource: "Call filesystem Info for this path first.",
+        argsWithoutFileHash: {
+          path: normalizeString(stored.path),
+          encoding: "utf8",
+          offset: 0,
+          limit: readLimitChars,
+        },
+      },
+    },
+    attachments: clone(envelope.attachments),
+  };
+}
+
+function toolResultPreview(value, maxChars) {
+  if (maxChars <= 0) return "";
+  const rendered = JSON.stringify(value, null, 2);
+  const text = typeof rendered === "string" ? rendered : String(value);
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + "\n... truncated; read the saved tool-result file for the full output ...";
+}
+
+function writeSessionToolResult(envelope, toolCall, toolName, originalChars, config, host) {
+  return writeSessionToolResultContent(JSON.stringify(envelope, null, 2), {
+    toolCallId: toolCallID(toolCall),
+    toolName: normalizeString(toolName),
+    originalChars: originalChars,
+  }, host);
+}
+
+function writeSessionToolResultBatch(drafts, totalChars, host) {
+  const payload = {
+    version: 1,
+    kind: "tool_result_batch",
+    resultCount: drafts.length,
+    totalChars: totalChars,
+    results: drafts.map((draft, index) => ({
+      index: index,
+      toolCallId: toolCallID(draft.sourceToolCall),
+      name: draft.toolName,
+      chars: Math.max(0, finiteNumber(draft.serializedChars, 0)),
+      envelope: clone(draft.envelope),
+    })),
+  };
+  return writeSessionToolResultContent(JSON.stringify(payload, null, 2), {
+    kind: "tool_result_batch",
+    resultCount: drafts.length,
+    originalChars: totalChars,
+  }, host);
+}
+
+function writeSessionToolResultContent(content, metadata, host) {
+  const session = host && host.session;
+  if (!session || typeof session.writeToolResult !== "function") {
+    return null;
+  }
+  let result = null;
+  try {
+    result = session.writeToolResult({
+      content: content,
+      mediaType: "application/json; charset=utf-8",
+      metadata: metadata && typeof metadata === "object" && !Array.isArray(metadata) ? clone(metadata) : {},
+    });
+  } catch (error) {
+    const message = normalizeString(error && error.message);
+    if (message.indexOf("unavailable") >= 0 || message.indexOf("unsupported host.session action") >= 0) {
+      return null;
+    }
+    throw error;
+  }
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("session tool-result write returned invalid output");
+  }
+  if (normalizeString(result.error)) {
+    throw new Error(normalizeString(result.error));
+  }
+  if (!normalizeString(result.path)) {
+    throw new Error("session tool-result write returned no readable path");
+  }
+  return result;
 }
 
 function normalizeInvokedToolError(invoked) {
@@ -3635,6 +4033,12 @@ const AGENT_PROVIDER_USAGE_TOKEN_KEYS = [
   "reasoningTokens",
   "cacheReadTokens",
   "cacheWriteTokens",
+];
+
+const AGENT_PROVIDER_USAGE_CONTEXT_KEYS = [
+  "contextTokens",
+  "contextBudgetTokens",
+  "contextWindowTokens",
 ];
 
 const AGENT_PROVIDER_USAGE_DURATION_KEYS = [
@@ -3741,6 +4145,12 @@ function normalizeAgentProviderUsage(usage, options = {}) {
       next[key] = value;
     }
   }
+  for (const key of AGENT_PROVIDER_USAGE_CONTEXT_KEYS) {
+    const value = positiveAgentProviderUsageNumber(usage[key]);
+    if (value) {
+      next[key] = value;
+    }
+  }
   const callCount = positiveAgentProviderUsageNumber(usage[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]);
   const timeToFirstTokenMs = positiveAgentProviderUsageNumber(usage.timeToFirstTokenMs);
   if (timeToFirstTokenMs && (!callCount || callCount === 1)) {
@@ -3785,6 +4195,11 @@ function mergeAgentProviderUsage(base, usage) {
     if (!value) continue;
     aggregate[key] = (Number(aggregate[key]) || 0) + value;
   }
+  for (const key of AGENT_PROVIDER_USAGE_CONTEXT_KEYS) {
+    const value = positiveAgentProviderUsageNumber(addition[key]);
+    if (!value) continue;
+    aggregate[key] = value;
+  }
 
   const baseCallCount = positiveAgentProviderUsageNumber(aggregate[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]);
   const additionCallCount = positiveAgentProviderUsageNumber(addition[AGENT_PROVIDER_USAGE_INTERNAL_CALL_COUNT_KEY]) || 1;
@@ -3808,6 +4223,28 @@ function mergeAgentProviderUsage(base, usage) {
   return Object.keys(aggregate).length > 0 ? aggregate : null;
 }
 
+function usageWithAgentContextUsage(usage, contextUsage) {
+  const normalizedContext = normalizeAgentProviderUsage(contextUsage);
+  const next = usage && typeof usage === "object" && !Array.isArray(usage)
+    ? clone(usage)
+    : {};
+  const inputTokens = positiveAgentProviderUsageNumber(next.inputTokens);
+  if (inputTokens) {
+    next.contextTokens = inputTokens;
+  } else if (positiveAgentProviderUsageNumber(normalizedContext && normalizedContext.contextTokens)) {
+    next.contextTokens = normalizedContext.contextTokens;
+  }
+  if (normalizedContext) {
+    for (const key of ["contextBudgetTokens", "contextWindowTokens"]) {
+      const value = positiveAgentProviderUsageNumber(normalizedContext[key]);
+      if (value) {
+        next[key] = value;
+      }
+    }
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
 function responseWithAgentProviderUsage(response, usage) {
   const normalized = normalizeAgentProviderUsage(usage);
   if (!normalized) {
@@ -3816,6 +4253,16 @@ function responseWithAgentProviderUsage(response, usage) {
   const next = clone(response);
   next.usage = normalized;
   return next;
+}
+
+function buildAgentLiveOutputMessageWithUsage(message, usage) {
+  const liveMessage = buildAgentLiveOutputMessage(message);
+  const normalized = normalizeAgentProviderUsage(usage);
+  if (!normalized || !liveMessage || typeof liveMessage !== "object" || Array.isArray(liveMessage)) {
+    return liveMessage;
+  }
+  liveMessage.usage = normalized;
+  return liveMessage;
 }
 
 function buildAgentMessage(response) {
@@ -4148,6 +4595,7 @@ function normalizeAgentPullTaskState(raw) {
   if (!Array.isArray(state.trackedToolCalls)) state.trackedToolCalls = [];
   if (!Array.isArray(state.currentToolCalls)) state.currentToolCalls = [];
   if (!Array.isArray(state.pendingToolCalls)) state.pendingToolCalls = [];
+  if (!Array.isArray(state.pendingToolResultDrafts)) state.pendingToolResultDrafts = [];
   state.loadedToolIds = Array.isArray(state.loadedToolIds)
     ? normalizeLoadedToolIds(state.loadedToolIds)
     : null;
@@ -4245,6 +4693,7 @@ function createAgentPullInitialState(currentControlId, inputMessages, config, ow
     trackedToolCalls: [],
     currentToolCalls: [],
     pendingToolCalls: [],
+    pendingToolResultDrafts: [],
     loadedToolIds: [],
     toolCatalogVisible: false,
     toolNameMap: {},
@@ -4421,6 +4870,7 @@ function applyAgentPullInterruptMessages(state, messages, config, host) {
   appendHistoryMessages(messages, config, host);
   state.pendingContextMessages = [...state.pendingContextMessages, ...clone(messages)];
   state.pendingToolCalls = [];
+  state.pendingToolResultDrafts = [];
   state.active = null;
   state.toolAgentIndex = -1;
   state.trackedToolCalls = [];
@@ -4443,12 +4893,17 @@ function buildAgentPullChunkEvent(state, message, speaker, metadata) {
 
 function buildAgentCompactMessage(result) {
   const text = normalizeString(result && result.message) || "Context compaction requested.";
+  const metadata = {
+    event: "context_compaction",
+    status: result && result.ok === false ? "unavailable" : "compacted",
+  };
   return {
     role: "agent",
     parts: [
       {
-        kind: "text",
+        kind: "event",
         text: text,
+        metadata: metadata,
       },
     ],
   };
@@ -4536,8 +4991,10 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
   const providerContext = configString(config, "contextControl")
     ? resolveProviderMetadata(providerTarget, host)
     : null;
+  const providerToolInputModes = providerToolInputModesFromContext(providerContext, providerTarget);
   const toolRequest = buildAgentToolRequest(currentControlId, config, host, state.loadedToolIds, {
     toolCatalogVisible: state.toolCatalogVisible === true,
+    providerToolInputModes: providerToolInputModes,
   });
   const toolDefinitions = toolRequest.tools;
   const preparedMessages = resolveContextMessages(
@@ -4554,7 +5011,9 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
     state.toolCatalogVisible = false;
   }
   state.toolNameMap = toolRequest.toolNameMap;
+  state.providerToolInputModes = providerToolInputModes;
   validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
+  const contextUsage = buildAgentContextUsage(providerConversation, toolDefinitions, config, providerContext);
   return {
     request: {
       input: {
@@ -4563,22 +5022,24 @@ function buildAgentPullProviderRequest(currentControlId, config, state, provider
       },
     },
     toolDefinitions: toolDefinitions,
+    contextUsage: contextUsage,
   };
 }
 
 function agentPullStartActiveProvider(taskId, state, currentControlId, config, providerTarget, host) {
-  const providerRequest = buildAgentPullProviderRequest(currentControlId, config, state, providerTarget, host).request;
+  const providerRequest = buildAgentPullProviderRequest(currentControlId, config, state, providerTarget, host);
   if (!targetSupportsPulling(providerTarget, host)) {
     return null;
   }
   const ownerInvocationId = normalizeString(state && state.ownerInvocationId) || normalizeString(host && host.execution && host.execution.invocationId);
-  const started = pullInvokeOutput(invokeControlPullStart(providerTarget, providerRequest, ownerInvocationId, host));
+  const started = pullInvokeOutput(invokeControlPullStart(providerTarget, providerRequest.request, ownerInvocationId, host));
   state.active = {
     kind: "provider",
     target: clone(providerTarget),
     taskId: requirePullTaskID(started, "start"),
     chunkState: createPulledProviderChunkState(),
     chunkWrote: false,
+    contextUsage: providerRequest.contextUsage,
   };
   storeAgentPullTaskState(taskId, state, host);
   return {
@@ -4628,20 +5089,38 @@ function buildAgentPullCancelledOutput(content) {
   return cancelledOutput;
 }
 
-function advanceAgentPullToolResult(state, executed, config, host) {
-  state.trackedToolCalls = upsertTrackedToolCall(state.trackedToolCalls, executed.toolCall);
-  state.currentToolCalls = upsertTrackedToolCall(state.currentToolCalls, executed.toolCall);
+async function advanceAgentPullToolResultDraft(state, draft, currentControlId, config, host) {
+  state.trackedToolCalls = upsertTrackedToolCall(state.trackedToolCalls, draft.trackedToolCall);
+  state.currentToolCalls = upsertTrackedToolCall(state.currentToolCalls, draft.trackedToolCall);
   updateAgentPullAgentToolCalls(state);
   const statusMessage = currentAgentPullToolStatusMessage(state);
-  appendHistoryMessages(executed.messages, config, host);
-  state.conversation = [...state.conversation, ...executed.messages];
-  state.pendingContextMessages = [...state.pendingContextMessages, ...clone(executed.messages)];
-  if (executed && executed.compact) {
-    state.pendingToolCompactReason = normalizeString(executed.compact.reason) || "Tool requested context compaction";
-  }
+  state.pendingToolResultDrafts = [...state.pendingToolResultDrafts, clone(draft)];
   state.pendingToolCalls.shift();
   state.active = null;
   if (state.pendingToolCalls.length === 0) {
+    const executedResults = finalizeToolCallResultDrafts(state.pendingToolResultDrafts, config, host);
+    state.pendingToolResultDrafts = [];
+    for (const pendingExecuted of executedResults) {
+      const executed = await applyExecutedToolMessageScript(pendingExecuted, currentControlId, config, {
+        source: "tool",
+        messages: pendingExecuted.messages,
+        tool: buildAgentMessageToolInfo(pendingExecuted.sourceToolCall, pendingExecuted.definition),
+      }, {
+        phase: "tool-result",
+        round: state.round,
+        canInterrupt: false,
+        queuedMessages: state.signalState && Array.isArray(state.signalState.pendingMessages)
+          ? state.signalState.pendingMessages.length
+          : 0,
+        active: null,
+      }, host);
+      appendHistoryMessages(executed.messages, config, host);
+      state.conversation = [...state.conversation, ...executed.messages];
+      state.pendingContextMessages = [...state.pendingContextMessages, ...clone(executed.messages)];
+      if (executed && executed.compact) {
+        state.pendingToolCompactReason = normalizeString(executed.compact.reason) || "Tool requested context compaction";
+      }
+    }
     state.round += 1;
     state.toolAgentIndex = -1;
   }
@@ -4661,6 +5140,7 @@ function takeAgentPullToolCompactReason(state) {
 async function advanceAgentPullProviderOutcome(taskId, state, providerCall, currentControlId, config, speaker, host) {
   const providerResult = providerCall && typeof providerCall === "object" ? providerCall.output : providerCall;
   const providerMetadata = providerCall && typeof providerCall === "object" ? cloneObject(providerCall.metadata) : {};
+  const contextUsage = providerCall && typeof providerCall === "object" ? providerCall.contextUsage : null;
   if (isProviderCallCancelledResult(providerResult)) {
     return emitAgentPullResult(
       taskId,
@@ -4670,6 +5150,7 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     );
   }
   const response = normalizeProviderResponse(providerResult);
+  response.usage = usageWithAgentContextUsage(response.usage, contextUsage);
   state.providerUsage = mergeAgentProviderUsage(state.providerUsage, response.usage);
   if (!response.toolCalls.length) {
     const finalMessage = buildAgentMessage(responseWithAgentProviderUsage(response, state.providerUsage));
@@ -4723,13 +5204,14 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     appendHistoryMessages(loadResult.messages, config, host);
     state.pendingContextMessages = [clone(loadAgentMessage), ...clone(loadResult.messages)];
     state.pendingToolCalls = [];
+    state.pendingToolResultDrafts = [];
     state.active = null;
     state.toolAgentIndex = -1;
     state.round += 1;
     const chunkMessage = providerMetadata.chunkWrote === true
       ? agentToolStatusChunkMessage(loadAgentMessage)
       : loadAgentMessage;
-    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(chunkMessage), speaker, null);
+    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessageWithUsage(chunkMessage, state.providerUsage), speaker, null);
     if (chunkEvent) {
       return emitAgentPullResult(taskId, state, chunkEvent, host);
     }
@@ -4749,13 +5231,14 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
     appendHistoryMessages(listResult.messages, config, host);
     state.pendingContextMessages = [clone(listAgentMessage), ...clone(listResult.messages)];
     state.pendingToolCalls = [];
+    state.pendingToolResultDrafts = [];
     state.active = null;
     state.toolAgentIndex = -1;
     state.round += 1;
     const chunkMessage = providerMetadata.chunkWrote === true
       ? agentToolStatusChunkMessage(listAgentMessage)
       : listAgentMessage;
-    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(chunkMessage), speaker, null);
+    const chunkEvent = buildAgentPullChunkEvent(state, buildAgentLiveOutputMessageWithUsage(chunkMessage, state.providerUsage), speaker, null);
     if (chunkEvent) {
       return emitAgentPullResult(taskId, state, chunkEvent, host);
     }
@@ -4765,7 +5248,9 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
   const agentMessage = buildAgentMessage(response);
   let currentToolCalls = [];
   response.toolCalls.forEach((toolCall, index) => {
-    const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap)[toolCallName(toolCall)];
+    const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap, {
+      providerToolInputModes: state.providerToolInputModes,
+    })[toolCallName(toolCall)];
     const trackedToolCall = normalizeTrackedToolCall(toolCall, "tool-call-" + (state.round + 1) + "-" + (index + 1), {
       title: trackedToolCallTitle(definition, toolCall, host),
       status: "requested",
@@ -4783,9 +5268,10 @@ async function advanceAgentPullProviderOutcome(taskId, state, providerCall, curr
   appendHistoryMessages([agentMessage], config, host);
   state.pendingContextMessages = [clone(agentMessage)];
   state.pendingToolCalls = clone(response.toolCalls);
+  state.pendingToolResultDrafts = [];
   const chunkEvent = providerMetadata.chunkWrote === true
     ? null
-    : buildAgentPullChunkEvent(state, buildAgentLiveOutputMessage(agentMessage), speaker, null);
+    : buildAgentPullChunkEvent(state, buildAgentLiveOutputMessageWithUsage(agentMessage, state.providerUsage), speaker, null);
   if (chunkEvent) {
     return emitAgentPullResult(taskId, state, chunkEvent, host);
   }
@@ -4821,6 +5307,7 @@ async function advanceActiveAgentProviderTask(taskId, state, currentControlId, c
       return storeEmptyAgentPullStep(taskId, state, host);
     }
     state.pendingToolCalls = [];
+    state.pendingToolResultDrafts = [];
     state.toolAgentIndex = -1;
     state.trackedToolCalls = [];
     state.currentToolCalls = [];
@@ -4895,6 +5382,7 @@ async function advanceActiveAgentProviderTask(taskId, state, currentControlId, c
       chunkWrote: active.chunkWrote,
     },
     providerSource: providerSource,
+    contextUsage: active.contextUsage,
   }, currentControlId, config, speaker, host);
 }
 
@@ -4907,14 +5395,16 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
   if (!toolName) {
     return emitAgentPullResult(taskId, state, buildAgentPullTerminalEvent("error", { reason: "tool call name is required" }), host);
   }
-  const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap)[toolName];
+  const definition = toolLookup(currentControlId, config, host, state.loadedToolIds, state.toolNameMap, {
+    providerToolInputModes: state.providerToolInputModes,
+  })[toolName];
   if (!definition) {
     return emitAgentPullResult(taskId, state, buildAgentPullTerminalEvent("error", { reason: "tool not found: " + toolName }), host);
   }
   if (!state.active) {
     if (!toolUsesInternalPullDriver(definition)) {
-      const executed = await executeToolCall(toolCall, currentControlId, config, host, state.signalState, state.round, state.loadedToolIds, state.toolNameMap);
-      const statusMessage = advanceAgentPullToolResult(state, executed, config, host);
+      const draft = await invokeToolCall(toolCall, currentControlId, config, host, state.signalState, state.round, state.loadedToolIds, state.toolNameMap, state.providerToolInputModes);
+      const statusMessage = await advanceAgentPullToolResultDraft(state, draft, currentControlId, config, host);
       const compactReason = takeAgentPullToolCompactReason(state);
       if (compactReason) {
         const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
@@ -4931,7 +5421,7 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
       }
       const chunkEvent = buildAgentPullChunkEvent(
         state,
-        buildAgentLiveOutputMessage(agentToolStatusChunkMessage(statusMessage)),
+        buildAgentLiveOutputMessageWithUsage(agentToolStatusChunkMessage(statusMessage), state.providerUsage),
         speaker,
         null,
       );
@@ -4945,7 +5435,7 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
       return storeEmptyAgentPullStep(taskId, state, host);
     }
     const args = applyToolRuntimeArguments(
-      applyToolLiteralArguments(normalizeToolArguments(toolCallArguments(toolCall)), definition),
+      applyToolLiteralArguments(normalizeToolArguments(toolCallArguments(toolCall), definition), definition),
       definition,
       host,
     );
@@ -4998,6 +5488,7 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
       return storeEmptyAgentPullStep(taskId, state, host);
     }
     state.pendingToolCalls = [];
+    state.pendingToolResultDrafts = [];
     state.toolAgentIndex = -1;
     state.trackedToolCalls = [];
     state.currentToolCalls = [];
@@ -5040,27 +5531,14 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
           : pullTerminalMessage(event, "pullable control failed"),
         output: event && Object.prototype.hasOwnProperty.call(event, "content") ? clone(event.content) : undefined,
       };
-  const executed = buildExecutedToolCallResult(
+  const draft = buildToolCallResultDraft(
     active.toolCall,
     active.definition,
     invoked,
     { value: invoked.output, details: null },
     host,
   );
-  await applyExecutedToolMessageScript(executed, currentControlId, config, {
-    source: "tool",
-    messages: executed.messages,
-    tool: buildAgentMessageToolInfo(active.toolCall, active.definition),
-  }, {
-    phase: "tool-result",
-    round: state.round,
-    canInterrupt: false,
-    queuedMessages: state.signalState && Array.isArray(state.signalState.pendingMessages)
-      ? state.signalState.pendingMessages.length
-      : 0,
-    active: null,
-  }, host);
-  const statusMessage = advanceAgentPullToolResult(state, executed, config, host);
+  const statusMessage = await advanceAgentPullToolResultDraft(state, draft, currentControlId, config, host);
   const compactReason = takeAgentPullToolCompactReason(state);
   if (compactReason) {
     const providerTarget = resolveBoundProviderTarget(currentControlId, config, host);
@@ -5077,7 +5555,7 @@ async function startOrAdvanceAgentToolTask(taskId, state, currentControlId, conf
   }
   const chunkEvent = buildAgentPullChunkEvent(
     state,
-    buildAgentLiveOutputMessage(agentToolStatusChunkMessage(statusMessage)),
+    buildAgentLiveOutputMessageWithUsage(agentToolStatusChunkMessage(statusMessage), state.providerUsage),
     speaker,
     null,
   );
@@ -5357,6 +5835,7 @@ async function agentControl(payload, host) {
   const providerContext = configString(config, "contextControl")
     ? resolveProviderMetadata(providerTarget, host)
     : null;
+  const providerToolInputModes = providerToolInputModesFromContext(providerContext, providerTarget);
   const pullOutput = agentPullOutputEnabled(payload);
   try {
     let conversation = clone(inputMessages);
@@ -5407,6 +5886,7 @@ async function agentControl(payload, host) {
       const phase = round === 0 ? "initial" : "tool-round";
       const toolRequest = buildAgentToolRequest(currentControlId, config, host, loadedToolIds, {
         toolCatalogVisible: toolCatalogVisible,
+        providerToolInputModes: providerToolInputModes,
       });
       const toolDefinitions = toolRequest.tools;
       // Context now receives only the new messages for this round. Without a
@@ -5427,6 +5907,7 @@ async function agentControl(payload, host) {
       }
       toolNameMap = toolRequest.toolNameMap;
       validateProviderRequestBudget(providerConversation, toolDefinitions, config, providerContext);
+      const contextUsage = buildAgentContextUsage(providerConversation, toolDefinitions, config, providerContext);
       let providerCall;
       const emitPulledAgentChunk = pullOutput
         ? function (message, metadata) {
@@ -5469,6 +5950,7 @@ async function agentControl(payload, host) {
         return speaker ? { output: cancelledOutput, metadata: { speaker: speaker } } : { output: cancelledOutput };
       }
       const response = normalizeProviderResponse(providerResult);
+      response.usage = usageWithAgentContextUsage(response.usage, contextUsage);
       providerUsage = mergeAgentProviderUsage(providerUsage, response.usage);
       if (!response.toolCalls.length) {
         const finalMessage = buildAgentMessage(responseWithAgentProviderUsage(response, providerUsage));
@@ -5509,7 +5991,7 @@ async function agentControl(payload, host) {
             ? agentToolStatusChunkMessage(loadAgentMessage)
             : loadAgentMessage;
           if (hasAgentChunkContent(chunkMessage)) {
-            emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
+            emitAgentPullChunk(buildAgentLiveOutputMessageWithUsage(chunkMessage, providerUsage), speaker, null, host);
           }
         }
         continue agent_round;
@@ -5530,7 +6012,7 @@ async function agentControl(payload, host) {
             ? agentToolStatusChunkMessage(listAgentMessage)
             : listAgentMessage;
           if (hasAgentChunkContent(chunkMessage)) {
-            emitAgentPullChunk(buildAgentLiveOutputMessage(chunkMessage), speaker, null, host);
+            emitAgentPullChunk(buildAgentLiveOutputMessageWithUsage(chunkMessage, providerUsage), speaker, null, host);
           }
         }
         continue agent_round;
@@ -5538,7 +6020,9 @@ async function agentControl(payload, host) {
       const agentMessage = buildAgentMessage(response);
       let currentToolCalls = [];
       response.toolCalls.forEach((toolCall, index) => {
-        const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap)[toolCallName(toolCall)];
+        const definition = toolLookup(currentControlId, config, host, loadedToolIds, toolNameMap, {
+          providerToolInputModes: providerToolInputModes,
+        })[toolCallName(toolCall)];
         const trackedToolCall = normalizeTrackedToolCall(toolCall, "tool-call-" + (round + 1) + "-" + (index + 1), {
           title: trackedToolCallTitle(definition, toolCall, host),
           status: "requested",
@@ -5548,16 +6032,16 @@ async function agentControl(payload, host) {
       });
       agentMessage.parts = setToolCallParts(agentMessage.parts, currentToolCalls);
       if (pullOutput && providerMetadata.chunkWrote !== true && hasAgentChunkContent(agentMessage)) {
-        emitAgentPullChunk(buildAgentLiveOutputMessage(agentMessage), speaker, null, host);
+        emitAgentPullChunk(buildAgentLiveOutputMessageWithUsage(agentMessage, providerUsage), speaker, null, host);
       }
       conversation = [...conversation, agentMessage];
       appendHistoryMessages([agentMessage], config, host);
       pendingContextMessages = [clone(agentMessage)];
       let pendingToolCompactReason = "";
+      const toolResultDrafts = [];
       for (const toolCall of response.toolCalls) {
-        let executed;
         try {
-          executed = await executeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap);
+          toolResultDrafts.push(await invokeToolCall(toolCall, currentControlId, config, host, signalState, round, loadedToolIds, toolNameMap, providerToolInputModes));
         } catch (error) {
           if (isAgentSignalInterruptError(error)) {
             const injectedMessages = drainAgentSignalMessages(signalState);
@@ -5574,12 +6058,28 @@ async function agentControl(payload, host) {
           }
           throw error;
         }
+      }
+      const executedToolResults = finalizeToolCallResultDrafts(toolResultDrafts, config, host);
+      for (const pendingExecuted of executedToolResults) {
+        const executed = await applyExecutedToolMessageScript(pendingExecuted, currentControlId, config, {
+          source: "tool",
+          messages: pendingExecuted.messages,
+          tool: buildAgentMessageToolInfo(pendingExecuted.sourceToolCall, pendingExecuted.definition),
+        }, {
+          phase: "tool-result",
+          round: finiteNumber(round, 0),
+          canInterrupt: false,
+          queuedMessages: signalState && Array.isArray(signalState.pendingMessages)
+            ? signalState.pendingMessages.length
+            : 0,
+          active: null,
+        }, host);
         trackedToolCalls = upsertTrackedToolCall(trackedToolCalls, executed.toolCall);
         currentToolCalls = upsertTrackedToolCall(currentToolCalls, executed.toolCall);
         agentMessage.parts = setToolCallParts(agentMessage.parts, currentToolCalls);
         if (pullOutput && hasAgentChunkContent(agentMessage)) {
           emitAgentPullChunk(
-            buildAgentLiveOutputMessage(agentToolStatusChunkMessage(agentMessage)),
+            buildAgentLiveOutputMessageWithUsage(agentToolStatusChunkMessage(agentMessage), providerUsage),
             speaker,
             null,
             host,
@@ -5637,13 +6137,14 @@ function buildEffectiveProviderConfig(config, provider, request) {
   const interfaces = providerInterfaces(provider);
   if (definitionId) effective.providerDefinitionId = definitionId;
   if (interfaces.length > 0) effective.providerInterfaces = interfaces;
-  for (const key of ["llmModel", "timeoutSeconds", "reasoningEffort"]) {
+  for (const key of ["llmModel", "maxContextTokens", "timeoutSeconds", "reasoningEffort"]) {
     if (Object.prototype.hasOwnProperty.call(config, key) && hasOverrideValue(config[key])) {
       effective[key] = clone(config[key]);
     }
   }
   const requestOverrides = {
     llmModel: request && request.model,
+    maxContextTokens: request && request.maxContextTokens,
     timeoutSeconds: request && request.timeoutSeconds,
     reasoningEffort: request && request.reasoning,
   };

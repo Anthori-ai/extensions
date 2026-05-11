@@ -1,0 +1,23 @@
+format: 1
+id: shell-cat
+name: Cat
+description: cat shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Cat
+        description: Reads one or more files. Supports `-n` and `--limit N`.
+        input:
+          type: string
+          description: Args or full `cat` command string, such as `-n src/app.js` or `cat -n src/app.js`.
+        output:
+          type: string
+          description: File content stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-cat

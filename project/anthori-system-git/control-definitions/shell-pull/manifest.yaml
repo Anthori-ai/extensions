@@ -1,0 +1,29 @@
+format: 1
+id: shell-pull
+name: Pull
+description: git pull shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pull
+        description: Runs `git pull`.
+        input:
+          type: string
+          description: Args or full `git pull` command string, such as `--ff-only` or `git pull --ff-only`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-pull
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git pull
+          reason: Contact Git remotes and update the working tree.

@@ -1,0 +1,29 @@
+format: 1
+id: shell-stash
+name: Stash
+description: git stash shell command.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Stash
+        description: Runs `git stash`.
+        input:
+          type: string
+          description: Args or full `git stash` command string, such as `list`, `push -m "work"`, or `git stash list`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+        output:
+          type: string
+          description: Command output text. Invalid args or a nonzero Git exit fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-stash
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git stash
+          reason: Inspect or update Git stash state.

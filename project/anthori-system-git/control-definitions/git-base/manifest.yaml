@@ -1,0 +1,62 @@
+format: 1
+id: git-base
+name: Git Base
+description: Hidden shared base for Git controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system/git
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-git-runtime
+    permissions:
+      type: array
+      description: Git command permissions this control may request before running Git.
+      items:
+        type: object
+        required: [capability, access, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [exec]
+            default: exec
+          access:
+            type: array
+            default: [run]
+            items:
+              type: string
+              enum: [run]
+          scope:
+            type: string
+            description: Git executable or Git subcommand scope, such as `git status`.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a command family.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+    timeoutSeconds:
+      type: number
+      required: false
+      default: 30
+      description: Optional timeout override for the Git command.
+  ui:
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: exec
+        accessOptions: [run]
+        matchOptions: [exact, prefix]
+        helpText: "Git commands this control is allowed to run. Each row needs a Git command scope and the reason shown in the permission prompt."
+      - key: timeoutSeconds
+        label: Timeout (seconds)
+        type: number
+        placeholder: "30"
+        helpText: "Maximum time to wait for the Git command before it is stopped."

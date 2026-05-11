@@ -48,6 +48,18 @@
         <select id="anthropic-model" class="prompt-input"></select>
       </label>
 
+      <label class="editor-settings-row inspector-field-row" for="anthropic-context-limit" data-field-help-key="provider.anthropic.ui.contextLimit.help">
+        <span class="inspector-field-title">Max Context</span>
+        <input
+          id="anthropic-context-limit"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Provider default"
+          inputmode="numeric"
+        />
+      </label>
+
       <div id="anthropic-status" class="provider-inline-status" hidden></div>
     </section>
   </body>

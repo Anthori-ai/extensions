@@ -1,0 +1,19 @@
+format: 1
+id: screen-element-canvas
+name: Canvas
+description: Adds a canvas element to the active screen mockup.
+baseControlRef: controls/1/executable
+control:
+  visible: true
+  category: app
+  libraryPath: elements
+  ui:
+    libraryContext:
+      kind: diagram
+      documentKind: anthori.diagram
+      screenEdit: true
+    libraryAction:
+      kind: activeEditorContext
+      method: addScreenElement
+      arguments:
+        - canvas

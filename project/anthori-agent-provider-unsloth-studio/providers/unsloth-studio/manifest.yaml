@@ -29,6 +29,13 @@ configSchema:
       label: Model
       placeholder: Use active loaded model
       helpKey: provider.unslothStudio.config.model.help
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+      helpKey: provider.unslothStudio.config.contextLimit.help
     reasoningEffort:
       type: string
       label: Reasoning
@@ -46,6 +53,6 @@ runtime:
     listModels: list-models
 ui:
   configAssetPath: ui/config.html
-  configHeight: 300
+  configHeight: 352
 control:
   visible: false

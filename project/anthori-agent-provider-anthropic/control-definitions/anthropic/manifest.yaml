@@ -24,6 +24,10 @@ control:
                 type: string
                 fieldRef: llmModel
                 description: Optional model override for this call.
+              maxContextTokens:
+                type: number
+                fieldRef: maxContextTokens
+                description: Optional maximum context window override, in tokens, for Agent context sizing.
               reasoning:
                 type: string
                 fieldRef: reasoningEffort
@@ -91,6 +95,10 @@ control:
                 type: string
                 fieldRef: llmModel
                 description: Optional model override for this call.
+              maxContextTokens:
+                type: number
+                fieldRef: maxContextTokens
+                description: Optional maximum context window override, in tokens, for Agent context sizing.
               reasoning:
                 type: string
                 fieldRef: reasoningEffort
@@ -199,6 +207,10 @@ control:
                 type: string
                 fieldRef: llmModel
                 description: Optional model override for this metadata lookup.
+              maxContextTokens:
+                type: number
+                fieldRef: maxContextTokens
+                description: Optional maximum context window override, in tokens, for this metadata lookup.
             additionalProperties: false
           output:
             type: object
@@ -208,6 +220,14 @@ control:
               maxContextTokens:
                 type: number
                 description: Maximum provider context length for the selected model.
+              context:
+                type: object
+                description: Provider context metadata.
+                properties:
+                  maxTokens:
+                    type: number
+                    description: Maximum provider context length for the selected model.
+                additionalProperties: false
               model:
                 type: string
                 description: Effective model used for this metadata lookup.
@@ -222,6 +242,16 @@ control:
                 description: Effective provider interface ids for this metadata lookup.
                 items:
                   type: string
+              tools:
+                type: object
+                description: Provider tool-call capability metadata.
+                properties:
+                  inputModes:
+                    type: array
+                    description: Supported provider-facing tool input modes.
+                    items:
+                      type: string
+                additionalProperties: false
             additionalProperties: false
   configSchema:
     providerDefinitionId:

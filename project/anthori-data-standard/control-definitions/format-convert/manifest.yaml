@@ -1,0 +1,167 @@
+format: 1
+id: format-convert
+name: Convert
+description: Converts JSON or YAML content to another supported format.
+baseControlRef: controls/1/extensions/anthori.data.standard/definitions/data-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Convert
+        description: Converts JSON or YAML content to another supported format.
+        input:
+          description: Format conversion request.
+          anyOf:
+            - type: object
+              description: Guarded conversion from a file path.
+              propertyOrder: [path, fileHash, fromFormat, toFormat, outputPath, mode]
+              required: [path, fileHash, fromFormat, toFormat]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute source path.
+                fileHash:
+                  type: string
+                  description: Opaque hash of the file at `path`, used to verify integrity before allowing this file operation.
+                fromFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Source format.
+                toFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Target format.
+                outputPath:
+                  type: string
+                  description: Optional path to write the converted content. Omit to return the converted content directly.
+                mode:
+                  type: string
+                  enum: [create, replace]
+                  default: create
+                  description: Write mode when `outputPath` is set. `create` fails if the target exists; `replace` overwrites an existing file.
+              additionalProperties: false
+            - type: object
+              description: Dangerous unguarded conversion from a file path for files that change too quickly to get a stable file hash.
+              propertyOrder: [path, dangerous, fromFormat, toFormat, outputPath, mode]
+              required: [path, dangerous, fromFormat, toFormat]
+              properties:
+                path:
+                  type: string
+                  description: Relative or absolute source path.
+                dangerous:
+                  type: boolean
+                  enum: [true]
+                  description: Bypasses file integrity validation. Use only when integrity between file operations is unnecessary, such as an initial read.
+                fromFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Source format.
+                toFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Target format.
+                outputPath:
+                  type: string
+                  description: Optional path to write the converted content. Omit to return the converted content directly.
+                mode:
+                  type: string
+                  enum: [create, replace]
+                  default: create
+                  description: Write mode when `outputPath` is set. `create` fails if the target exists; `replace` overwrites an existing file.
+              additionalProperties: false
+            - type: object
+              description: Conversion from inline content.
+              propertyOrder: [content, fromFormat, toFormat, outputPath, mode]
+              required: [content, fromFormat, toFormat]
+              properties:
+                content:
+                  type: string
+                  description: JSON or YAML content to convert.
+                fromFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Source format.
+                toFormat:
+                  type: string
+                  enum: [yaml, json]
+                  description: Target format.
+                outputPath:
+                  type: string
+                  description: Optional path to write the converted content. Omit to return the converted content directly.
+                mode:
+                  type: string
+                  enum: [create, replace]
+                  default: create
+                  description: Write mode when `outputPath` is set. `create` fails if the target exists; `replace` overwrites an existing file.
+              additionalProperties: false
+        output:
+          description: Converted content, or written file metadata when `outputPath` is set.
+          anyOf:
+            - type: string
+              description: Converted content.
+            - type: object
+              description: Written file metadata.
+              required: [path, fileHash, fileLineCount, bytesWritten]
+              propertyOrder: [path, fileHash, fileLineCount, bytesWritten]
+              properties:
+                path:
+                  type: string
+                  description: Written path.
+                fileHash:
+                  type: string
+                  description: Opaque hash of the written file.
+                fileLineCount:
+                  type: number
+                  description: Total number of lines in the written file.
+                bytesWritten:
+                  type: number
+                  description: Number of bytes written.
+              additionalProperties: false
+control:
+  visible: true
+  libraryPath: data/format
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: format-convert
+    permissions:
+      type: array
+      description: File permissions this control may request before reading or writing paths.
+      items:
+        type: object
+        required: [capability, scope, reason]
+        properties:
+          capability:
+            type: string
+            enum: [file]
+            default: file
+          access:
+            type: array
+            description: File operations this permission row covers.
+            items:
+              type: string
+              enum: [read, write]
+          scope:
+            type: string
+            description: Relative or absolute file or folder path.
+          reason:
+            type: string
+            description: Reason shown in the permission prompt.
+          match:
+            type: string
+            enum: [exact, prefix]
+            description: Use prefix for a folder-like scope that covers descendants.
+          scopeLabel:
+            type: string
+            description: Optional display label for the scope.
+        additionalProperties: false
+  ui:
+    fieldOrder: [permissions]
+    fields:
+      - key: permissions
+        label: Permissions
+        type: permissions
+        capability: file
+        accessOptions: [read, write]
+        matchOptions: [exact, prefix]
+        helpText: "File resources this control is allowed to request. Source path input needs read access; outputPath needs write access."

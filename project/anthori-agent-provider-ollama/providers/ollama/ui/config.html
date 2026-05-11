@@ -103,6 +103,18 @@
         </div>
       </label>
 
+      <label class="editor-settings-row inspector-field-row" for="ollama-context-limit" data-field-help-key="provider.ollama.ui.contextLimit.help">
+        <span class="inspector-field-title">Max Context</span>
+        <input
+          id="ollama-context-limit"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="Provider default"
+          inputmode="numeric"
+        />
+      </label>
+
       <label class="editor-settings-row inspector-field-row" for="ollama-reasoning" data-field-help-key="provider.ollama.ui.reasoning.help">
         <span class="inspector-field-title">Reasoning</span>
         <select id="ollama-reasoning" class="prompt-input">

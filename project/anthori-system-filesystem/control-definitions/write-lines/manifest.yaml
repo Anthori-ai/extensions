@@ -1,7 +1,7 @@
 format: 1
 id: write-lines
 name: Write Lines
-description: Writes lines to a file.
+description: Writes lines to a file. Used with the Read Lines tool.
 baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
 contracts:
   caller:
@@ -16,7 +16,7 @@ contracts:
         activeWhen:
           config:
             outputFormat: text
-        description: Replaces lines in a file.
+        description: Replaces exactly the line range represented by lineRangeKey.
         input:
           description: Replace line request.
           anyOf:
@@ -25,13 +25,13 @@ contracts:
               propertyOrder:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - lines
                 - format
               required:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - lines
               properties:
                 path:
@@ -41,9 +41,9 @@ contracts:
                   type: string
                   enum: [replace]
                   description: Replace lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To replace a different range, call Read Lines for that exact range first.
                 lines:
                   type: array
                   description: Replacement lines.
@@ -58,22 +58,22 @@ contracts:
                     endLine:{{endLine}}
                     lineDelta:{{lineDelta}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{lineRangeKey}}` is the updated line-range handle for Write Lines.
               additionalProperties: false
             - type: object
               description: Replace existing lines using newline-delimited text content.
               propertyOrder:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - content
                 - format
               required:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - content
               properties:
                 path:
@@ -83,9 +83,9 @@ contracts:
                   type: string
                   enum: [replace]
                   description: Replace lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To replace a different range, call Read Lines for that exact range first.
                 content:
                   type: string
                   description: Newline-delimited replacement text.
@@ -97,9 +97,9 @@ contracts:
                     endLine:{{endLine}}
                     lineDelta:{{lineDelta}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{lineRangeKey}}` is the updated line-range handle for Write Lines.
               additionalProperties: false
         output:
           type: string
@@ -109,7 +109,7 @@ contracts:
         activeWhen:
           config:
             outputFormat: text
-        description: Inserts lines in a file.
+        description: Inserts lines at the boundary of the entire lineRangeKey range.
         input:
           description: Insert line request.
           anyOf:
@@ -119,7 +119,7 @@ contracts:
                 - path
                 - mode
                 - lines
-                - rangeKey
+                - lineRangeKey
                 - after
                 - format
               required:
@@ -134,9 +134,9 @@ contracts:
                   type: string
                   enum: [insert]
                   description: Insert lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Required unless the file is empty. Do not edit the visible line numbers. Insert uses the boundary of the entire keyed line range, not a cursor inside it. To insert at a different line position, call Read Lines for that exact anchor range first.
                 lines:
                   type: array
                   description: Inserted lines.
@@ -145,7 +145,7 @@ contracts:
                     type: string
                 after:
                   type: boolean
-                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+                  description: When true, insert after the entire keyed range. Defaults to false, which inserts before the entire keyed range. This chooses the side of the whole range, not a position inside it. Ignored when lineRangeKey is omitted for an empty file.
                 format:
                   type: string
                   default: |-
@@ -154,9 +154,9 @@ contracts:
                     endLine:{{endLine}}
                     lineDelta:{{lineDelta}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{lineRangeKey}}` is the updated line-range handle for Write Lines.
               additionalProperties: false
             - type: object
               description: Insert new lines using newline-delimited text content.
@@ -164,7 +164,7 @@ contracts:
                 - path
                 - mode
                 - content
-                - rangeKey
+                - lineRangeKey
                 - after
                 - format
               required:
@@ -179,15 +179,15 @@ contracts:
                   type: string
                   enum: [insert]
                   description: Insert lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Required unless the file is empty. Do not edit the visible line numbers. Insert uses the boundary of the entire keyed line range, not a cursor inside it. To insert at a different line position, call Read Lines for that exact anchor range first.
                 content:
                   type: string
                   description: Newline-delimited inserted text.
                 after:
                   type: boolean
-                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+                  description: When true, insert after the entire keyed range. Defaults to false, which inserts before the entire keyed range. This chooses the side of the whole range, not a position inside it. Ignored when lineRangeKey is omitted for an empty file.
                 format:
                   type: string
                   default: |-
@@ -196,9 +196,9 @@ contracts:
                     endLine:{{endLine}}
                     lineDelta:{{lineDelta}}
                     fileLineCount:{{fileLineCount}}
-                    fileHash:{{fileHash}}{{#rangeKey}}
-                    rangeKey:{{rangeKey}}{{/rangeKey}}
-                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
+                    fileHash:{{fileHash}}{{#lineRangeKey}}
+                    lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
+                  description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{lineRangeKey}}` is the updated line-range handle for Write Lines.
               additionalProperties: false
         output:
           type: string
@@ -208,19 +208,19 @@ contracts:
         activeWhen:
           config:
             outputFormat: text
-        description: Deletes lines from a file.
+        description: Deletes exactly the line range represented by lineRangeKey.
         input:
           type: object
           description: Delete line request.
           propertyOrder:
             - path
             - mode
-            - rangeKey
+            - lineRangeKey
             - format
           required:
             - path
             - mode
-            - rangeKey
+            - lineRangeKey
           properties:
             path:
               type: string
@@ -229,9 +229,9 @@ contracts:
               type: string
               enum: [delete]
               description: Delete lines.
-            rangeKey:
+            lineRangeKey:
               type: string
-              description: Line range key returned by Read Lines for the exact entire range to delete. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+              description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To delete a different range, call Read Lines for that exact range first.
             format:
               type: string
               default: |-
@@ -240,9 +240,9 @@ contracts:
                 endLine:{{endLine}}
                 lineDelta:{{lineDelta}}
                 fileLineCount:{{fileLineCount}}
-                fileHash:{{fileHash}}{{#rangeKey}}
-                rangeKey:{{rangeKey}}{{/rangeKey}}
-              description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{rangeKey}}` is the updated line-range handle.
+                fileHash:{{fileHash}}{{#lineRangeKey}}
+                lineRangeKey:{{lineRangeKey}}{{/lineRangeKey}}
+              description: Mustache text template. `{{lineDelta}}` is the line count change; `{{fileHash}}` is the new file hash; `{{lineRangeKey}}` is the updated line-range handle for Write Lines.
           additionalProperties: false
         output:
           type: string
@@ -252,7 +252,7 @@ contracts:
         activeWhen:
           config:
             outputFormat: json
-        description: Replaces lines in a file.
+        description: Replaces exactly the line range represented by lineRangeKey.
         input:
           description: Replace line request.
           anyOf:
@@ -261,12 +261,12 @@ contracts:
               propertyOrder:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - lines
               required:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - lines
               properties:
                 path:
@@ -276,9 +276,9 @@ contracts:
                   type: string
                   enum: [replace]
                   description: Replace lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To replace a different range, call Read Lines for that exact range first.
                 lines:
                   type: array
                   description: Replacement lines.
@@ -291,12 +291,12 @@ contracts:
               propertyOrder:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - content
               required:
                 - path
                 - mode
-                - rangeKey
+                - lineRangeKey
                 - content
               properties:
                 path:
@@ -306,9 +306,9 @@ contracts:
                   type: string
                   enum: [replace]
                   description: Replace lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire range to replace. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To replace a different range, call Read Lines for that exact range first.
                 content:
                   type: string
                   description: Newline-delimited replacement text.
@@ -323,7 +323,7 @@ contracts:
             - lineDelta
             - fileLineCount
             - fileHash
-            - rangeKey
+            - lineRangeKey
           required:
             - linesWritten
             - startLine
@@ -331,7 +331,7 @@ contracts:
             - lineDelta
             - fileLineCount
             - fileHash
-            - rangeKey
+            - lineRangeKey
           properties:
             linesWritten:
               type: number
@@ -351,16 +351,16 @@ contracts:
             fileHash:
               type: string
               description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
-            rangeKey:
+            lineRangeKey:
               type: string
-              description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
+              description: lineRangeKey for exactly the edited line range after this operation, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
           additionalProperties: false
       - id: insert-json
         name: Insert
         activeWhen:
           config:
             outputFormat: json
-        description: Inserts lines in a file.
+        description: Inserts lines at the boundary of the entire lineRangeKey range.
         input:
           description: Insert line request.
           anyOf:
@@ -370,7 +370,7 @@ contracts:
                 - path
                 - mode
                 - lines
-                - rangeKey
+                - lineRangeKey
                 - after
               required:
                 - path
@@ -384,9 +384,9 @@ contracts:
                   type: string
                   enum: [insert]
                   description: Insert lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Required unless the file is empty. Do not edit the visible line numbers. Insert uses the boundary of the entire keyed line range, not a cursor inside it. To insert at a different line position, call Read Lines for that exact anchor range first.
                 lines:
                   type: array
                   description: Inserted lines.
@@ -395,7 +395,7 @@ contracts:
                     type: string
                 after:
                   type: boolean
-                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+                  description: When true, insert after the entire keyed range. Defaults to false, which inserts before the entire keyed range. This chooses the side of the whole range, not a position inside it. Ignored when lineRangeKey is omitted for an empty file.
               additionalProperties: false
             - type: object
               description: Insert new lines using newline-delimited text content.
@@ -403,7 +403,7 @@ contracts:
                 - path
                 - mode
                 - content
-                - rangeKey
+                - lineRangeKey
                 - after
               required:
                 - path
@@ -417,15 +417,15 @@ contracts:
                   type: string
                   enum: [insert]
                   description: Insert lines.
-                rangeKey:
+                lineRangeKey:
                   type: string
-                  description: Line range key returned by Read Lines for the exact entire target range. Required unless the file is empty. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+                  description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Required unless the file is empty. Do not edit the visible line numbers. Insert uses the boundary of the entire keyed line range, not a cursor inside it. To insert at a different line position, call Read Lines for that exact anchor range first.
                 content:
                   type: string
                   description: Newline-delimited inserted text.
                 after:
                   type: boolean
-                  description: When true, insert after the keyed range. Defaults to false, which inserts before the keyed range. Ignored when rangeKey is omitted for an empty file.
+                  description: When true, insert after the entire keyed range. Defaults to false, which inserts before the entire keyed range. This chooses the side of the whole range, not a position inside it. Ignored when lineRangeKey is omitted for an empty file.
               additionalProperties: false
         output:
           type: object
@@ -437,7 +437,7 @@ contracts:
             - lineDelta
             - fileLineCount
             - fileHash
-            - rangeKey
+            - lineRangeKey
           required:
             - linesWritten
             - startLine
@@ -445,7 +445,7 @@ contracts:
             - lineDelta
             - fileLineCount
             - fileHash
-            - rangeKey
+            - lineRangeKey
           properties:
             linesWritten:
               type: number
@@ -465,27 +465,27 @@ contracts:
             fileHash:
               type: string
               description: Opaque hash of the file at `path`, used to verify integrity in subsequent file operations.
-            rangeKey:
+            lineRangeKey:
               type: string
-              description: Line range key for the edited range after this operation, formatted as an opaque base62 token.
+              description: lineRangeKey for exactly the edited line range after this operation, formatted as `lines:startLine-endLine:fingerprint`. The visible line numbers are for orientation only. Copy the key as-is; do not edit the line numbers or invent keys.
           additionalProperties: false
       - id: delete-json
         name: Delete
         activeWhen:
           config:
             outputFormat: json
-        description: Deletes lines from a file.
+        description: Deletes exactly the line range represented by lineRangeKey.
         input:
           type: object
           description: Delete line request.
           propertyOrder:
             - path
             - mode
-            - rangeKey
+            - lineRangeKey
           required:
             - path
             - mode
-            - rangeKey
+            - lineRangeKey
           properties:
             path:
               type: string
@@ -494,9 +494,9 @@ contracts:
               type: string
               enum: [delete]
               description: Delete lines.
-            rangeKey:
+            lineRangeKey:
               type: string
-              description: Line range key returned by Read Lines for the exact entire range to delete. Keys are opaque base62 tokens; if you only want a subset, read that exact subset first.
+              description: Copy this key as-is from Read Lines or Read Outline. It must start with `lines:`; do not use a `bytes:` byteRangeKey. Do not edit the visible line numbers. This operation applies to the entire keyed line range. To delete a different range, call Read Lines for that exact range first.
           additionalProperties: false
         output:
           type: object
@@ -546,8 +546,13 @@ control:
       enum: [text, json]
       default: text
       description: Output format.
+    validators:
+      type: controlTarget[]
+      default: []
+      targetCapability: file-validator
+      description: Optional file validators invoked with the full candidate content before line edits commit.
   ui:
-    fieldOrder: [outputFormat, permissions]
+    fieldOrder: [outputFormat, validators, permissions]
     fields:
       - key: outputFormat
         label: Output
@@ -559,3 +564,8 @@ control:
               value: text
             - label: JSON
               value: json
+      - key: validators
+        label: Validators
+        type: controlTarget[]
+        targetCapability: file-validator
+        helpText: Optional validators called with { path, content } before line edits commit.

@@ -1,0 +1,8 @@
+format: 1
+id: shell-base
+name: Shell Base
+description: Hidden shared base for shell-shaped filesystem controls.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/filesystem-base
+control:
+  visible: false
+  libraryPath: system/filesystem/shell

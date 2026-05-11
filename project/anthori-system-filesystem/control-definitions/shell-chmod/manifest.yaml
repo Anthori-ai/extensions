@@ -1,0 +1,23 @@
+format: 1
+id: shell-chmod
+name: Chmod
+description: chmod shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Chmod
+        description: Changes mode for one or more paths. Supports `MODE path...`.
+        input:
+          type: string
+          description: Args or full `chmod` command string, such as `0755 scripts/build.sh` or `chmod 0755 scripts/build.sh`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-chmod

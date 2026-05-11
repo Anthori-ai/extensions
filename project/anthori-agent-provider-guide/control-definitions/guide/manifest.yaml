@@ -208,6 +208,14 @@ control:
               maxContextTokens:
                 type: number
                 description: Maximum provider context length for the selected model.
+              context:
+                type: object
+                description: Provider context metadata.
+                properties:
+                  maxTokens:
+                    type: number
+                    description: Maximum provider context length for the selected model.
+                additionalProperties: false
               model:
                 type: string
                 description: Effective model used for this metadata lookup.
@@ -222,6 +230,16 @@ control:
                 description: Effective provider interface ids for this metadata lookup.
                 items:
                   type: string
+              tools:
+                type: object
+                description: Provider tool-call capability metadata.
+                properties:
+                  inputModes:
+                    type: array
+                    description: Supported provider-facing tool input modes.
+                    items:
+                      type: string
+                additionalProperties: false
             additionalProperties: false
   configSchema:
     providerDefinitionId:

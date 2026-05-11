@@ -1,0 +1,23 @@
+format: 1
+id: shell-mkdir
+name: Mkdir
+description: mkdir shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Mkdir
+        description: Creates one or more directories. Supports `-p` and `-m MODE`.
+        input:
+          type: string
+          description: Args or full `mkdir` command string, such as `-p tmp/output` or `mkdir -p tmp/output`.
+        output:
+          type: string
+          description: Command stdout text. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-mkdir

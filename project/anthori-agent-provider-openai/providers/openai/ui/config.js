@@ -85,6 +85,8 @@
     const statusEl = document.getElementById("openai-status")
     const modelRow = document.getElementById("openai-model-row")
     const modelSelect = document.getElementById("openai-model")
+    const contextLimitRow = document.getElementById("openai-context-limit-row")
+    const contextLimitInput = document.getElementById("openai-context-limit")
     const reasoningRow = document.getElementById("openai-reasoning-row")
     const reasoningSelect = document.getElementById("openai-reasoning")
 
@@ -95,6 +97,8 @@
       !statusEl ||
       !modelRow ||
       !modelSelect ||
+      !contextLimitRow ||
+      !contextLimitInput ||
       !reasoningRow ||
       !reasoningSelect
     ) {
@@ -187,6 +191,13 @@
       return values
     }
 
+    function readPositiveIntegerInput(input) {
+      const raw = String(input?.value || "").trim()
+      if (!raw) return 0
+      const parsed = Number.parseInt(raw, 10)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    }
+
     function renderModelOptions(items, selectedValue, placeholderText) {
       modelSelect.innerHTML = ""
       const placeholder = document.createElement("option")
@@ -228,6 +239,9 @@
         String(normalized.llmModel || ""),
         hasApiKeyAuthorization() ? "(optional)" : "(enter an API key)"
       )
+      contextLimitInput.value = normalized.maxContextTokens == null
+        ? ""
+        : String(normalized.maxContextTokens)
       reasoningSelect.value = String(normalized.reasoningEffort || "").trim().toLowerCase()
       updateFieldVisibility()
     }
@@ -235,9 +249,13 @@
     function readValues() {
       const values = {}
       const model = String(modelSelect.value || "").trim()
+      const contextLimit = readPositiveIntegerInput(contextLimitInput)
       const reasoning = String(reasoningSelect.value || "").trim().toLowerCase()
       if (model) {
         values.llmModel = model
+      }
+      if (contextLimit > 0) {
+        values.maxContextTokens = contextLimit
       }
       if (reasoning) {
         values.reasoningEffort = reasoning
@@ -248,6 +266,7 @@
     function updateFieldVisibility() {
       const ready = hasApiKeyAuthorization()
       modelRow.hidden = !ready
+      contextLimitRow.hidden = !ready
       reasoningRow.hidden = !ready
       if (!ready) {
         renderModelOptions([], String(modelSelect.value || "").trim(), "(enter an API key)")
@@ -347,6 +366,8 @@
       void refreshModels()
     })
     modelSelect.addEventListener("change", flushDraftSync)
+    contextLimitInput.addEventListener("input", queueDraftSync)
+    contextLimitInput.addEventListener("change", flushDraftSync)
     reasoningSelect.addEventListener("change", flushDraftSync)
 
     void load()

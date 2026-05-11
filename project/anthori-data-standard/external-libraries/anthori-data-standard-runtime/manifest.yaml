@@ -11,3 +11,5 @@ timeoutSeconds: 30
 actions:
   - id: collection-control
   - id: config-control
+  - id: format-validate
+  - id: format-convert

@@ -1,0 +1,8 @@
+format: 1
+id: shell-base
+name: Git Shell Base
+description: Hidden shared base for shell-shaped Git controls.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+control:
+  visible: false
+  libraryPath: system/git/shell

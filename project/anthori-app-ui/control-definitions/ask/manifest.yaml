@@ -1,7 +1,7 @@
 format: 1
 id: ask
 name: Ask
-description: Ask the user a question through chat and wait for the answer.
+description: Asks the user a question and waits for the answer.
 baseControlRef: controls/1/extensions/anthori.app.ui/definitions/ui-base
 contracts:
   caller:

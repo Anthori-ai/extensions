@@ -1,0 +1,23 @@
+format: 1
+id: shell-nl
+name: Nl
+description: nl shell command.
+baseControlRef: controls/1/extensions/anthori.system.filesystem/definitions/shell-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Nl
+        description: Reads numbered lines. Supports one file path and optional `--max-lines N`.
+        input:
+          type: string
+          description: Args or full `nl` command string, such as `--max-lines 200 src/app.js` or `nl --max-lines 200 src/app.js`.
+        output:
+          type: string
+          description: Numbered stdout lines. Invalid args fail the call.
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: shell-nl
