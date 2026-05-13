@@ -9,6 +9,21 @@ supportedOs:
   - linux
 timeoutSeconds: 30
 actions:
+  - id: status
+  - id: diff
+  - id: log
+  - id: show
+  - id: branch
+  - id: files
+  - id: blame
+  - id: add
+  - id: restore
+  - id: commit
+  - id: switch
+  - id: stash
+  - id: fetch
+  - id: pull
+  - id: push
   - id: shell-status
   - id: shell-diff
   - id: shell-log

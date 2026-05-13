@@ -124,6 +124,21 @@ function normalizeOpenAICompatibleUsage(value) {
   return Object.keys(result).length > 0 ? result : null;
 }
 
+function lmStudioCompletedStatus(value) {
+  var status = trim(value).toLowerCase();
+  return status === "completed" || status === "complete";
+}
+
+function hasLMStudioResponsesCompletionSignal(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  if (lmStudioCompletedStatus(value.status)) {
+    return true;
+  }
+  return trim(value.type).toLowerCase() === "response.completed";
+}
+
 function modelContextLength(entry) {
   var item = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
   if (Array.isArray(item.loaded_instances)) {
@@ -1613,13 +1628,18 @@ function createLMStudioSSEState() {
     toolCallAccumulator: [],
     toolCalls: [],
     usage: null,
+    completed: false,
     error: ""
   };
 }
 
 function applyLMStudioSSEPayload(state, payloadText, host) {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]") {
+  if (payload === "") {
+    return;
+  }
+  if (payload === "[DONE]") {
+    state.completed = true;
     return;
   }
   var event;
@@ -1642,6 +1662,9 @@ function applyLMStudioSSEPayload(state, payloadText, host) {
     return;
   }
   var first = event.choices[0];
+  if (trim(first && first.finish_reason) !== "") {
+    state.completed = true;
+  }
   var delta = first && first.delta && typeof first.delta === "object" ? first.delta : null;
   if (!delta) {
     return;
@@ -1924,7 +1947,11 @@ function readResponsesReasoningEvent(event) {
 
 function applyLMStudioResponsesSSEPayload(state, payloadText, host) {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]") {
+  if (payload === "") {
+    return;
+  }
+  if (payload === "[DONE]") {
+    state.completed = true;
     return;
   }
   var event;
@@ -1942,6 +1969,7 @@ function applyLMStudioResponsesSSEPayload(state, payloadText, host) {
   }
   if (event.response && typeof event.response === "object") {
     if (trim(event.response.id) !== "") state.responseId = trim(event.response.id);
+    if (hasLMStudioResponsesCompletionSignal(event.response)) state.completed = true;
     if (event.response.usage && typeof event.response.usage === "object") {
       state.usage = normalizeOpenAICompatibleUsage(event.response.usage);
     }
@@ -1980,6 +2008,7 @@ function applyLMStudioResponsesSSEPayload(state, payloadText, host) {
     }
   }
   if (trim(event.type) === "response.completed" && event.response && typeof event.response === "object") {
+    state.completed = true;
     state.toolCalls = collectResponsesToolCalls(event.response);
   }
 }
@@ -2060,6 +2089,7 @@ function consumeSSEBody(rawBody, host) {
       reasoningText: "",
       toolCalls: [],
       usage: null,
+      completed: state.completed === true,
       error: state.error
     };
   }
@@ -2068,6 +2098,7 @@ function consumeSSEBody(rawBody, host) {
     reasoningText: state.reasoningText,
     toolCalls: finalizeRuntimeToolCalls(state.toolCallAccumulator),
     usage: state.usage,
+    completed: state.completed === true,
     error: ""
   };
 }
@@ -2193,6 +2224,7 @@ function handleRespond(config, request, host) {
       : finalizeRuntimeToolCalls(responsesState.toolCallAccumulator);
     var responsesUsage = normalizeOpenAICompatibleUsage(responsesState.usage);
     var responsesResponseId = responsesState.responseId;
+    var responsesCompleted = responsesState.completed === true;
     if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0 && responsesRawBody.indexOf("data:") === -1) {
       var responsesParsed;
       try {
@@ -2208,9 +2240,10 @@ function handleRespond(config, request, host) {
       responsesReasoningText = collectResponsesReasoning(responsesParsed);
       responsesToolCalls = collectResponsesToolCalls(responsesParsed);
       responsesUsage = normalizeOpenAICompatibleUsage(responsesParsed.usage);
+      responsesCompleted = responsesCompleted || hasLMStudioResponsesCompletionSignal(responsesParsed);
     }
     responsesToolCalls = withLMStudioToolCallMetadata(responsesToolCalls, responsesResponseId, config || {}, model);
-    if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0) {
+    if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0 && !responsesCompleted) {
       return { error: "LM Studio response did not include text, reasoning, or tool calls" };
     }
     var responsesOutput = {};
@@ -2288,6 +2321,7 @@ function handleRespond(config, request, host) {
   var reasoningText = sseState.reasoningText;
   var toolCalls = finalizeRuntimeToolCalls(sseState.toolCallAccumulator);
   var usage = normalizeOpenAICompatibleUsage(sseState.usage);
+  var completed = sseState.completed === true;
 
   if (text === "" && toolCalls.length === 0 && rawBody.indexOf("data:") === -1) {
     var parsed;
@@ -2307,11 +2341,14 @@ function handleRespond(config, request, host) {
         reasoningText = readMessageReasoning(message);
       }
       toolCalls = extractRuntimeToolCallsFromChoice(first);
+      if (trim(first && first.finish_reason) !== "") {
+        completed = true;
+      }
     }
     usage = normalizeOpenAICompatibleUsage(parsed.usage);
   }
 
-  if (text === "" && reasoningText === "" && toolCalls.length === 0) {
+  if (text === "" && reasoningText === "" && toolCalls.length === 0 && !completed) {
     return { error: "LM Studio response did not include text, reasoning, or tool calls" };
   }
   var output = {};

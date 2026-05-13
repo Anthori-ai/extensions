@@ -1,0 +1,88 @@
+format: 1
+id: create-diagram
+name: Create
+description: Creates a diagram package or sub diagram.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: diagram
+        name: Create Diagram
+        description: Create a root .diagram package and its diagram.yaml document.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - title
+          propertyOrder:
+            - path
+            - title
+            - description
+          properties:
+            path:
+              type: string
+              description: Workspace-relative package folder ending in .diagram.
+            title:
+              type: string
+              description: Diagram title.
+            description:
+              type: string
+              description: Optional project-level package description.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+              description: Created diagram document path.
+            revision:
+              type: integer
+              description: Created diagram revision.
+      - id: subdiagram
+        name: Create Sub Diagram
+        description: Create a diagram.yaml document inside an existing .diagram package.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - packagePath
+            - path
+            - title
+          propertyOrder:
+            - packagePath
+            - path
+            - title
+          properties:
+            packagePath:
+              type: string
+              description: Workspace-relative .diagram package folder.
+            path:
+              type: string
+              description: Sub diagram path inside the package, such as runtime or runtime/diagram.yaml.
+            title:
+              type: string
+              description: Diagram title.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+              description: Created diagram document path.
+            revision:
+              type: integer
+              description: Created diagram revision.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-diagram

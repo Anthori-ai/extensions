@@ -1,0 +1,172 @@
+format: 1
+id: set-diagram-layout
+name: Set Layout
+description: Writes batched layout updates to an open diagram document.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Set Diagram Layout
+        description: Update diagram control positions, control sizes, and conduit route geometry. Supports partial updates; omitted fields are left unchanged.
+        input:
+          type: object
+          description: Diagram layout updates. Send controls, conduits, or both.
+          additionalProperties: false
+          required:
+            - path
+          propertyOrder:
+            - path
+            - controls
+            - conduits
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path, such as Game.diagram/diagram.yaml.
+            controls:
+              type: array
+              description: Partial control position and size updates. Each item requires id plus at least one of x, y, width, or height.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                propertyOrder:
+                  - id
+                  - x
+                  - y
+                  - width
+                  - height
+                properties:
+                  id:
+                    type: string
+                    description: Control id.
+                  x:
+                    type: integer
+                    description: New left graph coordinate. Omit to leave unchanged.
+                  y:
+                    type: integer
+                    description: New top graph coordinate. Omit to leave unchanged.
+                  width:
+                    type: integer
+                    description: New rendered width. Omit to leave unchanged.
+                  height:
+                    type: integer
+                    description: New rendered height. Omit to leave unchanged.
+            conduits:
+              type: array
+              description: Partial conduit route updates. Each item requires id plus at least one of points, fromAnchor, or toAnchor.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                propertyOrder:
+                  - id
+                  - points
+                  - fromAnchor
+                  - toAnchor
+                properties:
+                  id:
+                    type: string
+                    description: Conduit id.
+                  points:
+                    type: array
+                    description: Authored conduit bend points. Omit to leave unchanged. When supplied, replaces the full bend-point array. Use an empty array to clear bend points.
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - x
+                        - y
+                      properties:
+                        x:
+                          type: integer
+                          description: Horizontal graph coordinate.
+                        y:
+                          type: integer
+                          description: Vertical graph coordinate.
+                  fromAnchor:
+                    anyOf:
+                      - type: "null"
+                        description: Clear the source anchor override.
+                      - type: object
+                        description: Source anchor override. Omit fromAnchor to leave it unchanged.
+                        additionalProperties: false
+                        required:
+                          - x
+                          - y
+                        properties:
+                          x:
+                            type: number
+                            description: Anchor x value.
+                          y:
+                            type: number
+                            description: Anchor y value.
+                          normalized:
+                            type: boolean
+                            description: Whether x and y are normalized inside the source control.
+                  toAnchor:
+                    anyOf:
+                      - type: "null"
+                        description: Clear the target anchor override.
+                      - type: object
+                        description: Target anchor override. Omit toAnchor to leave it unchanged.
+                        additionalProperties: false
+                        required:
+                          - x
+                          - y
+                        properties:
+                          x:
+                            type: number
+                            description: Anchor x value.
+                          y:
+                            type: number
+                            description: Anchor y value.
+                          normalized:
+                            type: boolean
+                            description: Whether x and y are normalized inside the target control.
+        output:
+          type: object
+          description: Layout write summary.
+          additionalProperties: false
+          required:
+            - revision
+            - updatedControls
+            - updatedConduits
+          propertyOrder:
+            - revision
+            - updatedControls
+            - updatedConduits
+          properties:
+            revision:
+              type: integer
+              description: Saved diagram revision after the layout update.
+            updatedControls:
+              type: integer
+              description: Number of control layout entries applied.
+            updatedConduits:
+              type: integer
+              description: Number of conduit layout entries applied.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: set-diagram-layout
+  ui:
+    info:
+      sections:
+        - title: TARGETING
+          kind: text
+          text: |
+            Set Layout updates the diagram currently open in the desktop client and saves the diagram file. The diagram document at `path` must be the active editor tab.
+        - title: PARTIAL UPDATES
+          kind: text
+          text: |
+            Set Layout applies only the layout entries and fields you send. Top-level input may include `controls`, `conduits`, or both.
+
+            Control entries require `id` plus at least one of `x`, `y`, `width`, or `height`. Omitted control fields stay unchanged.
+
+            Conduit entries require `id` plus at least one of `points`, `fromAnchor`, or `toAnchor`. Omitted conduit fields stay unchanged. `points` replaces the full bend-point array when supplied; use `[]` to clear bend points. Use `null` for `fromAnchor` or `toAnchor` to clear that anchor override.

@@ -131,6 +131,16 @@ var PROVIDER_DEFAULTS = {
     supportsReasoningEffort: true,
     models: []
   },
+  "anthori-provider": {
+    providerKey: "anthori",
+    providerLabel: "Anthori",
+    apiBaseUrl: "http://127.0.0.1:11435/v1",
+    defaultModel: "",
+    defaultMaxContextTokens: 4096,
+    requiresApiKey: false,
+    supportsReasoningEffort: true,
+    models: []
+  },
   "unsloth-studio-provider": {
     providerKey: "unsloth-studio",
     providerLabel: "Unsloth Studio",
@@ -215,6 +225,60 @@ function finiteNumber(value)
 {
   var number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function optionalFiniteNumber(value)
+{
+  if (value === null || value === undefined || trim(value) === "")
+  {
+    return null;
+  }
+  var number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function optionalInteger(value)
+{
+  var number = optionalFiniteNumber(value);
+  return number === null ? null : Math.floor(number);
+}
+
+function firstPayloadNumber(request, settings, keys)
+{
+  for (var i = 0; i < keys.length; i += 1)
+  {
+    var key = keys[i];
+    var value = optionalFiniteNumber(request && request[key]);
+    if (value !== null)
+    {
+      return value;
+    }
+    value = optionalFiniteNumber(settings && settings[key]);
+    if (value !== null)
+    {
+      return value;
+    }
+  }
+  return null;
+}
+
+function firstPayloadInteger(request, settings, keys)
+{
+  for (var i = 0; i < keys.length; i += 1)
+  {
+    var key = keys[i];
+    var value = optionalInteger(request && request[key]);
+    if (value !== null)
+    {
+      return value;
+    }
+    value = optionalInteger(settings && settings[key]);
+    if (value !== null)
+    {
+      return value;
+    }
+  }
+  return null;
 }
 
 function decodeJsonText(text, fallback)
@@ -578,6 +642,25 @@ function normalizeOpenAICompatibleUsage(value)
     result.totalTokens = inputTokens + outputTokens;
   }
   return Object.keys(result).length > 0 ? result : null;
+}
+
+function openAICompatibleCompletedStatus(value)
+{
+  var status = trim(value).toLowerCase();
+  return status === "completed" || status === "complete";
+}
+
+function hasOpenAICompatibleResponsesCompletionSignal(value)
+{
+  if (!value || typeof value !== "object" || Array.isArray(value))
+  {
+    return false;
+  }
+  if (openAICompatibleCompletedStatus(value.status))
+  {
+    return true;
+  }
+  return trim(value.type).toLowerCase() === "response.completed";
 }
 
 function looksLikeSchemaObject(value)
@@ -1863,6 +1946,7 @@ function createOpenAICompatibleSSEState()
     usage: null,
     finishReason: "",
     model: "",
+    completed: false,
     error: ""
   };
 }
@@ -1870,8 +1954,13 @@ function createOpenAICompatibleSSEState()
 function applyOpenAICompatibleSSEPayload(state, payloadText, host, settings)
 {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]")
+  if (payload === "")
   {
+    return;
+  }
+  if (payload === "[DONE]")
+  {
+    state.completed = true;
     return;
   }
   var event = decodeJsonText(payload, null);
@@ -1900,6 +1989,7 @@ function applyOpenAICompatibleSSEPayload(state, payloadText, host, settings)
   if (trim(first && first.finish_reason) !== "")
   {
     state.finishReason = trim(first.finish_reason);
+    state.completed = true;
   }
   var delta = first && first.delta && typeof first.delta === "object" ? first.delta : null;
   if (!delta)
@@ -2366,6 +2456,7 @@ function createResponsesSSEState()
     finishReason: "",
     model: "",
     responseId: "",
+    completed: false,
     error: ""
   };
 }
@@ -2373,8 +2464,13 @@ function createResponsesSSEState()
 function applyResponsesSSEPayload(state, payloadText, host, settings)
 {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]")
+  if (payload === "")
   {
+    return;
+  }
+  if (payload === "[DONE]")
+  {
+    state.completed = true;
     return;
   }
   var event = decodeJsonText(payload, null);
@@ -2396,6 +2492,7 @@ function applyResponsesSSEPayload(state, payloadText, host, settings)
     if (trim(event.response.id) !== "") state.responseId = trim(event.response.id);
     if (trim(event.response.model) !== "") state.model = trim(event.response.model);
     if (trim(event.response.status) !== "") state.finishReason = trim(event.response.status);
+    if (hasOpenAICompatibleResponsesCompletionSignal(event.response)) state.completed = true;
   }
   if (trim(event.id) !== "") state.responseId = trim(event.id);
   var textEvent = readResponsesOutputTextEvent(event);
@@ -2431,6 +2528,7 @@ function applyResponsesSSEPayload(state, payloadText, host, settings)
   mergeResponsesToolCallEvent(state.toolCallAccumulator, event);
   if (trim(event.type) === "response.completed" && event.response && typeof event.response === "object")
   {
+    state.completed = true;
     state.toolCalls = collectResponsesToolCalls(event.response);
     state.reasoningItems = collectResponsesReasoningItems(event.response);
     state.usage = normalizeOpenAICompatibleUsage(event.response.usage || event.response);
@@ -2521,6 +2619,40 @@ function resolveModel(settings, request)
   return trim(settings && settings.defaultModel);
 }
 
+function applySamplingPayload(payload, settings, request)
+{
+  var seed = firstPayloadInteger(request, settings, ["seed"]);
+  var topK = firstPayloadInteger(request, settings, ["topK", "top_k"]);
+  var topP = firstPayloadNumber(request, settings, ["topP", "top_p"]);
+  var minP = firstPayloadNumber(request, settings, ["minP", "min_p"]);
+  var presencePenalty = firstPayloadNumber(request, settings, ["presencePenalty", "presence_penalty"]);
+  var repeatPenalty = firstPayloadNumber(request, settings, ["repeatPenalty", "repeat_penalty"]);
+  if (seed !== null)
+  {
+    payload.seed = seed;
+  }
+  if (topK !== null)
+  {
+    payload.top_k = topK;
+  }
+  if (topP !== null)
+  {
+    payload.top_p = topP;
+  }
+  if (minP !== null)
+  {
+    payload.min_p = minP;
+  }
+  if (presencePenalty !== null)
+  {
+    payload.presence_penalty = presencePenalty;
+  }
+  if (repeatPenalty !== null)
+  {
+    payload.repeat_penalty = repeatPenalty;
+  }
+}
+
 function buildChatPayload(settings, request, host, includeStreamOptions)
 {
   var model = resolveModel(settings, request);
@@ -2556,6 +2688,7 @@ function buildChatPayload(settings, request, host, includeStreamOptions)
   {
     payload.reasoning_split = true;
   }
+  applySamplingPayload(payload, settings || {}, request || {});
   return payload;
 }
 
@@ -2618,6 +2751,7 @@ function buildResponsesPayload(settings, request, host, model)
   {
     payload.reasoning = { effort: reasoning };
   }
+  applySamplingPayload(payload, settings || {}, request || {});
   return payload;
 }
 
@@ -2672,7 +2806,8 @@ function extractResponsesOutputFromJSONBody(body, settings)
     usage: normalizeOpenAICompatibleUsage(response.usage || parsed.usage || response),
     finishReason: trim(response.status),
     model: trim(response.model),
-    responseId: trim(response.id)
+    responseId: trim(response.id),
+    completed: hasOpenAICompatibleResponsesCompletionSignal(response) || hasOpenAICompatibleResponsesCompletionSignal(parsed)
   };
 }
 
@@ -2712,7 +2847,8 @@ function extractOutputFromJSONBody(body, settings)
     toolCalls: toolCalls,
     usage: normalizeOpenAICompatibleUsage(parsed.usage),
     finishReason: finishReason,
-    model: trim(parsed.model)
+    model: trim(parsed.model),
+    completed: finishReason !== ""
   };
 }
 
@@ -2784,6 +2920,7 @@ function handleRespond(input, host)
     var responsesUsage = normalizeOpenAICompatibleUsage(streamedResponses.state.usage);
     var responsesFinishReason = trim(streamedResponses.state.finishReason);
     var responsesModel = trim(streamedResponses.state.model);
+    var responsesCompleted = streamedResponses.state.completed === true;
     if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0 && streamedResponses.rawBody.indexOf("data:") === -1)
     {
       var extractedResponses = extractResponsesOutputFromJSONBody(streamedResponses.rawBody || (responsesResponse && responsesResponse.body), settings);
@@ -2798,8 +2935,9 @@ function handleRespond(input, host)
       responsesUsage = normalizeOpenAICompatibleUsage(extractedResponses.usage);
       responsesFinishReason = trim(extractedResponses.finishReason);
       responsesModel = trim(extractedResponses.model);
+      responsesCompleted = responsesCompleted || extractedResponses.completed === true;
     }
-    if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0)
+    if (responsesText === "" && responsesReasoningText === "" && responsesToolCalls.length === 0 && !responsesCompleted)
     {
       return runtimeError(settings.providerLabel + " response did not include text, reasoning, or tool calls");
     }
@@ -2830,6 +2968,7 @@ function handleRespond(input, host)
   var usage = normalizeOpenAICompatibleUsage(streamed.state.usage);
   var finishReason = streamed.state.finishReason;
   var responseModel = streamed.state.model;
+  var completed = streamed.state.completed === true;
 
   if (text === "" && reasoningText === "" && toolCalls.length === 0 && streamed.rawBody.indexOf("data:") === -1)
   {
@@ -2845,9 +2984,10 @@ function handleRespond(input, host)
     usage = normalizeOpenAICompatibleUsage(extracted.usage);
     finishReason = trim(extracted.finishReason);
     responseModel = trim(extracted.model);
+    completed = completed || extracted.completed === true;
   }
 
-  if (text === "" && reasoningText === "" && toolCalls.length === 0)
+  if (text === "" && reasoningText === "" && toolCalls.length === 0 && !completed)
   {
     return runtimeError(settings.providerLabel + " response did not include text, reasoning, or tool calls");
   }

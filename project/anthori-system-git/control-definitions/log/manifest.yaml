@@ -1,0 +1,67 @@
+format: 1
+id: log
+name: Log
+description: Reads commit history.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Log
+        description: Reads recent commits as structured rows.
+        input:
+          type: object
+          description: Log request.
+          propertyOrder: [ref, maxCount, paths]
+          properties:
+            ref:
+              type: string
+              description: Optional revision or branch to read from.
+            maxCount:
+              type: number
+              default: 20
+              description: Maximum commits to return.
+            paths:
+              type: array
+              description: Optional pathspecs.
+              items:
+                type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [commits]
+          properties:
+            commits:
+              type: array
+              items:
+                type: object
+                required: [hash, shortHash, authorName, authorEmail, authoredAt, subject, body]
+                properties:
+                  hash:
+                    type: string
+                  shortHash:
+                    type: string
+                  authorName:
+                    type: string
+                  authorEmail:
+                    type: string
+                  authoredAt:
+                    type: string
+                  subject:
+                    type: string
+                  body:
+                    type: string
+                additionalProperties: false
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: log
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git log
+          reason: Inspect repository history.

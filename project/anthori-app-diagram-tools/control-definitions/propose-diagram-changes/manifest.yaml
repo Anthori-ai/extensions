@@ -1,0 +1,88 @@
+format: 1
+id: propose-diagram-changes
+name: Propose
+description: Proposes changes to a diagram document for a later update pass by another agent.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Propose Diagram Changes
+        description: Append a freeform proposal to a workspace-relative diagram document. This records what should change; it does not create, update, delete, or lay out diagram controls.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - body
+          propertyOrder:
+            - path
+            - title
+            - body
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram path, such as Game.diagram/diagram.yaml.
+            title:
+              type: string
+              description: Optional short proposal title. If omitted, the first non-empty body line is used.
+            body:
+              type: string
+              description: Freeform markdown proposal or instructions for a future diagram editing pass.
+        output:
+          type: object
+          description: Saved proposal with path, revision, and proposal metadata.
+          additionalProperties: false
+          required:
+            - path
+            - revision
+            - proposal
+          propertyOrder:
+            - path
+            - revision
+            - proposal
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            revision:
+              type: integer
+              description: Saved diagram revision after appending the proposal.
+            proposal:
+              type: object
+              description: Stored proposal metadata.
+              additionalProperties: false
+              required:
+                - id
+                - body
+                - status
+                - createdAt
+              propertyOrder:
+                - id
+                - title
+                - body
+                - status
+                - createdAt
+              properties:
+                id:
+                  type: string
+                  description: Proposal id.
+                title:
+                  type: string
+                  description: Proposal title when present.
+                body:
+                  type: string
+                  description: Freeform proposal body.
+                status:
+                  type: string
+                  description: Proposal status.
+                createdAt:
+                  type: string
+                  description: Proposal creation timestamp.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: propose-diagram-changes

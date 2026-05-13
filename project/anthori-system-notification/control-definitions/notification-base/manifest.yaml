@@ -1,0 +1,12 @@
+format: 1
+id: notification-base
+name: Notification Base
+description: Hidden shared base for notification controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: system/notification
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-notification-runtime

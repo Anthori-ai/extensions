@@ -1787,14 +1787,36 @@ function isPatchOperationHeader(line) {
   return line.startsWith("~Add: ") ||
     line.startsWith("~Delete: ") ||
     line.startsWith("~Update: ") ||
-    line.startsWith("~Move: ");
+    line.startsWith("~Move: ") ||
+    line.startsWith("*** Add File: ") ||
+    line.startsWith("*** Delete File: ") ||
+    line.startsWith("*** Update File: ");
+}
+
+function isPatchBeginMarker(line) {
+  return line === "*** Begin Patch";
+}
+
+function isPatchEndMarker(line) {
+  return line === "*** End Patch";
+}
+
+function isPatchBoundaryLine(line) {
+  return isPatchOperationHeader(line) || isPatchEndMarker(line);
+}
+
+function hasNonEmptyPatchLinesAfter(lines, index) {
+  for (let i = index + 1; i < lines.length; i += 1) {
+    if (lines[i] !== "") return true;
+  }
+  return false;
 }
 
 function isPatchSectionSeparator(lines, index) {
   if (lines[index] !== "") return false;
   for (let i = index + 1; i < lines.length; i += 1) {
     if (lines[i] === "") continue;
-    return isPatchOperationHeader(lines[i]);
+    return isPatchBoundaryLine(lines[i]);
   }
   return true;
 }
@@ -1815,12 +1837,27 @@ function parsePatchMoveHeader(text) {
   };
 }
 
-function parsePatchChunks(lines, index) {
+function parseOpenAIMoveToHeader(line) {
+  if (!line.startsWith("*** Move to: ")) return "";
+  return normalizePatchPath(line.slice("*** Move to: ".length));
+}
+
+function parsePatchOptionalMoveTo(lines, index) {
+  if (index >= lines.length) return { movePath: "", index: index };
+  return {
+    movePath: parseOpenAIMoveToHeader(lines[index]),
+    index: lines[index].startsWith("*** Move to: ") ? index + 1 : index,
+  };
+}
+
+function parsePatchChunks(lines, index, options) {
   const chunks = [];
   let current = [];
   let inChunk = false;
+  const allowImplicitFirstChunk = options && options.allowImplicitFirstChunk === true;
   while (index < lines.length && !isPatchOperationHeader(lines[index])) {
     const patchLine = lines[index];
+    if (isPatchEndMarker(patchLine)) break;
     if (isPatchSectionSeparator(lines, index)) break;
     if (patchLine.startsWith("@@")) {
       if (current.length > 0) {
@@ -1839,7 +1876,10 @@ function parsePatchChunks(lines, index) {
     if (marker !== " " && marker !== "-" && marker !== "+") {
       throw new Error("update lines must start with space, -, +, or @@");
     }
-    if (!inChunk) throw new Error("update chunks must start with @@");
+    if (!inChunk) {
+      if (!allowImplicitFirstChunk) throw new Error("update chunks must start with @@");
+      inChunk = true;
+    }
     current.push({ type: marker, text: patchLine.slice(1) });
     index += 1;
   }
@@ -1857,11 +1897,20 @@ function parseAnthoriPatch(text) {
       index += 1;
       continue;
     }
+    if (isPatchBeginMarker(line)) {
+      if (operations.length > 0) throw new Error("unexpected *** Begin Patch after patch operations");
+      index += 1;
+      continue;
+    }
+    if (isPatchEndMarker(line)) {
+      if (hasNonEmptyPatchLinesAfter(lines, index)) throw new Error("unexpected patch content after *** End Patch");
+      break;
+    }
     if (line.startsWith("~Add: ")) {
       const path = normalizePatchPath(line.slice("~Add: ".length));
       index += 1;
       const content = [];
-      while (index < lines.length && !isPatchOperationHeader(lines[index])) {
+      while (index < lines.length && !isPatchBoundaryLine(lines[index])) {
         const contentLine = lines[index];
         if (isPatchSectionSeparator(lines, index)) break;
         if (!contentLine.startsWith("+")) throw new Error("add file lines must start with +");
@@ -1883,10 +1932,12 @@ function parseAnthoriPatch(text) {
     if (line.startsWith("~Update: ")) {
       const path = normalizePatchPath(line.slice("~Update: ".length));
       index += 1;
+      const move = parsePatchOptionalMoveTo(lines, index);
+      index = move.index;
       const parsed = parsePatchChunks(lines, index);
       index = parsed.index;
-      if (parsed.chunks.length === 0) throw new Error("update file requires changes");
-      operations.push({ type: "update", path: path, movePath: "", chunks: parsed.chunks });
+      if (parsed.chunks.length === 0 && !move.movePath) throw new Error("update file requires changes");
+      operations.push({ type: "update", path: path, movePath: move.movePath, chunks: parsed.chunks });
       continue;
     }
     if (line.startsWith("~Move: ")) {
@@ -1896,6 +1947,43 @@ function parseAnthoriPatch(text) {
       index = parsed.index;
       operations.push({ type: "update", path: move.path, movePath: move.movePath, chunks: parsed.chunks });
       continue;
+    }
+    if (line.startsWith("*** Add File: ")) {
+      const path = normalizePatchPath(line.slice("*** Add File: ".length));
+      index += 1;
+      const content = [];
+      while (index < lines.length && !isPatchBoundaryLine(lines[index])) {
+        const contentLine = lines[index];
+        if (isPatchSectionSeparator(lines, index)) break;
+        if (!contentLine.startsWith("+")) throw new Error("add file lines must start with +");
+        content.push(contentLine.slice(1));
+        index += 1;
+      }
+      if (content.length === 0) throw new Error("add file requires content lines");
+      operations.push({ type: "add", path: path, content: content.join("\n") + "\n" });
+      continue;
+    }
+    if (line.startsWith("*** Delete File: ")) {
+      operations.push({
+        type: "delete",
+        path: normalizePatchPath(line.slice("*** Delete File: ".length)),
+      });
+      index += 1;
+      continue;
+    }
+    if (line.startsWith("*** Update File: ")) {
+      const path = normalizePatchPath(line.slice("*** Update File: ".length));
+      index += 1;
+      const move = parsePatchOptionalMoveTo(lines, index);
+      index = move.index;
+      const parsed = parsePatchChunks(lines, index, { allowImplicitFirstChunk: true });
+      index = parsed.index;
+      if (parsed.chunks.length === 0 && !move.movePath) throw new Error("update file requires changes");
+      operations.push({ type: "update", path: path, movePath: move.movePath, chunks: parsed.chunks });
+      continue;
+    }
+    if (line.startsWith("*** Move to: ")) {
+      throw new Error("*** Move to must follow an update file header");
     }
     throw new Error("invalid patch line: " + line);
   }

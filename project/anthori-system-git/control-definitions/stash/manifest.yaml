@@ -1,0 +1,107 @@
+format: 1
+id: stash
+name: Stash
+description: Manages stashes.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Stash
+        description: Lists, creates, applies, pops, or drops stashes.
+        input:
+          description: Stash request.
+          anyOf:
+            - type: object
+              description: List stashes.
+              propertyOrder: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [list]
+                  default: list
+              additionalProperties: false
+            - type: object
+              description: Push a stash.
+              required: [mode]
+              propertyOrder: [mode, message, includeUntracked, paths]
+              properties:
+                mode:
+                  type: string
+                  enum: [push]
+                message:
+                  type: string
+                includeUntracked:
+                  type: boolean
+                paths:
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+            - type: object
+              description: Apply, pop, or drop a stash.
+              required: [mode]
+              propertyOrder: [mode, ref]
+              properties:
+                mode:
+                  type: string
+                  enum: [apply, pop, drop]
+                ref:
+                  type: string
+                  description: Optional stash ref.
+              additionalProperties: false
+        output:
+          description: Stash result.
+          anyOf:
+            - type: object
+              required: [mode, stashes]
+              properties:
+                mode:
+                  type: string
+                  enum: [list]
+                stashes:
+                  type: array
+                  items:
+                    type: object
+                    required: [ref, hash, message]
+                    properties:
+                      ref:
+                        type: string
+                      hash:
+                        type: string
+                      message:
+                        type: string
+                    additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [mode, output]
+              properties:
+                mode:
+                  type: string
+                  enum: [push]
+                output:
+                  type: string
+              additionalProperties: false
+            - type: object
+              required: [mode, ref, output]
+              properties:
+                mode:
+                  type: string
+                  enum: [apply, pop, drop]
+                ref:
+                  type: string
+                output:
+                  type: string
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: stash
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git stash
+          reason: Inspect or update Git stash state.

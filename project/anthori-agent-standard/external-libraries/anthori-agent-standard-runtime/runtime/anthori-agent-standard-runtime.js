@@ -1485,7 +1485,132 @@ function agentContextControl(payload, host) {
   }
 }
 
+function cloneAgentStorageInput(payload) {
+  if (!payload || !Object.prototype.hasOwnProperty.call(payload, "input") || payload.input == null) {
+    return {};
+  }
+  return ensureObject(payload.input, "clone storage input must be an object");
+}
+
+function cloneAgentStorageKind(input) {
+  const kind = normalizeString(input.kind).toLowerCase() || "context";
+  if (kind === "context" || kind === "raw") return kind;
+  throw new Error('clone storage kind must be "context" or "raw"');
+}
+
+function cloneAgentStorageObject(value, fallback, label) {
+  if (value == null) return clone(fallback);
+  if (isObject(value)) return clone(value);
+  throw new Error(label + " must be an object");
+}
+
+function cloneAgentStorageOrderBy(value) {
+  if (value == null) return [{ field: "id", direction: "asc" }];
+  if (Array.isArray(value)) return clone(value);
+  throw new Error("clone storage orderBy must be an array");
+}
+
+function setCloneAgentStorageNumber(target, source, key) {
+  if (!Object.prototype.hasOwnProperty.call(source, key) || source[key] == null) return;
+  const value = Number(source[key]);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error("clone storage " + key + " must be a non-negative number");
+  }
+  target[key] = value;
+}
+
+function cloneAgentStorageOutputRows(output) {
+  if (Array.isArray(output)) return output;
+  if (Array.isArray(output && output.rows)) return output.rows;
+  return [];
+}
+
+function cloneAgentStorageRowsForInsert(kind, rows) {
+  if (kind === "context") {
+    return rows.filter(isObject).map(clone);
+  }
+  return rows
+    .map((entry) => isObject(entry && entry.row) ? entry.row : entry)
+    .filter(isObject)
+    .map(clone);
+}
+
+function cloneAgentStorageRowID(row) {
+  const id = Number(row && row.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error("clone storage target row is missing id");
+  }
+  return id;
+}
+
+function clearCloneAgentStorageTarget(config, host) {
+  const selected = invokeConfiguredControl(config, "targetStorage", {
+    action: "select",
+    kind: "raw",
+    where: {},
+    orderBy: [{ field: "id", direction: "asc" }],
+  }, host, "targetStorage");
+  const rows = cloneAgentStorageOutputRows(selected);
+  let deleted = 0;
+  for (const row of rows) {
+    const result = invokeConfiguredControl(config, "targetStorage", {
+      action: "delete",
+      where: { id: cloneAgentStorageRowID(row) },
+    }, host, "targetStorage");
+    const count = Number(result && result.rowsAffected);
+    if (Number.isFinite(count) && count > 0) deleted += count;
+  }
+  return deleted;
+}
+
+function cloneAgentStorageControl(payload, host) {
+  const config = payload.config || {};
+  const input = cloneAgentStorageInput(payload);
+  try {
+    const kind = cloneAgentStorageKind(input);
+    const clearTarget = input.clearTarget !== false;
+    const selectInput = {
+      action: "select",
+      kind: kind,
+      where: cloneAgentStorageObject(input.where, {}, "clone storage where"),
+      orderBy: cloneAgentStorageOrderBy(input.orderBy),
+    };
+    setCloneAgentStorageNumber(selectInput, input, "limit");
+    setCloneAgentStorageNumber(selectInput, input, "maxChars");
+
+    const selectedOutput = invokeConfiguredControl(config, "sourceStorage", selectInput, host, "sourceStorage");
+    const rows = cloneAgentStorageRowsForInsert(kind, cloneAgentStorageOutputRows(selectedOutput));
+    let targetDeleted;
+    let ids = [];
+
+    if (clearTarget) {
+      targetDeleted = clearCloneAgentStorageTarget(config, host);
+    }
+
+    if (rows.length > 0) {
+      const inserted = invokeConfiguredControl(config, "targetStorage", {
+        action: "insertAll",
+        rows: rows,
+      }, host, "targetStorage");
+      ids = Array.isArray(inserted && inserted.ids) ? inserted.ids.map((id) => Number(id)).filter(Number.isFinite) : [];
+    }
+
+    const result = {
+      ok: true,
+      kind: kind,
+      copied: rows.length,
+      cleared: clearTarget,
+    };
+    if (clearTarget) result.targetDeleted = targetDeleted;
+    if (ids.length > 0) result.ids = ids;
+    return wrapValue(result);
+  } catch (error) {
+    return wrapError(normalizeString(error && error.message) || String(error));
+  }
+}
+
 module.exports = {
   "agent-storage-control": agentStorageControl,
   "agent-context-control": agentContextControl,
+  "clone-agent-storage-control": cloneAgentStorageControl,
 };

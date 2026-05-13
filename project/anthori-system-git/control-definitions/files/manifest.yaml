@@ -1,0 +1,56 @@
+format: 1
+id: files
+name: Files
+description: Lists repository files.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Files
+        description: Lists tracked, untracked, modified, or deleted repository files.
+        input:
+          type: object
+          description: Files request.
+          propertyOrder: [paths, tracked, untracked, modified, deleted]
+          properties:
+            paths:
+              type: array
+              description: Optional pathspecs.
+              items:
+                type: string
+            tracked:
+              type: boolean
+              default: true
+              description: Include tracked files.
+            untracked:
+              type: boolean
+              description: Include untracked files.
+            modified:
+              type: boolean
+              description: Include modified files.
+            deleted:
+              type: boolean
+              description: Include deleted files.
+          additionalProperties: false
+        output:
+          type: object
+          required: [files]
+          properties:
+            files:
+              type: array
+              items:
+                type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: files
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git ls-files
+          reason: Inspect repository files.

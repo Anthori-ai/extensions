@@ -1,0 +1,91 @@
+format: 1
+id: update-diagram-control
+name: Update Control
+description: Updates a control in a diagram document.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Update Diagram Control
+        description: Partially update a diagram control. Config and editor objects are merged; null values remove keys. References and children replace their full lists.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - controlId
+          propertyOrder:
+            - path
+            - controlId
+            - title
+            - description
+            - config
+            - editor
+            - references
+            - size
+            - children
+            - editorScripts
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            controlId:
+              type: string
+              description: Control id.
+            title:
+              type: string
+              description: New control title.
+            description:
+              type: string
+              description: New control description. Use an empty string or null to clear it.
+            config:
+              type: object
+              description: Partial config merge. Null values remove keys.
+            editor:
+              type: object
+              description: Partial editor metadata merge. Null values remove keys.
+            references:
+              type: array
+              description: Replacement references with path, label, and description.
+              items:
+                type: object
+            size:
+              type: object
+              additionalProperties: false
+              description: Replacement control size. Use null to clear it.
+              properties:
+                width:
+                  type: integer
+                  description: Control width.
+                height:
+                  type: integer
+                  description: Control height.
+            children:
+              type: array
+              description: Replacement nested child controls. Screen controls use children for positioned inner controls.
+              items:
+                type: object
+            editorScripts:
+              type: array
+              description: Replacement editor scripts.
+              items:
+                type: object
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+control:
+  visible: true
+  libraryPath: app/diagram/control
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-diagram-control

@@ -1,0 +1,308 @@
+format: 1
+id: review-diagram
+name: Review
+description: Reads a diagram document in a content-focused format for review.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Review Diagram
+        description: Read a workspace-relative diagram document without canvas layout coordinates. Returns semantic control content, nested child controls, basic conduit relationships, proposals, modified timestamps, and the current date.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+          propertyOrder:
+            - path
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram path, such as Game.diagram/diagram.yaml.
+        output:
+          type: object
+          description: Content-focused diagram review with path, packagePath, title, revision, modifiedAt, currentDate, controls, conduits, and proposals.
+          additionalProperties: false
+          required:
+            - path
+            - packagePath
+            - title
+            - revision
+            - currentDate
+            - controls
+          propertyOrder:
+            - path
+            - packagePath
+            - title
+            - revision
+            - modifiedAt
+            - currentDate
+            - controls
+            - conduits
+            - proposals
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            packagePath:
+              type: string
+              description: Workspace-relative diagram package path.
+            title:
+              type: string
+              description: Diagram title.
+            revision:
+              type: integer
+              description: Diagram document revision.
+            modifiedAt:
+              type: string
+              description: Host-maintained diagram modified timestamp when present.
+            currentDate:
+              type: string
+              description: Current host timestamp for freshness comparisons.
+            controls:
+              type: array
+              description: Content-focused diagram controls without canvas layout coordinates.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - type
+                  - title
+                propertyOrder:
+                  - id
+                  - type
+                  - definition
+                  - title
+                  - description
+                  - modifiedAt
+                  - size
+                  - fields
+                  - refs
+                  - children
+                properties:
+                  id:
+                    type: string
+                    description: Diagram control id.
+                  type:
+                    type: string
+                    description: Diagram control structural type.
+                  definition:
+                    type: string
+                    description: Diagram control definition id when backed by a diagram control definition.
+                  title:
+                    type: string
+                    description: Diagram control title.
+                  description:
+                    type: string
+                    description: Inspector description for the diagram control when present.
+                  modifiedAt:
+                    type: string
+                    description: Host-maintained control modified timestamp when present.
+                  size:
+                    type: object
+                    additionalProperties: false
+                    description: Control size when meaningful for nested or embedded controls.
+                    properties:
+                      width:
+                        type: integer
+                        description: Control width.
+                      height:
+                        type: integer
+                        description: Control height.
+                  fields:
+                    type: object
+                    additionalProperties: true
+                    description: Control-specific semantic fields, excluding controlRef.
+                  refs:
+                    type: array
+                    description: Workspace, diagram, or source references attached to the control.
+                    items:
+                      type: object
+                      additionalProperties: false
+                      propertyOrder:
+                        - path
+                        - label
+                        - description
+                      properties:
+                        path:
+                          type: string
+                          description: Referenced workspace or diagram path.
+                        label:
+                          type: string
+                          description: Human-readable reference label.
+                        description:
+                          type: string
+                          description: Reference description.
+                  children:
+                    type: array
+                    description: Nested child controls, such as positioned controls inside a Screen.
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required:
+                        - id
+                        - type
+                        - title
+                      propertyOrder:
+                        - id
+                        - type
+                        - definition
+                        - title
+                        - description
+                        - modifiedAt
+                        - size
+                        - fields
+                        - refs
+                      properties:
+                        id:
+                          type: string
+                          description: Child control id.
+                        type:
+                          type: string
+                          description: Child control structural type.
+                        definition:
+                          type: string
+                          description: Child control definition id when backed by a diagram control definition.
+                        title:
+                          type: string
+                          description: Child control title.
+                        description:
+                          type: string
+                          description: Child control description when present.
+                        modifiedAt:
+                          type: string
+                          description: Host-maintained child control modified timestamp when present.
+                        size:
+                          type: object
+                          additionalProperties: false
+                          description: Child control size when present.
+                          properties:
+                            width:
+                              type: integer
+                              description: Child control width.
+                            height:
+                              type: integer
+                              description: Child control height.
+                        fields:
+                          type: object
+                          additionalProperties: true
+                          description: Child control semantic fields, excluding controlRef.
+                        refs:
+                          type: array
+                          description: References attached to the child control.
+                          items:
+                            type: object
+                            additionalProperties: false
+                            propertyOrder:
+                              - path
+                              - label
+                              - description
+                            properties:
+                              path:
+                                type: string
+                                description: Referenced workspace or diagram path.
+                              label:
+                                type: string
+                                description: Human-readable reference label.
+                              description:
+                                type: string
+                                description: Reference description.
+            conduits:
+              type: array
+              description: Basic relationships between diagram controls without layout geometry.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - fromControlId
+                  - toControlId
+                propertyOrder:
+                  - id
+                  - fromControlId
+                  - toControlId
+                  - role
+                  - colorId
+                  - hidden
+                  - refs
+                properties:
+                  id:
+                    type: string
+                    description: Diagram conduit id.
+                  fromControlId:
+                    type: string
+                    description: Source diagram control id.
+                  toControlId:
+                    type: string
+                    description: Target diagram control id.
+                  role:
+                    type: string
+                    description: Semantic relationship role when present.
+                  colorId:
+                    type: string
+                    description: Conduit color id when present.
+                  hidden:
+                    type: boolean
+                    description: Whether the conduit is hidden in the diagram editor.
+                  refs:
+                    type: array
+                    description: References attached to the conduit.
+                    items:
+                      type: object
+                      additionalProperties: false
+                      propertyOrder:
+                        - path
+                        - label
+                        - description
+                      properties:
+                        path:
+                          type: string
+                          description: Referenced workspace or diagram path.
+                        label:
+                          type: string
+                          description: Human-readable reference label.
+                        description:
+                          type: string
+                          description: Reference description.
+            proposals:
+              type: array
+              description: Stored freeform diagram proposal notes.
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                  - id
+                  - body
+                  - status
+                  - createdAt
+                propertyOrder:
+                  - id
+                  - title
+                  - body
+                  - status
+                  - createdAt
+                properties:
+                  id:
+                    type: string
+                    description: Proposal id.
+                  title:
+                    type: string
+                    description: Proposal title when present.
+                  body:
+                    type: string
+                    description: Freeform proposal body.
+                  status:
+                    type: string
+                    description: Proposal status.
+                  createdAt:
+                    type: string
+                    description: Proposal creation timestamp.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: review-diagram

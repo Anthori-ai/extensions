@@ -1,0 +1,89 @@
+format: 1
+id: update-diagram
+name: Update
+description: Updates diagram-level fields and stored proposal notes.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: title
+        name: Title
+        description: Update a diagram title.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - title
+          propertyOrder:
+            - path
+            - title
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            title:
+              type: string
+              description: New diagram title.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+      - id: proposal
+        name: Proposal
+        description: Update a diagram proposal's title, body, or status, or delete the proposal. This does not apply proposed diagram edits.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - proposalId
+          propertyOrder:
+            - path
+            - proposalId
+            - title
+            - body
+            - status
+            - delete
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            proposalId:
+              type: string
+              description: Proposal id returned by Review Diagram, Read Diagram, or Propose Diagram Changes.
+            title:
+              type: string
+              description: Optional replacement proposal title.
+            body:
+              type: string
+              description: Optional replacement proposal body.
+            status:
+              type: string
+              enum:
+                - open
+                - accepted
+                - applied
+                - rejected
+                - onHold
+              description: Optional replacement proposal status.
+            delete:
+              type: boolean
+              description: Delete this proposal. Cannot be combined with title, body, or status.
+        output:
+          type: object
+          description: Saved proposal update with path, revision, proposal, or deleted:true.
+control:
+  visible: true
+  libraryPath: app/diagram
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-diagram

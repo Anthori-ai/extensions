@@ -1,0 +1,85 @@
+format: 1
+id: create-diagram-conduit
+name: Create Conduit
+description: Creates a conduit between diagram controls.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Create Diagram Conduit
+        description: Add a visual connection between two diagram controls.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - fromControlId
+            - toControlId
+          propertyOrder:
+            - path
+            - fromControlId
+            - toControlId
+            - id
+            - colorId
+            - hidden
+            - points
+            - fromAnchor
+            - toAnchor
+            - references
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            fromControlId:
+              type: string
+              description: Source control id.
+            toControlId:
+              type: string
+              description: Target control id.
+            id:
+              type: string
+              description: Optional conduit id. Omit to generate one.
+            colorId:
+              type: string
+              description: Optional conduit color id.
+            hidden:
+              type: boolean
+              description: Whether the conduit is hidden.
+            points:
+              type: array
+              description: Optional bend points.
+              items:
+                type: object
+            fromAnchor:
+              type: object
+              description: Optional source anchor.
+            toAnchor:
+              type: object
+              description: Optional target anchor.
+            references:
+              type: array
+              description: Optional references with path, label, and description.
+              items:
+                type: object
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+            - conduitId
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+            conduitId:
+              type: string
+control:
+  visible: true
+  libraryPath: app/diagram/conduit
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: create-diagram-conduit

@@ -1,0 +1,37 @@
+format: 1
+id: anthori-llama-runtime
+name: Llama Runtime
+description: Manages llama.cpp runtimes and GGUF models for the Llama app extension.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/anthori-llama-runtime.js
+timeoutSeconds: 600
+native:
+  command: native/llama-helper.sh
+  commandWindows: native/llama-helper.cmd
+  timeoutSeconds: 600
+actions:
+  - id: models-list
+    name: List Models
+  - id: models-download
+    name: Download Model
+  - id: models-download-status
+    name: Download Status
+  - id: runtimes-list
+    name: List Runtimes
+  - id: runtimes-check-updates
+    name: Check Runtime Updates
+  - id: runtimes-install
+    name: Install Runtime
+  - id: runtimes-remove
+    name: Remove Runtime
+  - id: hardware-info
+    name: Hardware Info
+  - id: runtime-status
+    name: Runtime Status
+  - id: runtime-start
+    name: Start Runtime
+  - id: runtime-stop
+    name: Stop Runtime

@@ -1,0 +1,63 @@
+format: 1
+id: commit
+name: Commit
+description: Creates commits.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Commit
+        description: Creates a Git commit. Provide `paths` to stage selected paths first, `all` to commit tracked changes, or neither to commit already staged changes.
+        input:
+          type: object
+          required: [message]
+          propertyOrder: [message, description, paths, all]
+          properties:
+            message:
+              type: string
+              description: Commit subject.
+            description:
+              type: string
+              description: Optional commit body.
+            paths:
+              type: array
+              description: Optional paths to stage before committing.
+              items:
+                type: string
+            all:
+              type: boolean
+              description: Commit all tracked changes.
+          additionalProperties: false
+        output:
+          type: object
+          description: Commit result.
+          required: [output]
+          properties:
+            output:
+              type: string
+            shortHash:
+              type: string
+            subject:
+              type: string
+            paths:
+              type: array
+              items:
+                type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: commit
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git add
+          reason: Stage selected paths before committing.
+        - capability: exec
+          access: [run]
+          scope: git commit
+          reason: Create Git commits.

@@ -28,14 +28,22 @@ contracts:
                 additionalProperties: false
                 required:
                   - parentChannel
+                  - parentStream
                   - childChannel
+                  - childStream
                 properties:
                   parentChannel:
                     type: string
                     description: Parent runtime channel id to bind from.
+                  parentStream:
+                    type: string
+                    description: Parent runtime stream id to bind from.
                   childChannel:
                     type: string
                     description: Child runtime channel id to bind to.
+                  childStream:
+                    type: string
+                    description: Child runtime stream id to bind to.
             arguments:
               type: object
               description: Optional argument object passed into the child runtime.
@@ -120,7 +128,9 @@ control:
         rows: 6
         placeholder: |
           - parentChannel: runtime-in
+            parentStream: in
             childChannel: chat
+            childStream: out
       - key: arguments
         label: Arguments
         type: textarea

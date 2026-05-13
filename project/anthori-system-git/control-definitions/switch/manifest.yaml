@@ -1,0 +1,47 @@
+format: 1
+id: switch
+name: Switch
+description: Switches branches.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Switch
+        description: Switches to an existing branch or creates and switches to a new branch.
+        input:
+          type: object
+          required: [branch]
+          propertyOrder: [branch, create, startPoint]
+          properties:
+            branch:
+              type: string
+              description: Branch name.
+            create:
+              type: boolean
+              description: Create the branch before switching.
+            startPoint:
+              type: string
+              description: Optional starting revision when creating.
+          additionalProperties: false
+        output:
+          type: object
+          required: [branch, output]
+          properties:
+            branch:
+              type: string
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: switch
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git switch
+          reason: Switch Git branches.

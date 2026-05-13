@@ -1,0 +1,74 @@
+format: 1
+id: status
+name: Status
+description: Reads repository status.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Status
+        description: Reads current branch and changed file status.
+        input:
+          type: object
+          description: Status request.
+          propertyOrder: [path, includeUntracked]
+          properties:
+            path:
+              type: string
+              description: Optional pathspec to limit status.
+            includeUntracked:
+              type: boolean
+              default: true
+              description: Include untracked files.
+          additionalProperties: false
+        output:
+          type: object
+          description: Structured repository status.
+          required: [clean, files]
+          properties:
+            branch:
+              type: string
+            detached:
+              type: boolean
+            upstream:
+              type: string
+            ahead:
+              type: number
+            behind:
+              type: number
+            commit:
+              type: string
+            clean:
+              type: boolean
+            files:
+              type: array
+              items:
+                type: object
+                required: [path, status, indexStatus, worktreeStatus]
+                properties:
+                  path:
+                    type: string
+                  originalPath:
+                    type: string
+                  status:
+                    type: string
+                    enum: [added, changed, conflicted, copied, deleted, ignored, modified, renamed, untracked]
+                  indexStatus:
+                    type: string
+                  worktreeStatus:
+                    type: string
+                additionalProperties: false
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: status
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git status
+          reason: Inspect repository status.

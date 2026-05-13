@@ -1,0 +1,70 @@
+format: 1
+id: show
+name: Show
+description: Reads a revision or file at a revision.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Show
+        description: Reads a commit/object, or a file's content at a revision.
+        input:
+          description: Show request.
+          anyOf:
+            - type: object
+              description: Read a commit/object.
+              required: [ref]
+              propertyOrder: [ref, stat]
+              properties:
+                ref:
+                  type: string
+                  description: Revision or object to show.
+                stat:
+                  type: boolean
+                  description: Include stat summary.
+              additionalProperties: false
+            - type: object
+              description: Read a file at a revision.
+              required: [ref, path]
+              propertyOrder: [ref, path]
+              properties:
+                ref:
+                  type: string
+                  description: Revision to read from.
+                path:
+                  type: string
+                  description: Repository path at that revision.
+              additionalProperties: false
+        output:
+          anyOf:
+            - type: object
+              required: [ref, text]
+              properties:
+                ref:
+                  type: string
+                text:
+                  type: string
+              additionalProperties: false
+            - type: object
+              required: [ref, path, content]
+              properties:
+                ref:
+                  type: string
+                path:
+                  type: string
+                content:
+                  type: string
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: show
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git show
+          reason: Inspect repository objects or commits.

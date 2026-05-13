@@ -1,0 +1,14 @@
+format: 1
+id: comfyui-provider-runtime
+name: ComfyUI Provider Runtime
+description: Runtime library for ComfyUI image rendering.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/comfyui-provider-runtime.js
+timeoutSeconds: 180
+actions:
+  - id: render-image
+    name: Render Image
+    description: Render an image through a configured ComfyUI server.

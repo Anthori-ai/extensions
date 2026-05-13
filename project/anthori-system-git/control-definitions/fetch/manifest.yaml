@@ -1,0 +1,45 @@
+format: 1
+id: fetch
+name: Fetch
+description: Fetches remotes.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Fetch
+        description: Fetches repository data from remotes.
+        input:
+          type: object
+          propertyOrder: [remote, all, prune]
+          properties:
+            remote:
+              type: string
+              description: Optional remote name.
+            all:
+              type: boolean
+              description: Fetch all remotes.
+            prune:
+              type: boolean
+              default: true
+              description: Prune stale remote-tracking refs.
+          additionalProperties: false
+        output:
+          type: object
+          required: [output]
+          properties:
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: fetch
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git fetch
+          reason: Contact Git remotes and fetch repository data.

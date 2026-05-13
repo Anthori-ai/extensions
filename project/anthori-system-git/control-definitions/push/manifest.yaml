@@ -1,0 +1,50 @@
+format: 1
+id: push
+name: Push
+description: Pushes changes.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Push
+        description: Pushes commits or tags to a remote.
+        input:
+          type: object
+          propertyOrder: [remote, branch, setUpstream, tags, forceWithLease]
+          properties:
+            remote:
+              type: string
+              description: Optional remote name.
+            branch:
+              type: string
+              description: Optional branch name.
+            setUpstream:
+              type: boolean
+              description: Set upstream for the branch.
+            tags:
+              type: boolean
+              description: Push tags.
+            forceWithLease:
+              type: boolean
+              description: Use force-with-lease.
+          additionalProperties: false
+        output:
+          type: object
+          required: [output]
+          properties:
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: push
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git push
+          reason: Contact Git remotes and push repository data.

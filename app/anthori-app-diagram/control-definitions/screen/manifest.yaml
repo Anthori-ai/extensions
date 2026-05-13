@@ -12,7 +12,6 @@ control:
       documentKind: anthori.diagram
     embeddedEditor:
       kind: screen
-      elementsField: elements
     fields:
       - key: route
         label: Route
@@ -44,24 +43,6 @@ control:
         type: text
         placeholder: "#111827"
         helpText: Optional viewport background color used when no image is provided.
-      - key: elements
-        label: Elements
-        type: textarea
-        rows: 10
-        placeholder: |
-          - type: heading
-            label: Dashboard
-            x: 48
-            y: 40
-            w: 240
-            h: 44
-          - type: button
-            label: Save
-            x: 188
-            y: 40
-            w: 140
-            h: 40
-        helpText: Structured list of positioned UI elements maintained by screen edit mode. Each row can use type, label, x, y, w, h, tone, fill, color, src, or items.
       - key: notes
         label: Notes
         type: textarea

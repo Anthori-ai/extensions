@@ -1,0 +1,93 @@
+format: 1
+id: update-diagram-conduit
+name: Update Conduit
+description: Updates a conduit in a diagram document.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Update Diagram Conduit
+        description: Partially update a diagram conduit. Points and references replace their full lists.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - conduitId
+          propertyOrder:
+            - path
+            - conduitId
+            - fromControlId
+            - toControlId
+            - colorId
+            - hidden
+            - points
+            - fromAnchor
+            - toAnchor
+            - references
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            conduitId:
+              type: string
+              description: Conduit id.
+            fromControlId:
+              type: string
+              description: Optional replacement source control id.
+            toControlId:
+              type: string
+              description: Optional replacement target control id.
+            colorId:
+              anyOf:
+                - type: "null"
+                  description: Clear the conduit color id.
+                - type: string
+                  description: Replacement conduit color id.
+              description: Replacement conduit color id. Use null to clear.
+            hidden:
+              type: boolean
+              description: Hidden state.
+            points:
+              type: array
+              description: Replacement bend points.
+              items:
+                type: object
+            fromAnchor:
+              anyOf:
+                - type: "null"
+                  description: Clear the source anchor.
+                - type: object
+                  description: Replacement source anchor.
+              description: Replacement source anchor. Use null to clear.
+            toAnchor:
+              anyOf:
+                - type: "null"
+                  description: Clear the target anchor.
+                - type: object
+                  description: Replacement target anchor.
+              description: Replacement target anchor. Use null to clear.
+            references:
+              type: array
+              description: Replacement references with path, label, and description.
+              items:
+                type: object
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+control:
+  visible: true
+  libraryPath: app/diagram/conduit
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: update-diagram-conduit

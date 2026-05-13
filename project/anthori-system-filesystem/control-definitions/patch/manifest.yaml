@@ -39,6 +39,7 @@ contracts:
           - Update and move chunks start with `@@`.
           - Update and move chunk lines must start with a space for unchanged context, `-` for removed lines, or `+` for added lines.
           - Each update or move chunk must include enough unchanged context or removed lines to match exactly one location in the current file. No matches or multiple matches fail the call.
+          - OpenAI-style wrappers and headers are accepted for compatibility: `*** Begin Patch`, `*** End Patch`, `*** Add File: path`, `*** Delete File: path`, `*** Update File: path`, and `*** Move to: path` after an update header.
 
           ---EXAMPLE---
 
@@ -61,6 +62,7 @@ contracts:
             Raw Anthori patch text. Do not wrap in JSON. Do not add begin/end markers.
 
             Use `~Add: path` followed by `+` content lines to create a file. Use `~Delete: path` to delete a file. Use `~Update: path` and one or more `@@` chunks to modify a file. Use `~Move: from-path -> to-path` to move a file, optionally followed by `@@` chunks to move and modify. Update/move chunk lines must use prefixes: space for unchanged context, `-` for removed lines, and `+` for added lines. Each chunk must include enough context or removed lines to match exactly one location.
+            Compatibility input may include OpenAI-style `*** Begin Patch` / `*** End Patch` wrappers and `*** Add File:`, `*** Delete File:`, `*** Update File:`, or `*** Move to:` headers.
         output:
           type: string
           description: Patch result text. Successful patches return `Done!`; invalid patch text, context mismatches, or ambiguous multiple matches fail the call. Context errors include the file path, chunk number, and expected context/removal lines or matching line numbers.

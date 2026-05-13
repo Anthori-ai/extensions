@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Llama Settings</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/vendor/js-yaml.min.js"></script>
+    <script src="/extension-frame-bootstrap.js" defer></script>
+    <script>
+      (function () {
+        function getFrameContext() {
+          const params = new URLSearchParams(window.location.search || "")
+          const scope = String(params.get("scope") || "global").trim().toLowerCase() === "project"
+            ? "project"
+            : "global"
+          return {
+            scope,
+            extensionId: String(params.get("extensionId") || "").trim(),
+            projectId: String(params.get("projectId") || "").trim(),
+            token: String(params.get("token") || "").trim(),
+          }
+        }
+
+        function buildAssetPath(assetPath) {
+          const context = getFrameContext()
+          const cleanAssetPath = String(assetPath || "").replace(/^\/+/, "")
+          if (!context.extensionId || !cleanAssetPath) return ""
+          const segments = ["/api/extensions/asset"]
+          if (context.token) {
+            segments.push("token", encodeURIComponent(context.token))
+          }
+          if (context.scope === "project") {
+            if (!context.projectId) return ""
+            segments.push("project", encodeURIComponent(context.projectId), encodeURIComponent(context.extensionId))
+          } else {
+            segments.push("global", encodeURIComponent(context.extensionId))
+          }
+          cleanAssetPath
+            .split("/")
+            .filter(Boolean)
+            .forEach((part) => segments.push(encodeURIComponent(part)))
+          return segments.join("/")
+        }
+
+        const cssHref = buildAssetPath("ui/models.css")
+        if (cssHref) {
+          const link = document.createElement("link")
+          link.rel = "stylesheet"
+          link.href = cssHref
+          document.head.appendChild(link)
+        }
+
+        const scriptSrc = buildAssetPath("ui/models.js")
+        if (scriptSrc) {
+          const script = document.createElement("script")
+          script.src = scriptSrc
+          script.async = false
+          document.head.appendChild(script)
+        }
+      })()
+    </script>
+  </head>
+  <body data-llama-surface="settings">
+    <main class="llama-models-root">
+      <header class="llama-toolbar">
+        <div>
+          <h1>Llama Settings</h1>
+          <p>Runtime, hardware, and server configuration.</p>
+        </div>
+      </header>
+
+      <section class="llama-section">
+        <div class="llama-section-header">
+          <h2>Runtime Selections</h2>
+          <span id="llama-runtime-platform" class="llama-status muted"></span>
+        </div>
+        <label class="llama-runtime-selection">
+          <span>GGUF</span>
+          <select id="llama-runtime-pack-select"></select>
+        </label>
+      </section>
+
+      <section class="llama-section">
+        <div class="llama-section-header">
+          <h2>Engines &amp; Frameworks</h2>
+          <button id="llama-runtime-check-updates" class="llama-button secondary" type="button">Check for updates</button>
+        </div>
+        <div id="llama-runtime-pack-list" class="llama-list"></div>
+      </section>
+
+      <section class="llama-section">
+        <div class="llama-section-header">
+          <h2>Hardware</h2>
+          <button id="llama-copy-hardware" class="llama-button secondary" type="button">Copy Info</button>
+        </div>
+        <div class="llama-hardware-grid">
+          <article class="llama-hardware-card">
+            <div class="llama-card-title">CPU <span id="llama-cpu-status" class="llama-ok"></span></div>
+            <div id="llama-cpu-name" class="llama-card-meta"></div>
+            <div id="llama-cpu-meta" class="llama-chip-row"></div>
+          </article>
+          <article class="llama-hardware-card">
+            <div class="llama-card-title">Memory Capacity</div>
+            <div class="llama-row compact">
+              <span>RAM</span>
+              <strong id="llama-ram-total">Unavailable</strong>
+            </div>
+            <div class="llama-row compact">
+              <span>VRAM</span>
+              <strong id="llama-vram-total">Unavailable</strong>
+            </div>
+          </article>
+        </div>
+        <div id="llama-gpu-strategy-row" class="llama-row">
+          <span class="llama-row-title">GPUs</span>
+          <select id="llama-gpu-strategy">
+            <option value="split-evenly">Split evenly</option>
+            <option value="first">Prefer first enabled GPU</option>
+          </select>
+        </div>
+        <div id="llama-gpu-list" class="llama-list"></div>
+        <label id="llama-limit-dedicated-row" class="llama-toggle-row">
+          <span>Limit Model Offload to Dedicated GPU Memory</span>
+          <input id="llama-limit-dedicated-memory" class="themed-toggle" type="checkbox" />
+        </label>
+        <label id="llama-offload-kv-row" class="llama-toggle-row">
+          <span>Offload KV Cache to GPU Memory</span>
+          <input id="llama-offload-kv-cache" class="themed-toggle" type="checkbox" />
+        </label>
+        <div class="llama-guardrails">
+          <span class="llama-row-title">Model loading guardrails</span>
+          <label><input type="radio" name="llama-guardrail" value="off" /> <span>Off</span></label>
+          <label><input type="radio" name="llama-guardrail" value="relaxed" /> <span>Relaxed</span></label>
+          <label><input type="radio" name="llama-guardrail" value="balanced" /> <span>Balanced</span></label>
+          <label><input type="radio" name="llama-guardrail" value="strict" /> <span>Strict</span></label>
+        </div>
+      </section>
+
+      <section class="llama-section">
+        <div class="llama-section-header">
+          <h2>Server</h2>
+          <span id="llama-runtime-status" class="llama-status muted">Not configured</span>
+        </div>
+        <label class="llama-field">
+          <span>Model Directory</span>
+          <input id="llama-model-root" type="text" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="llama-field">
+          <span>Server URL</span>
+          <input id="llama-runtime-url" type="text" autocomplete="off" spellcheck="false" disabled />
+        </label>
+        <div class="llama-runtime-actions">
+          <button id="llama-runtime-stop" class="llama-button secondary" type="button">Stop</button>
+        </div>
+        <p id="llama-runtime-detail" class="llama-detail"></p>
+      </section>
+
+      <p id="llama-message" class="llama-message" role="status"></p>
+    </main>
+  </body>
+</html>

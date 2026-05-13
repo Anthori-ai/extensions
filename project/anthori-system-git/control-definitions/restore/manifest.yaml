@@ -1,0 +1,58 @@
+format: 1
+id: restore
+name: Restore
+description: Restores paths.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Restore
+        description: Restores paths in the working tree, index, or both.
+        input:
+          type: object
+          required: [paths]
+          propertyOrder: [paths, source, staged, worktree]
+          properties:
+            paths:
+              type: array
+              description: Paths to restore.
+              items:
+                type: string
+            source:
+              type: string
+              description: Optional source revision.
+            staged:
+              type: boolean
+              description: Restore the index.
+            worktree:
+              type: boolean
+              description: Restore the working tree. Defaults to true when `staged` is false.
+          additionalProperties: false
+        output:
+          type: object
+          required: [paths, staged, worktree, output]
+          properties:
+            paths:
+              type: array
+              items:
+                type: string
+            staged:
+              type: boolean
+            worktree:
+              type: boolean
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: restore
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git restore
+          reason: Restore files or update the Git index.

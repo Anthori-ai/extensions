@@ -1,0 +1,70 @@
+format: 1
+id: blame
+name: Blame
+description: Reads line history.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Blame
+        description: Reads per-line commit attribution for a file.
+        input:
+          type: object
+          description: Blame request.
+          required: [path]
+          propertyOrder: [path, ref, startLine, endLine]
+          properties:
+            path:
+              type: string
+              description: Repository file path.
+            ref:
+              type: string
+              description: Optional revision.
+            startLine:
+              type: number
+              description: Optional first line.
+            endLine:
+              type: number
+              description: Optional last line.
+          additionalProperties: false
+        output:
+          type: object
+          required: [path, lines]
+          properties:
+            path:
+              type: string
+            lines:
+              type: array
+              items:
+                type: object
+                required: [commit, line, path, authorName, authorEmail, summary, text]
+                properties:
+                  commit:
+                    type: string
+                  line:
+                    type: number
+                  path:
+                    type: string
+                  authorName:
+                    type: string
+                  authorEmail:
+                    type: string
+                  summary:
+                    type: string
+                  text:
+                    type: string
+                additionalProperties: false
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: blame
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git blame
+          reason: Inspect repository line history.

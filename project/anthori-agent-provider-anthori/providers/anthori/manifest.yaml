@@ -1,0 +1,50 @@
+format: 1
+id: anthori-provider
+name: Anthori
+version: 1.0.0
+description: Anthori-managed local text provider.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/text
+interfaces:
+  - anthori.agent-text.v1
+configSchema:
+  fields:
+    apiBaseUrl:
+      type: url
+      label: Base URL
+      default: http://127.0.0.1:11435/v1
+      placeholder: http://127.0.0.1:11435/v1
+    llmModel:
+      type: select
+      label: Model
+      placeholder: Select downloaded model
+      dataSource:
+        kind: providerModels
+        emptyLabel: Select downloaded model
+    maxContextTokens:
+      type: number
+      label: Max Context
+      minimum: 1
+      step: 1
+      placeholder: Provider default
+    reasoningEffort:
+      type: string
+      label: Reasoning
+      enum:
+        - ""
+        - none
+        - low
+        - medium
+        - high
+runtime:
+  kind: library
+  libraryId: openai-compatible-provider-runtime
+  actions:
+    respondText: respond-text
+    listModels: list-models
+control:
+  visible: false

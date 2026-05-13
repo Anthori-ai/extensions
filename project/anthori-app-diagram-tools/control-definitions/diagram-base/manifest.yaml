@@ -1,0 +1,12 @@
+format: 1
+id: diagram-base
+name: Diagram Base
+description: Hidden shared base for controls that inspect and edit diagram documents.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: app/diagram
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-diagram-runtime

@@ -1985,6 +1985,16 @@ function buildOpenAIReasoningParts(reasoningItems, reasoningText) {
   return parts;
 }
 
+function hasOpenAIResponsesCompletionSignal(value) {
+  var object = plainObject(value);
+  var type = trim(object.type).toLowerCase();
+  if (type === "response.completed") {
+    return true;
+  }
+  var status = trim(object.status).toLowerCase();
+  return status === "completed" || status === "complete";
+}
+
 function collectCodexResponseToolCalls(response) {
   var toolCalls = [];
   if (!response || typeof response !== "object" || Array.isArray(response) || !Array.isArray(response.output)) {
@@ -2031,6 +2041,7 @@ function extractCodexOutput(body) {
     var reasoningItems = [];
     var toolCalls = [];
     var usage = null;
+    var completed = false;
     var lines = String(body || "").split(/\r?\n/);
     for (var i = 0; i < lines.length; i += 1) {
       var line = trim(lines[i]);
@@ -2038,7 +2049,11 @@ function extractCodexOutput(body) {
         continue;
       }
       var payload = trim(line.slice(5));
-      if (payload === "" || payload === "[DONE]") {
+      if (payload === "") {
+        continue;
+      }
+      if (payload === "[DONE]") {
+        completed = true;
         continue;
       }
       var event = decodeJsonText(payload, null);
@@ -2065,12 +2080,13 @@ function extractCodexOutput(body) {
         }
       }
       if (trim(event.type) === "response.completed" && event.response && typeof event.response === "object") {
+        completed = true;
         toolCalls = collectCodexResponseToolCalls(event.response);
         reasoningItems = collectCodexResponseReasoningItems(event.response);
         usage = normalizeOpenAIUsage(event.response.usage || event.response);
       }
     }
-    return { text: trim(text), reasoningText: trim(reasoningText), reasoningItems: reasoningItems, toolCalls: toolCalls, usage: usage };
+    return { text: trim(text), reasoningText: trim(reasoningText), reasoningItems: reasoningItems, toolCalls: toolCalls, usage: usage, completed: completed };
   }
   var parsed = decodeJsonText(body, null);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -2085,7 +2101,8 @@ function extractCodexOutput(body) {
     reasoningText: collectCodexResponseReasoning(response),
     reasoningItems: collectCodexResponseReasoningItems(response),
     toolCalls: collectCodexResponseToolCalls(response),
-    usage: normalizeOpenAIUsage(response.usage || parsed.usage || response)
+    usage: normalizeOpenAIUsage(response.usage || parsed.usage || response),
+    completed: hasOpenAIResponsesCompletionSignal(response) || hasOpenAIResponsesCompletionSignal(parsed)
   };
 }
 
@@ -2418,13 +2435,18 @@ function createOpenAIChatSSEState() {
     reasoningItems: [],
     toolCallAccumulator: [],
     usage: null,
-    error: ""
+    error: "",
+    completed: false
   };
 }
 
 function applyOpenAIChatSSEPayload(state, payloadText, emitChunks) {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]") {
+  if (payload === "") {
+    return;
+  }
+  if (payload === "[DONE]") {
+    state.completed = true;
     return;
   }
   var event = decodeJsonText(payload, null);
@@ -2442,6 +2464,9 @@ function applyOpenAIChatSSEPayload(state, payloadText, emitChunks) {
     return;
   }
   var first = event.choices[0];
+  if (trim(first && first.finish_reason) !== "") {
+    state.completed = true;
+  }
   var delta = first && first.delta && typeof first.delta === "object" ? first.delta : null;
   if (!delta) {
     return;
@@ -2471,13 +2496,18 @@ function createCodexSSEState() {
     toolCallAccumulator: [],
     toolCalls: [],
     usage: null,
-    error: ""
+    error: "",
+    completed: false
   };
 }
 
 function applyCodexSSEPayload(state, payloadText, emitChunks) {
   var payload = trim(payloadText);
-  if (payload === "" || payload === "[DONE]") {
+  if (payload === "") {
+    return;
+  }
+  if (payload === "[DONE]") {
+    state.completed = true;
     return;
   }
   var event = decodeJsonText(payload, null);
@@ -2526,6 +2556,7 @@ function applyCodexSSEPayload(state, payloadText, emitChunks) {
   // response.completed does not carry the final output array.
   mergeResponsesToolCallEvent(state.toolCallAccumulator, event);
   if (trim(event.type) === "response.completed" && event.response && typeof event.response === "object") {
+    state.completed = true;
     state.toolCalls = collectCodexResponseToolCalls(event.response);
     state.reasoningItems = collectCodexResponseReasoningItems(event.response);
     state.usage = normalizeOpenAIUsage(event.response.usage || event.response);
@@ -2546,7 +2577,8 @@ function consumeOpenAIChatSSE(body, emitChunks) {
     text: state.text,
     reasoningText: state.reasoningText,
     toolCalls: finalizeRuntimeToolCalls(state.toolCallAccumulator),
-    usage: state.usage
+    usage: state.usage,
+    completed: state.completed
   };
 }
 
@@ -2570,7 +2602,8 @@ function consumeCodexSSE(body, emitChunks) {
     reasoningText: state.reasoningText,
     reasoningItems: state.reasoningItems,
     toolCalls: resolvedToolCalls,
-    usage: state.usage
+    usage: state.usage,
+    completed: state.completed
   };
 }
 
@@ -2615,6 +2648,7 @@ function respondTextApiKey(config, request) {
   var reasoningItems = [];
   var toolCalls = [];
   var usage = null;
+  var completed = false;
   var payload;
   var response;
   if (requestUsesResponsesApi(request || {}, model, config || {})) {
@@ -2663,6 +2697,7 @@ function respondTextApiKey(config, request) {
       toolCalls = finalizeRuntimeToolCalls(streamedResponsesState.toolCallAccumulator);
     }
     usage = normalizeOpenAIUsage(streamedResponsesState.usage);
+    completed = streamedResponsesState.completed === true;
     if (text === "" && reasoningText === "" && !toolCalls.length) {
       var extracted = extractCodexOutput(streamedResponses.rawBody || (response && response.body));
       if (extracted && extracted.error) {
@@ -2673,6 +2708,7 @@ function respondTextApiKey(config, request) {
       reasoningItems = Array.isArray(extracted.reasoningItems) ? extracted.reasoningItems : [];
       toolCalls = Array.isArray(extracted.toolCalls) ? extracted.toolCalls : [];
       usage = normalizeOpenAIUsage(extracted.usage);
+      completed = completed || extracted.completed === true;
     }
   } else {
     payload = {
@@ -2713,6 +2749,7 @@ function respondTextApiKey(config, request) {
     reasoningText = streamedChatState.reasoningText;
     toolCalls = finalizeRuntimeToolCalls(streamedChatState.toolCallAccumulator);
     usage = normalizeOpenAIUsage(streamedChatState.usage);
+    completed = streamedChatState.completed === true;
     if (text === "" && reasoningText === "" && !toolCalls.length && !/^data:/m.test(String(streamedChat.rawBody || ""))) {
       var fallback = decodeJsonText(streamedChat.rawBody || (response && response.body), {});
       if (!fallback || typeof fallback !== "object" || Array.isArray(fallback)) {
@@ -2726,11 +2763,14 @@ function respondTextApiKey(config, request) {
           reasoningText = readTrimmedField(message, ["reasoning_content", "reasoningContent", "reasoning"]);
         }
         toolCalls = extractRuntimeToolCallsFromChoice(first);
+        if (trim(first && first.finish_reason) !== "") {
+          completed = true;
+        }
       }
       usage = normalizeOpenAIUsage(fallback.usage);
     }
   }
-  if (text === "" && reasoningText === "" && !toolCalls.length) {
+  if (text === "" && reasoningText === "" && !toolCalls.length && !completed) {
     return runtimeError("model response was empty");
   }
   var output = {};

@@ -266,5 +266,6 @@ controlDefinitions:
   - control-definitions/agent
   - control-definitions/agent-storage
   - control-definitions/agent-context
+  - control-definitions/clone
 externalLibraries:
   - external-libraries/anthori-agent-standard-runtime

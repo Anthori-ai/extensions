@@ -1,0 +1,51 @@
+bundle:
+  namespace: anthori.agent.provider.comfyui
+  owner: Anthori
+  locale: en-US
+  version: 1
+entries:
+  - key: provider.comfyui.config.baseUrl.help
+    kind: field_tip
+    target: providers.comfyui.config.baseUrl
+    format: text
+    text: Base URL for the ComfyUI HTTP server.
+  - key: provider.comfyui.config.checkpoint.help
+    kind: field_tip
+    target: providers.comfyui.config.checkpoint
+    format: text
+    text: Optional checkpoint name. Leave blank to use the first checkpoint reported by ComfyUI when one is needed.
+  - key: provider.comfyui.config.timeout.help
+    kind: field_tip
+    target: providers.comfyui.config.timeout
+    format: text
+    text: Optional request timeout in seconds for ComfyUI image generation.
+  - key: provider.comfyui.config.defaultWorkflow.help
+    kind: field_tip
+    target: providers.comfyui.config.defaultWorkflow
+    format: text
+    text: Optional workflow id to use when a request does not specify one.
+  - key: provider.comfyui.config.workflows.help
+    kind: field_tip
+    target: providers.comfyui.config.workflows
+    format: text
+    text: Imported Comfy API workflow JSON templates available to image-generation callers.
+  - key: provider.comfyui.ui.baseUrl.help
+    kind: field_tip
+    target: providers.comfyui.ui.baseUrl
+    format: text
+    text: Base URL for the ComfyUI HTTP server.
+  - key: provider.comfyui.ui.checkpoint.help
+    kind: field_tip
+    target: providers.comfyui.ui.checkpoint
+    format: text
+    text: Optional checkpoint name. Leave blank to use the first checkpoint reported by ComfyUI when one is needed.
+  - key: provider.comfyui.ui.timeout.help
+    kind: field_tip
+    target: providers.comfyui.ui.timeout
+    format: text
+    text: Optional request timeout in seconds for ComfyUI image generation.
+  - key: provider.comfyui.ui.workflows.help
+    kind: field_tip
+    target: providers.comfyui.ui.workflows
+    format: text
+    text: Import Comfy API workflow JSON templates. Requests can choose a workflow by id.

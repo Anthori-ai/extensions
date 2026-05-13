@@ -1,0 +1,45 @@
+format: 1
+id: delete-diagram-control
+name: Delete Control
+description: Deletes a control from a diagram document.
+baseControlRef: controls/1/extensions/anthori.app.diagram.tools/definitions/diagram-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Delete Diagram Control
+        description: Delete a diagram control and any conduits attached to it.
+        input:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - controlId
+          propertyOrder:
+            - path
+            - controlId
+          properties:
+            path:
+              type: string
+              description: Workspace-relative diagram document path.
+            controlId:
+              type: string
+              description: Control id.
+        output:
+          type: object
+          additionalProperties: false
+          required:
+            - path
+            - revision
+          properties:
+            path:
+              type: string
+            revision:
+              type: integer
+control:
+  visible: true
+  libraryPath: app/diagram/control
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: delete-diagram-control

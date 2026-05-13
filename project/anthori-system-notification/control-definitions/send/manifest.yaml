@@ -1,0 +1,81 @@
+format: 1
+id: send
+name: Send
+description: Sends a notification to the user.
+baseControlRef: controls/1/extensions/anthori.system.notification/definitions/notification-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Send
+        description: Sends a notification to the user.
+        input:
+          type: object
+          description: Notification request. The graph emits the notification as a `notification` event for desktop and companion clients.
+          required:
+            - title
+          propertyOrder:
+            - title
+            - body
+            - kind
+            - category
+            - projectId
+            - sessionId
+            - dedupeKey
+            - metadata
+          properties:
+            title:
+              type: string
+              description: Notification title.
+            body:
+              type: string
+              description: Optional notification body.
+            kind:
+              type: string
+              enum: [info, success, warning, error]
+              default: info
+              description: Notification severity.
+            category:
+              type: string
+              enum: [default, permission, execution, chat]
+              default: default
+              description: Notification category for client preferences.
+            projectId:
+              type: string
+              description: Optional project id override. Defaults to the current project.
+            sessionId:
+              type: string
+              description: Optional session id override. Defaults to the current session.
+            dedupeKey:
+              type: string
+              description: Optional client-side de-duplication key.
+            metadata:
+              type: object
+              description: Optional structured metadata for clients.
+              additionalProperties: true
+          additionalProperties: false
+        output:
+          type: object
+          description: Notification send receipt. The full notification content is emitted as a `notification` event.
+          required:
+            - id
+            - createdAt
+          propertyOrder:
+            - id
+            - createdAt
+          properties:
+            id:
+              type: string
+              description: Generated notification id.
+            createdAt:
+              type: string
+              description: ISO 8601 UTC timestamp.
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: send
+  ui:
+    fields: []

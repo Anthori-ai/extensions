@@ -1,0 +1,113 @@
+format: 1
+id: branch
+name: Branch
+description: Reads or creates branches.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Branch
+        description: Reads current branch, lists branches, or creates a branch.
+        input:
+          description: Branch request.
+          anyOf:
+            - type: object
+              description: List branches.
+              propertyOrder: [mode, all]
+              properties:
+                mode:
+                  type: string
+                  enum: [list]
+                  default: list
+                all:
+                  type: boolean
+                  description: Include remote-tracking branches.
+              additionalProperties: false
+            - type: object
+              description: Read current branch.
+              required: [mode]
+              propertyOrder: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [current]
+              additionalProperties: false
+            - type: object
+              description: Create a branch without switching to it.
+              required: [mode, name]
+              propertyOrder: [mode, name, startPoint]
+              properties:
+                mode:
+                  type: string
+                  enum: [create]
+                name:
+                  type: string
+                  description: New branch name.
+                startPoint:
+                  type: string
+                  description: Optional starting revision.
+              additionalProperties: false
+        output:
+          description: Branch result.
+          anyOf:
+            - type: object
+              required: [mode, current, branches]
+              properties:
+                mode:
+                  type: string
+                  enum: [list]
+                current:
+                  type: string
+                branches:
+                  type: array
+                  items:
+                    type: object
+                    required: [name, current, commit, upstream, remote]
+                    properties:
+                      name:
+                        type: string
+                      current:
+                        type: boolean
+                      commit:
+                        type: string
+                      upstream:
+                        type: string
+                      remote:
+                        type: boolean
+                    additionalProperties: false
+              additionalProperties: false
+            - type: object
+              required: [mode, branch, detached]
+              properties:
+                mode:
+                  type: string
+                  enum: [current]
+                branch:
+                  type: string
+                detached:
+                  type: boolean
+              additionalProperties: false
+            - type: object
+              required: [mode, branch, output]
+              properties:
+                mode:
+                  type: string
+                  enum: [create]
+                branch:
+                  type: string
+                output:
+                  type: string
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: branch
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git branch
+          reason: Inspect or create repository branches.

@@ -1,0 +1,139 @@
+format: 1
+id: clone
+name: Clone
+description: Clones messages from one Agent Storage control into another.
+baseControlRef: controls/1/executable
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Clone
+        description: Clone messages from the source Agent Storage into the target Agent Storage.
+        input:
+          type: object
+          description: Agent Storage clone options.
+          propertyOrder: [kind, clearTarget, where, orderBy, limit, maxChars]
+          properties:
+            kind:
+              type: string
+              enum: [context, raw]
+              default: context
+              description: Use `context` to clone replay-safe context messages, or `raw` to clone stored message rows.
+            clearTarget:
+              type: boolean
+              default: true
+              description: Delete all target rows before inserting cloned messages.
+            where:
+              type: object
+              description: Optional source storage filter.
+            orderBy:
+              type: array
+              description: Optional source storage order. Defaults to id ascending.
+              items:
+                type: object
+                required: [field]
+                properties:
+                  field:
+                    type: string
+                    description: Field name to sort by.
+                  direction:
+                    type: string
+                    enum: [asc, desc]
+                    description: Sort direction. Defaults to asc.
+                additionalProperties: false
+            limit:
+              type: number
+              description: Optional maximum number of source rows/messages to clone.
+            maxChars:
+              type: number
+              description: Optional maximum JSON character count for selected source rows/messages.
+          additionalProperties: false
+        inputFormat: |-
+          {
+            kind?:"context" | "raw"
+            clearTarget?:boolean
+            where?:object
+            orderBy?:{
+              field:string
+              direction?:"asc" | "desc"
+            }[]
+            limit?:number
+            maxChars?:number
+          }
+        output:
+          type: object
+          description: Agent Storage clone result.
+          required: [ok, kind, copied, cleared]
+          properties:
+            ok:
+              type: boolean
+              enum: [true]
+            kind:
+              type: string
+              enum: [context, raw]
+              description: Clone kind that was used.
+            copied:
+              type: number
+              description: Number of messages inserted into the target storage.
+            cleared:
+              type: boolean
+              description: Whether target clearing was requested.
+            targetDeleted:
+              type: number
+              description: Number of target rows deleted before cloning.
+            ids:
+              type: array
+              description: Target storage row ids created for cloned messages.
+              items:
+                type: number
+          additionalProperties: false
+        outputFormat: |-
+          {
+            ok:true
+            kind:"context" | "raw"
+            copied:number
+            cleared:boolean
+            targetDeleted?:number
+            ids?:number[]
+          }
+control:
+  visible: true
+  libraryPath: agent
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      runtimeOverride: false
+      default: anthori-agent-standard-runtime
+    runtimeActionForward:
+      type: string
+      runtimeOverride: false
+      default: clone-agent-storage-control
+    sourceStorage:
+      type: controlTarget
+      runtimeOverride: false
+      required: true
+      targetControlRef: controls/1/extensions/anthori.agent.standard/definitions/agent-storage
+      description: Agent Storage control to read from.
+    targetStorage:
+      type: controlTarget
+      runtimeOverride: false
+      required: true
+      targetControlRef: controls/1/extensions/anthori.agent.standard/definitions/agent-storage
+      description: Agent Storage control to write cloned messages into.
+  ui:
+    fields:
+      - key: sourceStorage
+        label: Source
+        type: controlTarget
+        helpText: Agent Storage control to read cloned messages from.
+      - key: targetStorage
+        label: Target
+        type: controlTarget
+        helpText: Agent Storage control to clear and write cloned messages into.
+    fieldOrder: [sourceStorage, targetStorage, permissions]
+    info:
+      sections:
+        - title: CLONE
+          kind: text
+          text: |
+            Clone copies messages between Agent Storage controls. Use context mode when preparing temporary storage for another agent, so provider/display metadata and storage envelopes are not copied.

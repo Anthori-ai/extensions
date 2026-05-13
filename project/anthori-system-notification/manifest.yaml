@@ -1,0 +1,19 @@
+format: 1
+id: anthori.system.notification
+name: Notification
+scope: project
+version: 1.0.0
+description: First-party notification controls packaged as extension-owned executable controls.
+catalogPath:
+  - Anthori
+  - System
+  - Notification
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-notification-runtime
+controlDefinitions:
+  - control-definitions/notification-base
+  - control-definitions/send

@@ -1,0 +1,7 @@
+format: 1
+id: anthori-notification-runtime
+runtime: sandboxed-js
+entry: runtime/anthori-notification-runtime.js
+abilities:
+  - id: send
+    kind: function

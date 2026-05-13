@@ -1,0 +1,54 @@
+format: 1
+id: comfyui-provider
+name: ComfyUI
+version: 1.0.0
+description: Image provider backed by a ComfyUI HTTP server.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/image
+interfaces:
+  - anthori.agent-image.v1
+configSchema:
+  fields:
+    comfyBaseUrl:
+      type: url
+      label: ComfyUI Base URL
+      required: true
+      placeholder: http://127.0.0.1:8188
+      helpKey: provider.comfyui.config.baseUrl.help
+    checkpoint:
+      type: string
+      label: Checkpoint
+      placeholder: sdxl.safetensors
+      helpKey: provider.comfyui.config.checkpoint.help
+    httpTimeoutSeconds:
+      type: number
+      label: HTTP Timeout
+      minimum: 10
+      maximum: 600
+      step: 1
+      placeholder: "120"
+      helpKey: provider.comfyui.config.timeout.help
+    defaultWorkflowId:
+      type: string
+      label: Default Workflow
+      helpKey: provider.comfyui.config.defaultWorkflow.help
+    workflows:
+      type: array
+      label: Workflows
+      helpKey: provider.comfyui.config.workflows.help
+      items:
+        type: object
+runtime:
+  kind: library
+  libraryId: comfyui-provider-runtime
+  actions:
+    renderImage: render-image
+ui:
+  configAssetPath: ui/config.html
+  configHeight: 520
+control:
+  visible: false

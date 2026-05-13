@@ -1,0 +1,663 @@
+html,
+body {
+  height: 100%;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.llama-models-root {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: auto;
+  padding: 14px;
+}
+
+.llama-models-panel {
+  gap: 8px;
+  padding: 0;
+}
+
+.llama-models-root label {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.llama-toolbar,
+.llama-section-header,
+.llama-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.llama-row.compact {
+  gap: 8px;
+}
+
+.llama-toolbar h1,
+.llama-section h2 {
+  margin: 0;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.llama-toolbar h1 {
+  font-size: 18px;
+}
+
+.llama-toolbar p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.llama-panel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 24px;
+}
+
+.llama-panel-toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.llama-icon-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-disabled);
+  cursor: pointer;
+  padding: 0;
+}
+
+.llama-icon-button:hover {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.llama-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.llama-icon-button path {
+  stroke: currentColor;
+}
+
+.llama-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-medium);
+}
+
+.llama-section h2 {
+  font-size: 13px;
+}
+
+.llama-download-history-header {
+  margin-top: 4px;
+}
+
+.llama-download-history-header h3 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--field-label-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.llama-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.llama-status.muted,
+.llama-empty {
+  color: var(--text-muted);
+}
+
+.llama-form,
+.llama-search-form {
+  display: grid;
+  gap: 8px;
+}
+
+.llama-search-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.llama-runtime-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.llama-field {
+  display: grid;
+  gap: 5px;
+}
+
+.llama-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.llama-field span,
+.llama-field-header span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.llama-reset-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+
+.llama-reset-button:hover:not(:disabled) {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.llama-reset-button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.llama-reset-button svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.llama-field input,
+.llama-field select,
+.llama-runtime-selection select,
+.llama-inline-actions select,
+.llama-row select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-darkest);
+  color: var(--text-primary);
+  padding: 7px 9px;
+  font-size: 12px;
+  outline: none;
+}
+
+.llama-field input:focus,
+.llama-field select:focus,
+.llama-runtime-selection select:focus,
+.llama-inline-actions select:focus,
+.llama-row select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.llama-field input:disabled {
+  color: var(--text-secondary);
+  opacity: 1;
+}
+
+.llama-button {
+  border: 1px solid var(--primary-border);
+  border-radius: 6px;
+  background: var(--primary-bg);
+  color: var(--primary-color);
+  cursor: pointer;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.llama-button.secondary {
+  border-color: var(--border-light);
+  background: var(--button-bg);
+  color: var(--text-primary);
+}
+
+.llama-button.danger {
+  border-color: var(--error);
+  background: transparent;
+  color: var(--error);
+}
+
+.llama-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.llama-runtime-selection,
+.llama-toggle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.llama-runtime-selection span,
+.llama-toggle-row span,
+.llama-row-title {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.llama-runtime-selection select {
+  width: min(100%, 360px);
+}
+
+.llama-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.llama-inline-actions select,
+.llama-row select {
+  width: auto;
+  min-width: 132px;
+}
+
+.llama-runtime-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.llama-runtime-card-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.llama-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 999px;
+  background: var(--button-bg);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.llama-badge.ok,
+.llama-ok {
+  color: var(--success);
+}
+
+.llama-hardware-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.llama-hardware-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-dark);
+}
+
+.llama-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.llama-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.llama-gpu-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.llama-guardrails {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-dark);
+}
+
+.llama-guardrails label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.llama-guardrails input[type="radio"] {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.llama-guardrails label span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.llama-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.llama-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-dark);
+}
+
+.llama-card-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.llama-card-meta {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.llama-model-row {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-dark);
+}
+
+.llama-model-row-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.llama-model-row-main {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 10px;
+  text-align: left;
+}
+
+.llama-model-row-main:hover,
+.llama-model-row-main:focus-visible {
+  background: var(--row-hover-bg, var(--bg-medium));
+  outline: none;
+}
+
+.llama-model-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.llama-model-row.is-expanded .llama-model-chevron {
+  transform: rotate(90deg);
+}
+
+.llama-model-chevron svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.llama-model-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+}
+
+.llama-model-options {
+  display: grid;
+  padding: 0 10px 10px 34px;
+}
+
+.llama-model-option-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+}
+
+.llama-model-options .llama-field {
+  gap: 0;
+}
+
+.llama-model-options .llama-field::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: var(--field-spacing-value-bottom, 6px);
+  background: var(--field-spacing-debug-value-bg, transparent);
+}
+
+.llama-model-options .llama-field > span,
+.llama-model-options .llama-field-header {
+  padding-top: var(--field-spacing-title-top, 12px);
+  padding-bottom: var(--field-spacing-title-bottom, 6px);
+  background: var(--field-spacing-debug-title-bg, transparent);
+}
+
+.llama-model-options .llama-field > span,
+.llama-model-options .llama-field-header span {
+  color: var(--text-secondary);
+  font-size: var(--field-label-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.llama-download-view {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.llama-download-view[hidden] {
+  display: none !important;
+}
+
+.llama-download-view-content {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.llama-download-view .llama-field input {
+  min-height: 28px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.llama-download-view .llama-field > span {
+  color: var(--text-secondary);
+  font-size: var(--field-label-size, 11px);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.llama-download-view .llama-button {
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.llama-file-list {
+  display: grid;
+  gap: 6px;
+}
+
+.llama-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border-light);
+}
+
+.llama-progress {
+  display: grid;
+  gap: 5px;
+}
+
+.llama-progress-bar {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-medium);
+  overflow: hidden;
+}
+
+.llama-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.18s ease;
+}
+
+.llama-file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
+.llama-advanced {
+  display: grid;
+  gap: 8px;
+}
+
+.llama-advanced summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.llama-advanced[open] summary {
+  margin-bottom: 8px;
+}
+
+.llama-detail,
+.llama-message {
+  min-height: 16px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 360px) {
+  .llama-search-form,
+  .llama-file-row,
+  .llama-runtime-selection,
+  .llama-toggle-row,
+  .llama-hardware-grid,
+  .llama-model-option-grid,
+  .llama-model-options {
+    grid-template-columns: 1fr;
+  }
+
+  .llama-inline-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

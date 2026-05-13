@@ -410,6 +410,20 @@ function normalizeAnthropicUsage(value) {
   return Object.keys(result).length > 0 ? result : null;
 }
 
+function hasAnthropicCompletionSignal(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  if (trim(value.type).toLowerCase() === "message_stop") {
+    return true;
+  }
+  if (trim(value.stop_reason) !== "") {
+    return true;
+  }
+  var delta = value.delta && typeof value.delta === "object" && !Array.isArray(value.delta) ? value.delta : null;
+  return !!delta && trim(delta.stop_reason) !== "";
+}
+
 function looksLikeSchemaObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
@@ -1756,6 +1770,9 @@ function handleStreamEvent(eventName, event, contentBlocks, state, host) {
   }
 
   var type = trim(event.type);
+  if (eventName === "message_stop" || type === "message_stop" || hasAnthropicCompletionSignal(event)) {
+    state.completed = true;
+  }
   var index = Number(event.index);
   if (!Number.isFinite(index)) {
     index = 0;
@@ -1884,14 +1901,20 @@ function createAnthropicSSEStream(host) {
     text: "",
     reasoningText: "",
     error: "",
-    usage: null
+    usage: null,
+    completed: false
   };
   var contentBlocks = [];
   var parser = createSSEParser(function(eventName, payloadText) {
-    if (trim(payloadText) === "") {
+    var payload = trim(payloadText);
+    if (payload === "") {
       return;
     }
-    var event = decodeJsonText(payloadText, null);
+    if (payload === "[DONE]") {
+      state.completed = true;
+      return;
+    }
+    var event = decodeJsonText(payload, null);
     if (!event || typeof event !== "object" || Array.isArray(event)) {
       return;
     }
@@ -1912,7 +1935,8 @@ function finalizeAnthropicSSEStream(stream) {
     parts: collectResponseReasoningParts(response),
     toolCalls: finalizeStreamToolCalls(stream.contentBlocks),
     error: stream.state.error,
-    usage: stream.state.usage
+    usage: stream.state.usage,
+    completed: stream.state.completed === true
   };
 }
 
@@ -1999,6 +2023,7 @@ function handleRespond(config, request, host) {
   var parts = Array.isArray(streamed.parts) ? streamed.parts : [];
   var toolCalls = streamed.toolCalls;
   var usage = normalizeAnthropicUsage(streamed.usage);
+  var completed = streamed.completed === true;
 
   if (text === "" && reasoningText === "" && toolCalls.length === 0 && rawBody.indexOf("event:") === -1 && rawBody.indexOf("data:") === -1) {
     var parsed = decodeJsonText(rawBody || "{}", null);
@@ -2010,9 +2035,10 @@ function handleRespond(config, request, host) {
     parts = collectResponseReasoningParts(parsed);
     toolCalls = collectResponseToolCalls(parsed);
     usage = normalizeAnthropicUsage(parsed.usage);
+    completed = completed || hasAnthropicCompletionSignal(parsed);
   }
 
-  if (trim(text) === "" && trim(reasoningText) === "" && toolCalls.length === 0) {
+  if (trim(text) === "" && trim(reasoningText) === "" && toolCalls.length === 0 && !completed) {
     return { error: "model response was empty" };
   }
 

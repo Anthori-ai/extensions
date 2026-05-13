@@ -1,0 +1,83 @@
+format: 1
+id: diff
+name: Diff
+description: Reads repository differences.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Diff
+        description: Reads a patch, stat summary, or changed file list.
+        input:
+          type: object
+          description: Diff request.
+          propertyOrder: [mode, paths, staged, base, target, contextLines]
+          properties:
+            mode:
+              type: string
+              enum: [patch, stat, name-only]
+              default: patch
+              description: Diff output mode.
+            paths:
+              type: array
+              description: Optional pathspecs to limit the diff.
+              items:
+                type: string
+            staged:
+              type: boolean
+              description: Diff staged changes.
+            base:
+              type: string
+              description: Optional base revision.
+            target:
+              type: string
+              description: Optional target revision used with `base`.
+            contextLines:
+              type: number
+              description: Optional patch context line count.
+          additionalProperties: false
+        output:
+          description: Diff result. Patch mode returns `patch`, stat mode returns `stat`, and name-only mode returns `files`.
+          anyOf:
+            - type: object
+              required: [mode, patch]
+              properties:
+                mode:
+                  type: string
+                  enum: [patch]
+                patch:
+                  type: string
+              additionalProperties: false
+            - type: object
+              required: [mode, stat]
+              properties:
+                mode:
+                  type: string
+                  enum: [stat]
+                stat:
+                  type: string
+              additionalProperties: false
+            - type: object
+              required: [mode, files]
+              properties:
+                mode:
+                  type: string
+                  enum: [name-only]
+                files:
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: diff
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git diff
+          reason: Inspect repository diffs.

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ComfyUI Provider</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/provider-frame-bootstrap.js" defer></script>
+    <script src="config.js" defer></script>
+    <style>
+      .provider-config-root {
+        display: grid;
+        gap: 0;
+      }
+
+      .provider-inline-status {
+        display: none;
+        font-size: var(--text-sm);
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
+
+      .provider-inline-status[data-state="error"] {
+        color: var(--theme-danger, #a1260d);
+      }
+
+      .provider-inline-status[data-state="info"] {
+        color: var(--text-secondary);
+      }
+
+      .provider-inline-status:not([hidden]) {
+        display: block;
+      }
+
+      .provider-workflow-manager {
+        display: grid;
+        gap: var(--stack-gap-tight);
+      }
+
+      .provider-workflow-hint {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: var(--text-sm);
+      }
+
+      .provider-workflow-actions {
+        align-items: center;
+        display: flex;
+        gap: var(--stack-gap-tight);
+      }
+
+      .provider-workflow-list {
+        display: grid;
+        gap: var(--stack-gap-tight);
+        max-height: 220px;
+        overflow: auto;
+        padding-right: var(--space-2);
+      }
+
+      .provider-workflow-empty {
+        border: 1px dashed var(--border-dark);
+        border-radius: var(--radius-md);
+        color: var(--text-disabled);
+        font-size: var(--text-sm);
+        padding: var(--surface-padding-default);
+      }
+
+      .provider-workflow-item {
+        background: color-mix(in srgb, var(--bg-medium) 75%, transparent);
+        border: 1px solid var(--border-dark);
+        border-radius: var(--radius-md);
+        display: grid;
+        gap: var(--space-3);
+        padding: var(--surface-padding-default);
+      }
+
+      .provider-workflow-item-header {
+        align-items: center;
+        color: var(--text-secondary);
+        display: flex;
+        font-size: var(--text-sm);
+        gap: var(--stack-gap-tight);
+        justify-content: space-between;
+      }
+
+      .provider-workflow-name {
+        color: var(--text-primary);
+        font-size: var(--text-md);
+        overflow-wrap: anywhere;
+      }
+
+      .provider-workflow-id {
+        color: var(--text-disabled);
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+      }
+    </style>
+  </head>
+  <body>
+    <section class="settings-section active provider-config-root" id="comfyui-config-root" data-ui-ready="true">
+      <label class="editor-settings-row inspector-field-row" for="comfyui-base-url" data-field-help-key="provider.comfyui.ui.baseUrl.help">
+        <span class="inspector-field-title">ComfyUI Base URL</span>
+        <input
+          id="comfyui-base-url"
+          type="text"
+          placeholder="http://127.0.0.1:8188"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="comfyui-checkpoint" data-field-help-key="provider.comfyui.ui.checkpoint.help">
+        <span class="inspector-field-title">Checkpoint</span>
+        <input
+          id="comfyui-checkpoint"
+          type="text"
+          placeholder="Optional"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" for="comfyui-timeout" data-field-help-key="provider.comfyui.ui.timeout.help">
+        <span class="inspector-field-title">HTTP Timeout</span>
+        <input
+          id="comfyui-timeout"
+          type="number"
+          min="10"
+          max="600"
+          step="1"
+          placeholder="120"
+          inputmode="numeric"
+        />
+        <div id="comfyui-status" class="provider-inline-status" hidden></div>
+      </label>
+
+      <label class="editor-settings-row inspector-field-row" data-field-help-key="provider.comfyui.ui.workflows.help">
+        <span class="inspector-field-title">Workflows</span>
+        <div class="provider-workflow-manager">
+          <p class="provider-workflow-hint">Import Comfy API workflow JSON templates for callers that choose workflows by id.</p>
+          <div class="provider-workflow-actions">
+            <button id="comfyui-workflow-add" type="button" class="secondary">Add JSON File</button>
+          </div>
+          <div id="comfyui-workflow-list" class="provider-workflow-list"></div>
+        </div>
+      </label>
+    </section>
+  </body>
+</html>

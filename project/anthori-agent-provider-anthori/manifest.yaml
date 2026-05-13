@@ -1,0 +1,23 @@
+format: 1
+id: anthori.agent.provider.anthori
+name: Anthori Provider
+version: 1.0.0
+description: Extension that bundles the Anthori local text provider definition.
+catalogPath:
+  - Anthori
+  - Agent
+  - Providers
+  - Anthori
+extensionDependencies:
+  - id: anthori.agent.foundation
+    version: ^1.0.0
+  - id: anthori.agent.provider.openai-compatible-runtime
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+providers:
+  - providers/anthori
+controlDefinitions:
+  - control-definitions/anthori

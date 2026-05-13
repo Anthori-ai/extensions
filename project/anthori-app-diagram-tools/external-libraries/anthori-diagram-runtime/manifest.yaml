@@ -1,0 +1,26 @@
+format: 1
+id: anthori-diagram-runtime
+name: Diagram Runtime
+version: 1.0.0
+entry: runtime/anthori-diagram-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: read-diagram-layout
+  - id: set-diagram-layout
+  - id: list-diagrams
+  - id: read-diagram
+  - id: review-diagram
+  - id: validate-diagram
+  - id: propose-diagram-changes
+  - id: create-diagram
+  - id: update-diagram
+  - id: create-diagram-control
+  - id: update-diagram-control
+  - id: delete-diagram-control
+  - id: create-diagram-conduit
+  - id: update-diagram-conduit
+  - id: delete-diagram-conduit

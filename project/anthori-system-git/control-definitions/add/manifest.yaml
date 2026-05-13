@@ -1,0 +1,44 @@
+format: 1
+id: add
+name: Add
+description: Stages paths.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Add
+        description: Stages one or more paths in the Git index.
+        input:
+          type: object
+          required: [paths]
+          properties:
+            paths:
+              type: array
+              description: Paths to stage.
+              items:
+                type: string
+          additionalProperties: false
+        output:
+          type: object
+          required: [paths, output]
+          properties:
+            paths:
+              type: array
+              items:
+                type: string
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: add
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git add
+          reason: Update the Git index.

@@ -1,0 +1,29 @@
+format: 1
+id: anthori.app.diagram.tools
+name: Diagram Tools
+scope: project
+version: 1.0.0
+description: First-party runtime controls for reading, reviewing, validating, and editing diagram documents.
+catalogPath:
+  - Anthori
+  - App
+  - Diagram
+externalLibraries:
+  - external-libraries/anthori-diagram-runtime
+controlDefinitions:
+  - control-definitions/diagram-base
+  - control-definitions/read-diagram-layout
+  - control-definitions/set-diagram-layout
+  - control-definitions/list-diagrams
+  - control-definitions/read-diagram
+  - control-definitions/review-diagram
+  - control-definitions/validate-diagram
+  - control-definitions/propose-diagram-changes
+  - control-definitions/create-diagram
+  - control-definitions/update-diagram
+  - control-definitions/create-diagram-control
+  - control-definitions/update-diagram-control
+  - control-definitions/delete-diagram-control
+  - control-definitions/create-diagram-conduit
+  - control-definitions/update-diagram-conduit
+  - control-definitions/delete-diagram-conduit

@@ -16,6 +16,21 @@ externalLibraries:
   - external-libraries/anthori-git-runtime
 controlDefinitions:
   - control-definitions/git-base
+  - control-definitions/status
+  - control-definitions/diff
+  - control-definitions/log
+  - control-definitions/show
+  - control-definitions/branch
+  - control-definitions/files
+  - control-definitions/blame
+  - control-definitions/add
+  - control-definitions/restore
+  - control-definitions/commit
+  - control-definitions/switch
+  - control-definitions/stash
+  - control-definitions/fetch
+  - control-definitions/pull
+  - control-definitions/push
   - control-definitions/shell-base
   - control-definitions/shell-status
   - control-definitions/shell-diff

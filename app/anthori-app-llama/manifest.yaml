@@ -1,0 +1,40 @@
+format: 1
+id: anthori.app.llama
+name: Llama
+scope: app
+version: 0.1.0
+description: Adds local llama.cpp model management surfaces for GGUF models and Hugging Face downloads.
+trusted: true
+supportedOs:
+  - windows
+  - mac
+  - linux
+permissions:
+  network:
+    - https://github.com
+    - https://release-assets.githubusercontent.com
+    - https://*.githubusercontent.com
+    - https://huggingface.co
+    - https://*.hf.co
+externalLibraries:
+  - external-libraries/anthori-llama-runtime
+lifecycle:
+  install:
+    default: scripts/install.sh
+    windows: scripts/install.ps1
+  uninstall:
+    default: scripts/uninstall.sh
+    windows: scripts/uninstall.ps1
+settingsSections:
+  - id: llama
+    label: Llama
+    assetPath: ui/settings.html
+    height: 780
+dockPanels:
+  - id: models
+    label: Models
+    title: Models
+    assetPath: ui/models.html
+    dock: right
+    width: 420
+    height: 620

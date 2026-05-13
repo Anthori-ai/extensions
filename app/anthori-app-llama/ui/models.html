@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Llama</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/vendor/js-yaml.min.js"></script>
+    <script src="/extension-frame-bootstrap.js" defer></script>
+    <script>
+      (function () {
+        function getFrameContext() {
+          const params = new URLSearchParams(window.location.search || "")
+          const scope = String(params.get("scope") || "global").trim().toLowerCase() === "project"
+            ? "project"
+            : "global"
+          return {
+            scope,
+            extensionId: String(params.get("extensionId") || "").trim(),
+            projectId: String(params.get("projectId") || "").trim(),
+            token: String(params.get("token") || "").trim(),
+          }
+        }
+
+        function buildAssetPath(assetPath) {
+          const context = getFrameContext()
+          const cleanAssetPath = String(assetPath || "").replace(/^\/+/, "")
+          if (!context.extensionId || !cleanAssetPath) return ""
+          const segments = ["/api/extensions/asset"]
+          if (context.token) {
+            segments.push("token", encodeURIComponent(context.token))
+          }
+          if (context.scope === "project") {
+            if (!context.projectId) return ""
+            segments.push("project", encodeURIComponent(context.projectId), encodeURIComponent(context.extensionId))
+          } else {
+            segments.push("global", encodeURIComponent(context.extensionId))
+          }
+          cleanAssetPath
+            .split("/")
+            .filter(Boolean)
+            .forEach((part) => segments.push(encodeURIComponent(part)))
+          return segments.join("/")
+        }
+
+        const cssHref = buildAssetPath("ui/models.css")
+        if (cssHref) {
+          const link = document.createElement("link")
+          link.rel = "stylesheet"
+          link.href = cssHref
+          document.head.appendChild(link)
+        }
+
+        const scriptSrc = buildAssetPath("ui/models.js")
+        if (scriptSrc) {
+          const script = document.createElement("script")
+          script.src = scriptSrc
+          script.async = false
+          document.head.appendChild(script)
+        }
+      })()
+    </script>
+  </head>
+  <body data-llama-surface="models">
+    <main class="llama-models-root llama-models-panel">
+      <div class="llama-panel-toolbar">
+        <button id="llama-model-add" class="llama-icon-button" type="button" aria-label="Download model" title="Download model">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+        <span class="llama-panel-toolbar-spacer" aria-hidden="true"></span>
+        <button id="llama-download-close" class="llama-icon-button" type="button" aria-label="Close model search" title="Close model search" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="llama-model-list" class="llama-list"></div>
+
+      <section id="llama-download-view" class="llama-download-view" hidden>
+        <div class="llama-download-view-content">
+          <form id="llama-hf-search-form" class="llama-search-form">
+            <label class="llama-field">
+              <span>Search</span>
+              <input id="llama-hf-query" type="search" autocomplete="off" spellcheck="false" placeholder="GGUF model name" />
+            </label>
+            <button class="llama-button" type="submit">Search</button>
+          </form>
+          <p id="llama-hf-status" class="llama-detail"></p>
+          <div id="llama-hf-results-list" class="llama-list"></div>
+
+          <div class="llama-section-header llama-download-history-header">
+            <h3>Downloads</h3>
+          </div>
+          <div id="llama-downloads-list" class="llama-list"></div>
+        </div>
+      </section>
+
+      <p id="llama-message" class="llama-message" role="status"></p>
+    </main>
+  </body>
+</html>

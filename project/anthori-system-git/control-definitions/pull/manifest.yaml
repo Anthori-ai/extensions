@@ -1,0 +1,48 @@
+format: 1
+id: pull
+name: Pull
+description: Pulls changes.
+baseControlRef: controls/1/extensions/anthori.system.git/definitions/git-base
+contracts:
+  caller:
+    contracts:
+      - id: default
+        name: Pull
+        description: Pulls changes into the current branch.
+        input:
+          type: object
+          propertyOrder: [remote, branch, ffOnly, rebase]
+          properties:
+            remote:
+              type: string
+              description: Optional remote name.
+            branch:
+              type: string
+              description: Optional remote branch.
+            ffOnly:
+              type: boolean
+              default: true
+              description: Require fast-forward.
+            rebase:
+              type: boolean
+              description: Rebase instead of merge.
+          additionalProperties: false
+        output:
+          type: object
+          required: [output]
+          properties:
+            output:
+              type: string
+          additionalProperties: false
+control:
+  visible: true
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: pull
+    permissions:
+      default:
+        - capability: exec
+          access: [run]
+          scope: git pull
+          reason: Contact Git remotes and update the working tree.

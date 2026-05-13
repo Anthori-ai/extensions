@@ -8,3 +8,5 @@ actions:
     name: Agent Storage Control
   - id: agent-context-control
     name: Agent Context Control
+  - id: clone-agent-storage-control
+    name: Clone Agent Storage Control
