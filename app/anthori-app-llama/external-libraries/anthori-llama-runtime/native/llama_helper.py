@@ -7,6 +7,7 @@ import re
 import shutil
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import tarfile
@@ -16,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from ctypes import wintypes
 from pathlib import Path
 
 STABLE_TAG = "b9113"
@@ -143,6 +145,13 @@ def extension_request(input_value):
     if isinstance(input_value, dict) and isinstance(input_value.get("request"), dict):
         return input_value.get("request")
     return {}
+
+
+def extension_owner_pid(input_value):
+    extension = input_value.get("extension") if isinstance(input_value, dict) else {}
+    if not isinstance(extension, dict):
+        return 0
+    return normalize_int(extension.get("ownerPid"), 1) or 0
 
 
 def model_root(state_dir, value):
@@ -383,8 +392,13 @@ def runtime_binary_candidates(directory):
 
 def installed_runtime_binary(directory):
     for candidate in runtime_binary_candidates(Path(directory)):
-        if candidate.is_file():
+        try:
+            if candidate.is_file():
+                return str(candidate), True
+        except PermissionError:
             return str(candidate), True
+        except OSError:
+            continue
     return str(Path(directory) / llama_server_executable_name()), False
 
 
@@ -427,10 +441,112 @@ def resolve_binary_path(state_dir, runtime_id):
     return str(runtime_root(state_dir) / llama_server_executable_name()), False, None
 
 
-def process_alive(pid):
+WINDOWS_RUNTIME_OWNER_WRAPPERS = {
+    "cmd.exe",
+    "conhost.exe",
+    "py.exe",
+    "python.exe",
+    "python3.exe",
+    "pythonw.exe",
+}
+
+
+def windows_process_table():
+    if os.name != "nt":
+        return {}
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+        class PROCESSENTRY32(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", wintypes.DWORD),
+                ("cntUsage", wintypes.DWORD),
+                ("th32ProcessID", wintypes.DWORD),
+                ("th32DefaultHeapID", ctypes.c_size_t),
+                ("th32ModuleID", wintypes.DWORD),
+                ("cntThreads", wintypes.DWORD),
+                ("th32ParentProcessID", wintypes.DWORD),
+                ("pcPriClassBase", wintypes.LONG),
+                ("dwFlags", wintypes.DWORD),
+                ("szExeFile", wintypes.WCHAR * 260),
+            ]
+
+        kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+        kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+        kernel32.Process32FirstW.restype = wintypes.BOOL
+        kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
+        kernel32.Process32NextW.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+
+        snapshot = kernel32.CreateToolhelp32Snapshot(0x00000002, 0)
+        if snapshot == wintypes.HANDLE(-1).value:
+            return {}
+        try:
+            entry = PROCESSENTRY32()
+            entry.dwSize = ctypes.sizeof(PROCESSENTRY32)
+            processes = {}
+            if not kernel32.Process32FirstW(snapshot, ctypes.byref(entry)):
+                return processes
+            while True:
+                pid = int(entry.th32ProcessID)
+                processes[pid] = {
+                    "parentPid": int(entry.th32ParentProcessID),
+                    "name": normalize_string(entry.szExeFile),
+                }
+                if not kernel32.Process32NextW(snapshot, ctypes.byref(entry)):
+                    return processes
+        finally:
+            kernel32.CloseHandle(snapshot)
+    except Exception:
+        return {}
+
+
+def default_runtime_owner_pid():
+    parent_pid = os.getppid()
+    if os.name != "nt":
+        return parent_pid
+    processes = windows_process_table()
+    if not processes:
+        return parent_pid
+    current = parent_pid
+    seen = set()
+    while current and current not in seen:
+        seen.add(current)
+        process = processes.get(current) or {}
+        name = normalize_string(process.get("name")).lower()
+        if name and name not in WINDOWS_RUNTIME_OWNER_WRAPPERS:
+            return current
+        next_pid = normalize_int(process.get("parentPid"), 1) or 0
+        if not next_pid or next_pid == current:
+            break
+        current = next_pid
+    return parent_pid
+
+
+def windows_process_alive(pid):
+    pid = normalize_int(pid, 1) or 0
     if not pid:
         return False
-    if os.name == "nt":
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        process_query_limited_information = 0x1000
+        synchronize = 0x00100000
+        kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel32.CloseHandle.restype = ctypes.c_int
+        handle = kernel32.OpenProcess(process_query_limited_information | synchronize, False, int(pid))
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        error_code = ctypes.get_last_error()
+        if error_code == 5:
+            return True
+    except Exception:
+        pass
+    try:
         completed = subprocess.run(
             ["tasklist", "/FI", "PID eq {}".format(pid), "/FO", "CSV", "/NH"],
             stdout=subprocess.PIPE,
@@ -439,11 +555,42 @@ def process_alive(pid):
             timeout=3,
         )
         return str(pid) in completed.stdout
+    except Exception:
+        return False
+
+
+def process_alive(pid):
+    if not pid:
+        return False
+    if os.name == "nt":
+        return windows_process_alive(pid)
     try:
         os.kill(pid, 0)
         return True
     except OSError:
         return False
+
+
+def stop_process_tree(pid, timeout_seconds=10):
+    pid = normalize_int(pid, 1) or 0
+    if not pid:
+        return
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline and process_alive(pid):
+            time.sleep(0.1)
+        if process_alive(pid):
+            os.kill(pid, signal.SIGKILL)
+    except OSError:
+        pass
 
 
 def health_ready(base_url, timeout=1.0):
@@ -456,13 +603,63 @@ def health_ready(base_url, timeout=1.0):
         return False
 
 
-def wait_for_ready(base_url, timeout_seconds=300):
+def runtime_port_open(base_url, timeout=0.25):
+    parsed = urllib.parse.urlparse(normalize_string(base_url))
+    host = parsed.hostname
+    port = parsed.port
+    if not host or not port:
+        return False
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+START_FAILURE_LOG_PATTERNS = [
+    re.compile(r"^error while handling argument\b.*", re.IGNORECASE),
+    re.compile(r"^error:\s+.+", re.IGNORECASE),
+    re.compile(r".*\b(out of memory|cuda error|failed to allocate|failed to load|failed to initialize|could not|cannot allocate|invalid device)\b.*", re.IGNORECASE),
+]
+
+
+def ready_log_seen(log_path, log_offset=0):
+    log_tail = tail_text_since(log_path, log_offset, 32768)
+    if not log_tail:
+        return False
+    lowered = log_tail.lower()
+    server_listening = "main: server is listening" in lowered
+    model_loaded = "main: model loaded" in lowered
+    main_loop_started = "main: starting the main loop" in lowered
+    return server_listening and (model_loaded or main_loop_started)
+
+
+def wait_for_ready(base_url, timeout_seconds=300, process=None, log_path=None, log_offset=0):
     deadline = time.time() + timeout_seconds
     parsed = urllib.parse.urlparse(normalize_string(base_url))
     host = parsed.hostname
     port = parsed.port
     last_error = "runtime did not become ready"
     while time.time() < deadline:
+        if process is not None and process.poll() is not None:
+            detail = runtime_start_failure_detail(
+                "llama-server exited before it became ready",
+                last_error,
+                log_path,
+                log_offset,
+            )
+            raise RuntimeError(detail)
+        fatal_log_line = runtime_start_failure_log_line(log_path, log_offset)
+        if fatal_log_line:
+            detail = runtime_start_failure_detail(
+                "llama-server reported a startup error: {}".format(fatal_log_line),
+                last_error,
+                log_path,
+                log_offset,
+            )
+            raise RuntimeError(detail)
+        if ready_log_seen(log_path, log_offset):
+            return
         if host and port:
             try:
                 with socket.create_connection((host, port), timeout=0.25):
@@ -474,7 +671,35 @@ def wait_for_ready(base_url, timeout_seconds=300):
         if health_ready(base_url, timeout=1.0):
             return
         time.sleep(0.2)
-    raise TimeoutError("llama runtime did not become ready: {}".format(last_error))
+    raise TimeoutError(runtime_start_failure_detail(
+        "llama runtime did not become ready within {} seconds".format(timeout_seconds),
+        last_error,
+        log_path,
+        log_offset,
+    ))
+
+
+def runtime_start_failure_log_line(log_path, log_offset=0):
+    log_tail = tail_text_since(log_path, log_offset, 8192)
+    if not log_tail:
+        return ""
+    for line in reversed(log_tail.splitlines()):
+        text = normalize_string(line)
+        if not text:
+            continue
+        if any(pattern.match(text) for pattern in START_FAILURE_LOG_PATTERNS):
+            return text
+    return ""
+
+
+def runtime_start_failure_detail(message, last_error, log_path, log_offset=0):
+    parts = [normalize_string(message)]
+    if normalize_string(last_error):
+        parts.append("Last readiness error: {}".format(normalize_string(last_error)))
+    log_tail = tail_text_since(log_path, log_offset, 4096)
+    if log_tail:
+        parts.append("llama-server log:\n{}".format(log_tail))
+    return "\n\n".join(part for part in parts if part)
 
 
 def port_available(port):
@@ -492,20 +717,32 @@ def runtime_status(state_dir, request):
     status = read_json(runtime_status_path(state_dir), {}) or {}
     base_url = normalize_string(status.get("baseUrl")) or "http://127.0.0.1:{}".format(DEFAULT_RUNTIME_PORT)
     pid = normalize_int(status.get("pid"), 1) or 0
-    running = process_alive(pid)
-    ready = running and health_ready(base_url, timeout=0.5)
+    log_offset = normalize_int(status.get("logOffset"), 0) or 0
+    log_path = runtime_log_path(state_dir)
+    log_ready = ready_log_seen(log_path, log_offset)
+    health_is_ready = health_ready(base_url, timeout=0.5)
+    running = (
+        process_alive(pid) or
+        health_is_ready or
+        runtime_port_open(base_url, timeout=0.25)
+    )
+    ready = running and (health_is_ready or log_ready)
     if not running:
-        return {
+        stopped_status = {
             "running": False,
             "ready": False,
             "starting": False,
             "baseUrl": base_url,
             "modelPath": normalize_string(status.get("modelPath")),
-            "binaryPath": binary_path,
-            "binaryAvailable": binary_available,
             "lastError": binary_error or normalize_string(status.get("lastError")),
-            "stderr": tail_text(runtime_log_path(state_dir), 32768),
+            "exitedAt": normalize_string(status.get("exitedAt")) or now_iso(),
         }
+        write_json(runtime_status_path(state_dir), stopped_status)
+        response = dict(stopped_status)
+        response["binaryPath"] = binary_path
+        response["binaryAvailable"] = binary_available
+        response["stderr"] = tail_text_since(log_path, log_offset, 32768)
+        return response
     return {
         "running": True,
         "ready": ready,
@@ -517,7 +754,7 @@ def runtime_status(state_dir, request):
         "binaryAvailable": binary_available,
         "startedAt": normalize_string(status.get("startedAt")),
         "lastError": binary_error or normalize_string(status.get("lastError")),
-        "stderr": tail_text(runtime_log_path(state_dir), 32768),
+        "stderr": tail_text_since(log_path, log_offset, 32768),
     }
 
 
@@ -529,6 +766,25 @@ def tail_text(path, limit):
             handle.seek(max(0, size - limit), os.SEEK_SET)
             return handle.read().decode("utf-8", errors="replace").strip()
     except OSError:
+        return ""
+
+
+def file_size(path):
+    try:
+        return Path(path).stat().st_size
+    except OSError:
+        return 0
+
+
+def tail_text_since(path, offset, limit):
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            start = max(int(offset or 0), size - int(limit or 0))
+            handle.seek(start, os.SEEK_SET)
+            return handle.read().decode("utf-8", errors="replace").strip()
+    except (OSError, ValueError):
         return ""
 
 
@@ -600,6 +856,137 @@ def list_runtime_packs(state_dir, request, version=STABLE_TAG):
     }
 
 
+GGUF_VALUE_UINT8 = 0
+GGUF_VALUE_INT8 = 1
+GGUF_VALUE_UINT16 = 2
+GGUF_VALUE_INT16 = 3
+GGUF_VALUE_UINT32 = 4
+GGUF_VALUE_INT32 = 5
+GGUF_VALUE_FLOAT32 = 6
+GGUF_VALUE_BOOL = 7
+GGUF_VALUE_STRING = 8
+GGUF_VALUE_ARRAY = 9
+GGUF_VALUE_UINT64 = 10
+GGUF_VALUE_INT64 = 11
+GGUF_VALUE_FLOAT64 = 12
+
+
+def read_exact(handle, size):
+    data = handle.read(size)
+    if len(data) != size:
+        raise ValueError("unexpected end of GGUF metadata")
+    return data
+
+
+def read_gguf_u32(handle):
+    return struct.unpack("<I", read_exact(handle, 4))[0]
+
+
+def read_gguf_u64(handle):
+    return struct.unpack("<Q", read_exact(handle, 8))[0]
+
+
+def skip_bytes(handle, size):
+    if size < 0:
+        raise ValueError("invalid GGUF skip size")
+    handle.seek(size, os.SEEK_CUR)
+
+
+def skip_gguf_string(handle):
+    length = read_gguf_u64(handle)
+    if length > 1 << 34:
+        raise ValueError("GGUF string is too large")
+    skip_bytes(handle, length)
+
+
+def gguf_fixed_value_size(value_type):
+    return {
+        GGUF_VALUE_UINT8: 1,
+        GGUF_VALUE_INT8: 1,
+        GGUF_VALUE_UINT16: 2,
+        GGUF_VALUE_INT16: 2,
+        GGUF_VALUE_UINT32: 4,
+        GGUF_VALUE_INT32: 4,
+        GGUF_VALUE_FLOAT32: 4,
+        GGUF_VALUE_BOOL: 1,
+        GGUF_VALUE_UINT64: 8,
+        GGUF_VALUE_INT64: 8,
+        GGUF_VALUE_FLOAT64: 8,
+    }.get(value_type)
+
+
+def skip_gguf_value(handle, value_type, depth=0):
+    fixed_size = gguf_fixed_value_size(value_type)
+    if fixed_size is not None:
+        skip_bytes(handle, fixed_size)
+        return
+    if value_type == GGUF_VALUE_STRING:
+        skip_gguf_string(handle)
+        return
+    if value_type != GGUF_VALUE_ARRAY:
+        raise ValueError("unsupported GGUF metadata value type")
+    if depth > 3:
+        raise ValueError("GGUF metadata array nesting is too deep")
+    item_type = read_gguf_u32(handle)
+    count = read_gguf_u64(handle)
+    if count > 10_000_000:
+        raise ValueError("GGUF metadata array is too large")
+    item_size = gguf_fixed_value_size(item_type)
+    if item_size is not None:
+        skip_bytes(handle, item_size * count)
+        return
+    for _index in range(count):
+        skip_gguf_value(handle, item_type, depth + 1)
+
+
+def read_gguf_integer_value(handle, value_type):
+    if value_type == GGUF_VALUE_UINT8:
+        return struct.unpack("<B", read_exact(handle, 1))[0]
+    if value_type == GGUF_VALUE_INT8:
+        return struct.unpack("<b", read_exact(handle, 1))[0]
+    if value_type == GGUF_VALUE_UINT16:
+        return struct.unpack("<H", read_exact(handle, 2))[0]
+    if value_type == GGUF_VALUE_INT16:
+        return struct.unpack("<h", read_exact(handle, 2))[0]
+    if value_type == GGUF_VALUE_UINT32:
+        return struct.unpack("<I", read_exact(handle, 4))[0]
+    if value_type == GGUF_VALUE_INT32:
+        return struct.unpack("<i", read_exact(handle, 4))[0]
+    if value_type == GGUF_VALUE_UINT64:
+        return struct.unpack("<Q", read_exact(handle, 8))[0]
+    if value_type == GGUF_VALUE_INT64:
+        return struct.unpack("<q", read_exact(handle, 8))[0]
+    skip_gguf_value(handle, value_type)
+    return None
+
+
+def gguf_context_length(path):
+    try:
+        with Path(path).open("rb") as handle:
+            if read_exact(handle, 4) != b"GGUF":
+                return None
+            version = read_gguf_u32(handle)
+            if version <= 0 or version > 10:
+                return None
+            read_gguf_u64(handle)
+            metadata_count = read_gguf_u64(handle)
+            if metadata_count > 1_000_000:
+                return None
+            for _index in range(metadata_count):
+                key_length = read_gguf_u64(handle)
+                if key_length > 65_536:
+                    return None
+                key = read_exact(handle, key_length).decode("utf-8", errors="replace")
+                value_type = read_gguf_u32(handle)
+                if key == "context_length" or key.endswith(".context_length"):
+                    value = read_gguf_integer_value(handle, value_type)
+                    return value if value and value > 0 else None
+                skip_gguf_value(handle, value_type)
+    except (OSError, ValueError, struct.error, OverflowError):
+        return None
+    return None
+
+
 def model_info_from_path(root, path_value, source):
     path = Path(path_value)
     stat = path.stat()
@@ -607,7 +994,7 @@ def model_info_from_path(root, path_value, source):
         rel = path.relative_to(Path(root))
     except ValueError:
         rel = Path(path.name)
-    return {
+    info = {
         "id": rel.as_posix(),
         "name": path.stem,
         "path": str(path),
@@ -615,6 +1002,10 @@ def model_info_from_path(root, path_value, source):
         "bytes": int(stat.st_size),
         "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stat.st_mtime)),
     }
+    max_context_tokens = gguf_context_length(path)
+    if max_context_tokens:
+        info["maxContextTokens"] = max_context_tokens
+    return info
 
 
 def list_models(state_dir, request):
@@ -710,13 +1101,23 @@ def start_model_download(state_dir, request):
         "stdin": subprocess.DEVNULL,
         "stdout": subprocess.DEVNULL,
         "stderr": subprocess.DEVNULL,
-        "close_fds": os.name != "nt",
+        "close_fds": True,
     }
     if os.name == "nt":
         popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     else:
         popen_kwargs["start_new_session"] = True
-    subprocess.Popen(args, **popen_kwargs)
+    try:
+        process = subprocess.Popen(args, **popen_kwargs)
+    except Exception as exc:
+        progress["status"] = "failed"
+        progress["error"] = "Download worker failed to start: {}".format(exc)
+        write_progress(state_dir, progress)
+        raise
+    current = read_progress(state_dir, download_id) or progress
+    if normalize_string(current.get("status")) == "starting":
+        current["workerPid"] = process.pid
+        write_progress(state_dir, current)
     return {"download": progress}
 
 
@@ -743,6 +1144,7 @@ def download_worker(request_path):
         "revision": revision,
         "startedAt": now_iso(),
     }
+    progress["workerPid"] = os.getpid()
     progress["status"] = "downloading"
     write_progress(state_dir, progress)
     temp_path = dest.with_suffix(dest.suffix + ".download")
@@ -795,6 +1197,63 @@ def run_download_worker(request_path):
             progress["error"] = str(exc)
             write_progress(state_dir, progress)
         raise
+
+
+def mark_runtime_stopped_by_watchdog(state_dir, runtime_pid):
+    status_path = runtime_status_path(state_dir)
+    status = read_json(status_path, {}) or {}
+    if normalize_int(status.get("pid"), 1) != runtime_pid:
+        return
+    next_status = {
+        "running": False,
+        "ready": False,
+        "starting": False,
+        "baseUrl": normalize_string(status.get("baseUrl")) or "http://127.0.0.1:{}".format(DEFAULT_RUNTIME_PORT),
+        "modelPath": normalize_string(status.get("modelPath")),
+        "exitedAt": now_iso(),
+        "stopReason": "app-exit",
+    }
+    write_json(status_path, next_status)
+
+
+def runtime_watchdog(state_dir_value, runtime_pid_value, owner_pid_value):
+    state_dir = Path(normalize_string(state_dir_value))
+    runtime_pid = normalize_int(runtime_pid_value, 1) or 0
+    owner_pid = normalize_int(owner_pid_value, 1) or 0
+    if not state_dir or not runtime_pid or not owner_pid:
+        return
+    while process_alive(owner_pid):
+        if not process_alive(runtime_pid):
+            mark_runtime_stopped_by_watchdog(state_dir, runtime_pid)
+            return
+        time.sleep(1)
+    stop_process_tree(runtime_pid)
+    mark_runtime_stopped_by_watchdog(state_dir, runtime_pid)
+
+
+def start_runtime_watchdog(state_dir, runtime_pid, owner_pid):
+    args = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--runtime-watchdog",
+        str(state_dir),
+        str(runtime_pid),
+        str(owner_pid),
+    ]
+    popen_kwargs = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "close_fds": True,
+    }
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        popen_kwargs["start_new_session"] = True
+    try:
+        return subprocess.Popen(args, **popen_kwargs).pid
+    except Exception:
+        return 0
 
 
 def safe_archive_target(root, name):
@@ -1074,9 +1533,11 @@ def nvidia_gpus():
         parts = [part.strip() for part in line.split(",")]
         if len(parts) < 3 or not parts[0] or not parts[1]:
             continue
+        device_index = normalize_string(parts[0])
         memory_mib = normalize_int(parts[2], 0) or 0
         gpus.append({
-            "id": parts[0],
+            "id": "CUDA{}".format(device_index),
+            "deviceIndex": device_index,
             "name": parts[1],
             "backend": "CUDA",
             "vramBytes": memory_mib * 1024 * 1024,
@@ -1106,12 +1567,26 @@ def selected_gpu_ids(settings, hardware):
     configured = [normalize_string(value) for value in configured if normalize_string(value)]
     if len(configured) == 1 and configured[0] == GPU_SELECTION_NONE:
         return []
+    ids = [normalize_string(gpu.get("id")) for gpu in hardware.get("gpus", []) if normalize_string(gpu.get("id"))]
+    id_set = set(ids)
+    legacy_index_to_id = {}
+    for gpu in hardware.get("gpus", []):
+        gpu_id = normalize_string(gpu.get("id"))
+        device_index = normalize_string(gpu.get("deviceIndex"))
+        if gpu_id and device_index:
+            legacy_index_to_id[device_index] = gpu_id
     if configured:
-        items = [item for item in configured if item != GPU_SELECTION_NONE]
+        items = []
+        for item in configured:
+            if item == GPU_SELECTION_NONE:
+                continue
+            if item in id_set:
+                items.append(item)
+            elif item in legacy_index_to_id:
+                items.append(legacy_index_to_id[item])
         if settings.get("gpuStrategy") == "first" and len(items) > 1:
             return items[:1]
         return items
-    ids = [normalize_string(gpu.get("id")) for gpu in hardware.get("gpus", []) if normalize_string(gpu.get("id"))]
     if settings.get("gpuStrategy") == "first" and len(ids) > 1:
         return ids[:1]
     return ids
@@ -1253,10 +1728,18 @@ def build_server_args(request, model_path, draft_model_path, port, settings, har
 def stop_runtime(state_dir, request):
     status = read_json(runtime_status_path(state_dir), {}) or {}
     pid = normalize_int(status.get("pid"), 1) or 0
-    if pid and process_alive(pid):
+    if pid:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
+            completed = subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            output_text = normalize_string(completed.stdout)
+            if completed.returncode != 0 and "not found" not in output_text.lower():
+                raise RuntimeError("Failed to stop llama-server process {}: {}".format(pid, output_text or "taskkill failed"))
+        elif process_alive(pid):
             try:
                 os.kill(pid, signal.SIGTERM)
                 deadline = time.time() + 5
@@ -1305,6 +1788,7 @@ def start_runtime(state_dir, request):
     args = build_server_args(request, model_path, draft_model_path, port, settings, hardware, allow_device_selection)
     log_path = runtime_log_path(state_dir)
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_offset = file_size(log_path)
     log_file = open(log_path, "ab")
     try:
         popen_kwargs = {
@@ -1312,7 +1796,7 @@ def start_runtime(state_dir, request):
             "stdout": log_file,
             "stderr": log_file,
             "stdin": subprocess.DEVNULL,
-            "close_fds": os.name != "nt",
+            "close_fds": True,
         }
         if os.name == "nt":
             popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -1322,19 +1806,24 @@ def start_runtime(state_dir, request):
     finally:
         log_file.close()
     base_url = "http://127.0.0.1:{}".format(port)
+    owner_pid = normalize_int(request.get("ownerPid"), 1) or default_runtime_owner_pid()
+    watchdog_pid = start_runtime_watchdog(state_dir, process.pid, owner_pid)
     write_json(runtime_status_path(state_dir), {
         "running": True,
         "ready": False,
         "starting": True,
         "pid": process.pid,
+        "ownerPid": owner_pid,
+        "watchdogPid": watchdog_pid,
         "baseUrl": base_url,
         "modelPath": str(model_path),
         "binaryPath": binary_path,
         "binaryAvailable": True,
         "startedAt": now_iso(),
+        "logOffset": log_offset,
     })
     try:
-        wait_for_ready(base_url, 300)
+        wait_for_ready(base_url, 300, process, log_path, log_offset)
     except Exception as exc:
         current = read_json(runtime_status_path(state_dir), {}) or {}
         current["lastError"] = str(exc)
@@ -1372,6 +1861,10 @@ def dispatch(action, input_value):
     if action == "runtime-status":
         return runtime_status(state_dir, request)
     if action == "runtime-start":
+        owner_pid = extension_owner_pid(input_value)
+        if owner_pid:
+            request = dict(request)
+            request["ownerPid"] = owner_pid
         return start_runtime(state_dir, request)
     if action == "runtime-stop":
         return stop_runtime(state_dir, request)
@@ -1381,6 +1874,9 @@ def dispatch(action, input_value):
 def main():
     if len(sys.argv) == 3 and sys.argv[1] == "--download-worker":
         run_download_worker(sys.argv[2])
+        return
+    if len(sys.argv) == 5 and sys.argv[1] == "--runtime-watchdog":
+        runtime_watchdog(sys.argv[2], sys.argv[3], sys.argv[4])
         return
     payload = json.loads(sys.stdin.read() or "{}")
     action = normalize_string(payload.get("actionId"))

@@ -2,6 +2,11 @@
   const LLAMA_RUNTIME_RELEASES_API_URL = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
   const LLAMA_RUNTIME_LIBRARY_ID = "anthori-llama-runtime"
   const LLAMA_GPU_SELECTION_NONE = "__none__"
+  const DOWNLOAD_STATUS_POLL_MS = 1000
+  const DOWNLOAD_START_STALE_MS = 30000
+  const DOWNLOAD_STATUS_MISSING_LIMIT = 10
+  const RUNTIME_LOAD_STATUS_POLL_MS = 1500
+  const RUNTIME_STATUS_POLL_MS = 3000
 
   const DEFAULTS = Object.freeze({
     modelRoot: "",
@@ -35,10 +40,16 @@
     runtimeBusyId: "",
     runtimeModelAction: "",
     runtimeModelActionPath: "",
+    runtimeModelActionStartedAt: 0,
+    runtimeModelActionToken: 0,
+    runtimeLoadStatusTimer: 0,
+    runtimeStatusPollTimer: 0,
+    runtimeStatusPollInFlight: false,
     downloading: false,
     downloadViewOpen: false,
     expandedModels: new Set(),
     activeDownloads: {},
+    downloadStatusPollTimer: 0,
     saving: false,
     hf: {
       query: "",
@@ -159,6 +170,16 @@
     return `${rounded} GB`
   }
 
+  function formatElapsedTime(startedAt) {
+    const started = Number(startedAt)
+    if (!Number.isFinite(started) || started <= 0) return ""
+    const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000))
+    if (seconds < 60) return `${seconds}s`
+    const minutes = Math.floor(seconds / 60)
+    const remainder = seconds % 60
+    return remainder > 0 ? `${minutes}m ${remainder}s` : `${minutes}m`
+  }
+
   function normalizeStringList(value) {
     if (!Array.isArray(value)) return []
     const seen = new Set()
@@ -187,10 +208,20 @@
     if (configured.length === 1 && configured[0] === LLAMA_GPU_SELECTION_NONE) {
       return new Set()
     }
+    const hardwareIds = new Set(hardware.gpus.map((gpu) => gpu.id).filter(Boolean))
+    const legacyIndexToId = new Map()
+    hardware.gpus.forEach((gpu) => {
+      if (gpu.id && gpu.deviceIndex) {
+        legacyIndexToId.set(gpu.deviceIndex, gpu.id)
+      }
+    })
     if (configured.length > 0) {
-      return new Set(configured.filter((id) => id !== LLAMA_GPU_SELECTION_NONE))
+      return new Set(configured
+        .filter((id) => id !== LLAMA_GPU_SELECTION_NONE)
+        .map((id) => hardwareIds.has(id) ? id : legacyIndexToId.get(id))
+        .filter(Boolean))
     }
-    return new Set(hardware.gpus.map((gpu) => gpu.id).filter(Boolean))
+    return hardwareIds
   }
 
   function saveEnabledGpuIds(ids, hardware) {
@@ -254,6 +285,7 @@
     state.activeDownloads = Object.assign({}, state.activeDownloads, {
       [normalized.id]: normalized,
     })
+    updateDownloadStatusPolling()
   }
 
   function removeActiveDownload(id) {
@@ -262,12 +294,34 @@
     const next = Object.assign({}, state.activeDownloads)
     delete next[downloadId]
     state.activeDownloads = next
+    updateDownloadStatusPolling()
   }
 
   function activeDownloadFor(repository, file) {
     const target = huggingFaceModelKey(repository, file)
     if (!target) return null
     return activeDownloadItems().find((download) => huggingFaceModelKey(download.repository, download.file) === target) || null
+  }
+
+  function downloadIsActive(download) {
+    const status = normalizeString(download?.status)
+    return status === "starting" || status === "downloading"
+  }
+
+  function downloadIsTerminal(download) {
+    const status = normalizeString(download?.status)
+    return status === "complete" || status === "failed"
+  }
+
+  function downloadTimestamp(value) {
+    const parsed = Date.parse(normalizeString(value))
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  function downloadIsStaleStarting(download) {
+    if (normalizeString(download?.status) !== "starting") return false
+    const updatedAt = downloadTimestamp(download.updatedAt || download.startedAt)
+    return updatedAt > 0 && Date.now() - updatedAt > DOWNLOAD_START_STALE_MS
   }
 
   function downloadedModelKeys() {
@@ -491,6 +545,8 @@
       status: normalizeString(entry.status) || "queued",
       error: normalizeString(entry.error),
       addedAt: normalizeString(entry.addedAt) || new Date().toISOString(),
+      startedAt: normalizeString(entry.startedAt),
+      updatedAt: normalizeString(entry.updatedAt),
     }
   }
 
@@ -506,7 +562,54 @@
       bytesDownloaded: normalizeByteCount(entry.bytesDownloaded),
       error: entry.error,
       addedAt: entry.startedAt || entry.updatedAt,
+      startedAt: entry.startedAt,
+      updatedAt: entry.updatedAt,
     })
+  }
+
+  function storedDownloadFromProgress(progress, rawProgress = null, fallback = null) {
+    const normalized = normalizeDownload(progress)
+    if (!normalized) return null
+    const fallbackDownload = normalizeDownload(fallback) || {}
+    const raw = isPlainObject(rawProgress) ? rawProgress : {}
+    const model = normalizeModel(raw.model)
+    const bytes = normalizeByteCount(
+      model?.bytes,
+      normalized.bytes,
+      raw.bytesTotal,
+      fallbackDownload.bytes,
+      normalized.bytesDownloaded,
+      raw.bytesDownloaded,
+    )
+    return Object.assign({}, fallbackDownload, normalized, {
+      bytes,
+      bytesDownloaded: downloadIsTerminal(normalized)
+        ? normalizeByteCount(normalized.bytesDownloaded, bytes)
+        : normalizeByteCount(normalized.bytesDownloaded),
+      error: normalizeString(normalized.error),
+    })
+  }
+
+  function downloadsMatch(left, right) {
+    return normalizeString(left?.id) === normalizeString(right?.id) &&
+      normalizeString(left?.repository) === normalizeString(right?.repository) &&
+      normalizeString(left?.file) === normalizeString(right?.file) &&
+      normalizeString(left?.revision) === normalizeString(right?.revision) &&
+      normalizeString(left?.status) === normalizeString(right?.status) &&
+      normalizeString(left?.error) === normalizeString(right?.error) &&
+      normalizeByteCount(left?.bytes) === normalizeByteCount(right?.bytes) &&
+      normalizeByteCount(left?.bytesDownloaded) === normalizeByteCount(right?.bytesDownloaded)
+  }
+
+  function upsertStoredDownload(progress, rawProgress = null, fallback = null) {
+    const stored = storedDownloadFromProgress(progress, rawProgress, fallback)
+    if (!stored || !downloadIsTerminal(stored)) return false
+    const previous = state.values.downloads.find((item) => item.id === stored.id)
+    if (previous && downloadsMatch(previous, stored)) return false
+    state.values.downloads = [
+      stored,
+    ].concat(state.values.downloads.filter((item) => item.id !== stored.id))
+    return true
   }
 
   function downloadProgressPercent(download) {
@@ -525,7 +628,9 @@
       return `${formatBytes(downloaded)} / ${formatBytes(total)} (${percent}%)`
     }
     if (downloaded > 0) return `${formatBytes(downloaded)} downloaded`
-    if (status === "downloading" || status === "starting") return "Starting..."
+    if (status === "downloading" && total > 0) return `0 B / ${formatBytes(total)} (0%)`
+    if (status === "downloading") return "Connecting..."
+    if (status === "starting") return "Starting..."
     return ""
   }
 
@@ -610,9 +715,104 @@
       modelPath: normalizeString(source.modelPath),
       binaryPath: normalizeString(source.binaryPath),
       binaryAvailable: source.binaryAvailable === true,
+      startedAt: normalizeString(source.startedAt),
       lastError: normalizeString(source.lastError),
       stderr: normalizeString(source.stderr),
     }
+  }
+
+  function runtimeIsLoading(runtime) {
+    return runtime?.running === true && runtime.starting === true && runtime.ready !== true
+  }
+
+  function runtimeIsReady(runtime) {
+    return runtime?.running === true && (runtime.ready === true || runtime.starting !== true)
+  }
+
+  function runtimeActionStartedAt(runtime) {
+    const runtimeStartedAt = Date.parse(normalizeString(runtime?.startedAt))
+    if (
+      Number.isFinite(runtimeStartedAt) &&
+      runtimeIsLoading(runtime) &&
+      normalizeString(runtime?.modelPath) === normalizeString(state.runtimeModelActionPath)
+    ) {
+      return runtimeStartedAt
+    }
+    return state.runtimeModelActionStartedAt
+  }
+
+  function runtimeActionElapsedText(runtime) {
+    return formatElapsedTime(runtimeActionStartedAt(runtime))
+  }
+
+  function compactRuntimeLogLine(line) {
+    const text = normalizeString(line).replace(/\s+/g, " ")
+    if (!text) return ""
+    return text.length > 180 ? `${text.slice(0, 177)}...` : text
+  }
+
+  function runtimeStartupLine(runtime) {
+    const stderr = normalizeString(runtime?.stderr)
+    if (!stderr) return ""
+    const lines = stderr.split(/\r?\n/).map(compactRuntimeLogLine).filter(Boolean)
+    if (lines.length === 0) return ""
+    const importantPatterns = [
+      /^(error|fatal)\b/i,
+      /\b(out of memory|cuda error|failed|invalid device|cannot allocate)\b/i,
+      /^main: server is listening\b/i,
+      /^main: model loaded\b/i,
+      /^srv\s+load_model:/i,
+      /^common_init_from_params:/i,
+      /^sched_reserve:/i,
+      /^llama_kv_cache:/i,
+      /^llama_context:/i,
+      /^load_tensors:/i,
+      /^llama_prepare_model_devices:/i,
+      /^print_info: model /i,
+    ]
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      const line = lines[index]
+      if (importantPatterns.some((pattern) => pattern.test(line))) {
+        return line
+      }
+    }
+    return lines[lines.length - 1]
+  }
+
+  function runtimeLoadStatusText(runtime) {
+    if (runtimeIsReady(runtime)) return "Model loaded."
+    const elapsed = runtimeActionElapsedText(runtime)
+    const line = runtimeStartupLine(runtime)
+    const prefix = elapsed ? `Loading model (${elapsed})` : "Loading model"
+    return line ? `${prefix} - ${line}` : `${prefix} - waiting for llama.cpp to report readiness`
+  }
+
+  function shouldUpdateRuntimeLoadMessage(runtime, token) {
+    return state.downloading === true &&
+      state.runtimeModelAction === "load" &&
+      state.runtimeModelActionToken > 0 &&
+      state.runtimeModelActionToken === token &&
+      !runtimeIsReady(runtime)
+  }
+
+  function runtimeMatchesActiveLoad(runtime) {
+    return state.runtimeModelAction === "load" &&
+      normalizeString(runtime?.modelPath) === normalizeString(state.runtimeModelActionPath)
+  }
+
+  function completeRuntimeLoadAction(token, message) {
+    if (token > 0 && state.runtimeModelActionToken !== token) return false
+    stopRuntimeLoadStatusPolling(token)
+    state.downloading = false
+    state.runtimeModelAction = ""
+    state.runtimeModelActionPath = ""
+    state.runtimeModelActionStartedAt = 0
+    state.runtimeModelActionToken = 0
+    render()
+    if (message) {
+      setMessage(message)
+    }
+    return true
   }
 
   function normalizeRuntimePack(entry) {
@@ -648,6 +848,7 @@
         .filter((gpu) => isPlainObject(gpu))
         .map((gpu) => ({
           id: normalizeString(gpu.id),
+          deviceIndex: normalizeString(gpu.deviceIndex),
           name: normalizeString(gpu.name),
           backend: normalizeString(gpu.backend),
           vramBytes: Number.isFinite(Number(gpu.vramBytes)) ? Math.max(0, Math.floor(Number(gpu.vramBytes))) : 0,
@@ -919,10 +1120,10 @@
       title.className = "llama-card-title"
       title.textContent = model.name || basename(model.path)
       const isCurrentModel = runtime.running && runtime.modelPath === model.path
-      const isStarting = isCurrentModel && runtime.starting
-      const isRunning = isCurrentModel && !runtime.starting
+      const isStarting = isCurrentModel && runtimeIsLoading(runtime)
+      const isRunning = isCurrentModel && runtimeIsReady(runtime)
       const isRuntimeAction = state.runtimeModelActionPath === model.path
-      const isLoading = isRuntimeAction && state.runtimeModelAction === "load"
+      const isLoading = isRuntimeAction && state.runtimeModelAction === "load" && !isRunning
       const isUnloading = isRuntimeAction && state.runtimeModelAction === "unload"
       const metaParts = []
       if (model.id) metaParts.push(model.id)
@@ -945,7 +1146,14 @@
       const start = document.createElement("button")
       start.className = "llama-button"
       start.type = "button"
-      start.textContent = isLoading || isStarting ? "Loading..." : isUnloading ? "Unloading..." : isRunning ? "Unload" : "Load"
+      const loadingElapsed = runtimeActionElapsedText(runtime)
+      start.textContent = isLoading || isStarting
+        ? (loadingElapsed ? `Loading ${loadingElapsed}` : "Loading...")
+        : isUnloading
+        ? "Unloading..."
+        : isRunning
+        ? "Unload"
+        : "Load"
       start.disabled = state.downloading || !state.backendAvailable
       start.addEventListener("click", () => {
         if (isCurrentModel) {
@@ -1353,10 +1561,13 @@
       els.runtimeStop.disabled = state.downloading
     }
     if (els.runtimeStatus && els.runtimeDetail) {
-      if (runtime.running && runtime.starting) {
+      if (runtimeIsLoading(runtime) && runtime.lastError) {
+        els.runtimeStatus.textContent = "Load error"
+        els.runtimeDetail.textContent = runtime.lastError
+      } else if (runtimeIsLoading(runtime)) {
         els.runtimeStatus.textContent = "Loading"
-        els.runtimeDetail.textContent = runtime.pid > 0 ? `PID ${runtime.pid} - ${runtime.modelPath}` : runtime.modelPath
-      } else if (runtime.running) {
+        els.runtimeDetail.textContent = runtimeLoadStatusText(runtime)
+      } else if (runtimeIsReady(runtime)) {
         els.runtimeStatus.textContent = "Running"
         els.runtimeDetail.textContent = runtime.pid > 0 ? `PID ${runtime.pid} - ${runtime.modelPath}` : runtime.modelPath
       } else if (!runtime.binaryAvailable) {
@@ -1415,13 +1626,94 @@
     }
   }
 
-  async function refreshRuntimeStatus() {
+  function updateDownloadStatusPolling() {
+    const hasActiveDownloads = activeDownloadItems().length > 0
+    if (hasActiveDownloads && !state.downloadStatusPollTimer) {
+      state.downloadStatusPollTimer = window.setInterval(() => {
+        void refreshDownloadStatuses()
+      }, DOWNLOAD_STATUS_POLL_MS)
+    } else if (!hasActiveDownloads && state.downloadStatusPollTimer) {
+      window.clearInterval(state.downloadStatusPollTimer)
+      state.downloadStatusPollTimer = 0
+    }
+  }
+
+  function reconcileDownloadStatuses(rawDownloads) {
+    let changed = false
+    let saveNeeded = false
+    const items = Array.isArray(rawDownloads) ? rawDownloads : []
+    items.forEach((rawProgress) => {
+      const progress = normalizeDownloadProgress(rawProgress)
+      if (!progress) return
+      const activeDownload = state.activeDownloads[progress.id]
+      const merged = Object.assign({}, activeDownload || {}, progress)
+      if (downloadIsActive(merged) && !downloadIsStaleStarting(merged)) {
+        if (!activeDownload || !downloadsMatch(activeDownload, merged)) {
+          setActiveDownload(merged)
+          changed = true
+        }
+        return
+      }
+      const terminal = downloadIsStaleStarting(merged)
+        ? Object.assign({}, merged, {
+          status: "failed",
+          error: "Download worker did not start.",
+        })
+        : merged
+      if (!downloadIsTerminal(terminal)) return
+      if (activeDownload) {
+        removeActiveDownload(terminal.id)
+        changed = true
+      }
+      if (upsertStoredDownload(terminal, rawProgress, activeDownload)) {
+        saveNeeded = true
+        changed = true
+      }
+    })
+    return { changed, saveNeeded }
+  }
+
+  async function refreshDownloadStatuses(options = {}) {
     try {
-      state.runtime = normalizeRuntime(await callLlamaAction("runtime-status", {
+      const data = await callLlamaAction("models-download-status", {})
+      const result = reconcileDownloadStatuses(data.downloads)
+      if (result.saveNeeded) {
+        await saveSettings()
+        await refreshBackendModels()
+      } else if (result.changed) {
+        render()
+      }
+    } catch (error) {
+      if (options.notify === true) {
+        setMessage(error instanceof Error ? error.message : "Download status refresh failed.")
+      }
+    } finally {
+      updateDownloadStatusPolling()
+    }
+  }
+
+  async function refreshRuntimeStatus(options = {}) {
+    const token = Number(options.runtimeModelActionToken)
+    try {
+      const runtime = normalizeRuntime(await callLlamaAction("runtime-status", {
         runtimeId: state.values.runtimeId || state.selectedRuntimeId,
       }))
+      if (token > 0 && state.runtimeModelActionToken !== token) {
+        return
+      }
+      state.runtime = runtime
+      if (token > 0 && runtimeMatchesActiveLoad(state.runtime) && runtimeIsReady(state.runtime)) {
+        completeRuntimeLoadAction(token, "Model loaded.")
+        return
+      }
       render()
+      if (options.updateRuntimeMessage !== false && shouldUpdateRuntimeLoadMessage(state.runtime, token)) {
+        setMessage(runtimeLoadStatusText(state.runtime))
+      }
     } catch (error) {
+      if (token > 0 && state.runtimeModelActionToken !== token) {
+        return
+      }
       state.runtime = normalizeRuntime({
         binaryAvailable: false,
         lastError: error instanceof Error ? error.message : "Runtime status failed.",
@@ -1519,6 +1811,7 @@
     await refreshRuntimePacks()
     await refreshHardware()
     await refreshRuntimeStatus()
+    await refreshDownloadStatuses()
   }
 
   async function saveSettings() {
@@ -1602,6 +1895,7 @@
   async function waitForDownloadComplete(id) {
     const downloadId = normalizeString(id)
     if (!downloadId) return null
+    let missingStatusCount = 0
     for (;;) {
       const data = await callLlamaAction("models-download-status", { id: downloadId })
       const progress = normalizeDownloadProgress(data.download)
@@ -1610,9 +1904,20 @@
         setActiveDownload(Object.assign({}, activeDownload, progress))
         render()
       }
+      if (!progress) {
+        missingStatusCount += 1
+        if (missingStatusCount >= DOWNLOAD_STATUS_MISSING_LIMIT) {
+          throw new Error("Download worker did not report status.")
+        }
+      } else {
+        missingStatusCount = 0
+      }
       const status = normalizeString(progress?.status)
       if (status === "complete" || status === "failed") {
         return data.download || progress
+      }
+      if (progress && downloadIsStaleStarting(Object.assign({}, activeDownload || {}, progress))) {
+        throw new Error("Download worker did not start.")
       }
       await new Promise((resolve) => window.setTimeout(resolve, 500))
     }
@@ -1629,6 +1934,7 @@
       addedAt: new Date().toISOString(),
     })
     if (!download) return
+    await refreshDownloadStatuses()
     if (isDownloadedHuggingFaceFile(download.repository, download.file)) {
       setMessage("Model already downloaded.")
       render()
@@ -1788,6 +2094,42 @@
     }
   }
 
+  function startRuntimeLoadStatusPolling(token) {
+    if (state.runtimeLoadStatusTimer) return
+    state.runtimeLoadStatusTimer = window.setInterval(() => {
+      if (state.runtimeModelAction !== "load" || state.runtimeModelActionToken !== token) {
+        stopRuntimeLoadStatusPolling()
+        return
+      }
+      void refreshRuntimeStatus({ runtimeModelActionToken: token })
+    }, RUNTIME_LOAD_STATUS_POLL_MS)
+  }
+
+  function stopRuntimeLoadStatusPolling(token = 0) {
+    if (token > 0 && state.runtimeModelActionToken !== token) return
+    if (!state.runtimeLoadStatusTimer) return
+    window.clearInterval(state.runtimeLoadStatusTimer)
+    state.runtimeLoadStatusTimer = 0
+  }
+
+  async function pollRuntimeStatus() {
+    if (state.runtimeStatusPollInFlight || state.runtimeModelAction) return
+    state.runtimeStatusPollInFlight = true
+    try {
+      await refreshRuntimeStatus({ updateRuntimeMessage: false })
+    } finally {
+      state.runtimeStatusPollInFlight = false
+    }
+  }
+
+  function startRuntimeStatusPolling() {
+    if (state.runtimeStatusPollTimer) return
+    state.runtimeStatusPollTimer = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return
+      void pollRuntimeStatus()
+    }, RUNTIME_STATUS_POLL_MS)
+  }
+
   async function startRuntime(model) {
     const normalized = normalizeModel(model)
     if (!normalized) return
@@ -1816,23 +2158,40 @@
     if (modelOptions.minP !== undefined) body.minP = modelOptions.minP
     if (modelOptions.presencePenalty !== undefined) body.presencePenalty = modelOptions.presencePenalty
     if (modelOptions.repeatPenalty !== undefined) body.repeatPenalty = modelOptions.repeatPenalty
+    const actionToken = state.runtimeModelActionToken + 1
     state.downloading = true
     state.runtimeModelAction = "load"
     state.runtimeModelActionPath = normalized.path
+    state.runtimeModelActionStartedAt = Date.now()
+    state.runtimeModelActionToken = actionToken
     render()
-    setMessage("Loading model...")
+    setMessage(runtimeLoadStatusText(state.runtime || normalizeRuntime(null)))
+    startRuntimeLoadStatusPolling(actionToken)
     try {
       state.runtime = normalizeRuntime(await callLlamaAction("runtime-start", body))
-      render()
-      setMessage("Model loaded.")
+      if (state.runtimeModelActionToken === actionToken) {
+        completeRuntimeLoadAction(actionToken, "Model loaded.")
+      }
     } catch (error) {
-      await refreshRuntimeStatus()
-      setMessage(error instanceof Error ? error.message : "Runtime start failed.")
+      if (state.runtimeModelActionToken === actionToken) {
+        await refreshRuntimeStatus({
+          runtimeModelActionToken: actionToken,
+          updateRuntimeMessage: false,
+        })
+      }
+      if (state.runtimeModelActionToken === actionToken) {
+        setMessage(error instanceof Error ? error.message : "Runtime start failed.")
+      }
     } finally {
-      state.downloading = false
-      state.runtimeModelAction = ""
-      state.runtimeModelActionPath = ""
-      render()
+      if (state.runtimeModelActionToken === actionToken) {
+        stopRuntimeLoadStatusPolling(actionToken)
+        state.downloading = false
+        state.runtimeModelAction = ""
+        state.runtimeModelActionPath = ""
+        state.runtimeModelActionStartedAt = 0
+        state.runtimeModelActionToken = 0
+        render()
+      }
     }
   }
 
@@ -1842,6 +2201,8 @@
     state.downloading = true
     state.runtimeModelAction = "unload"
     state.runtimeModelActionPath = normalized?.path || runtime.modelPath
+    state.runtimeModelActionStartedAt = Date.now()
+    state.runtimeModelActionToken += 1
     render()
     setMessage("Stopping runtime...")
     try {
@@ -1857,6 +2218,8 @@
       state.downloading = false
       state.runtimeModelAction = ""
       state.runtimeModelActionPath = ""
+      state.runtimeModelActionStartedAt = 0
+      state.runtimeModelActionToken = 0
       render()
     }
   }
@@ -1910,6 +2273,16 @@
 
     on(els.runtimeStop, "click", () => {
       void stopRuntime()
+    })
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "hidden") {
+        void pollRuntimeStatus()
+      }
+    })
+
+    window.addEventListener("focus", () => {
+      void pollRuntimeStatus()
     })
 
     on(els.modelAdd, "click", () => {
@@ -1988,6 +2361,7 @@
   function init() {
     initElements()
     bindEvents()
+    startRuntimeStatusPolling()
     void loadSettings()
   }
 

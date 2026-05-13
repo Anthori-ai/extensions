@@ -758,9 +758,26 @@ function estimateAgentOverheadChars(config, toolDefinitions) {
     tools.reduce((sum, definition) => sum + estimateToolDefinitionChars(definition), 0);
 }
 
+function messagesWithoutInjectedSystemPrompt(messages, config) {
+  if (!Array.isArray(messages) || messages.length === 0) return messages;
+  const prompt = configString(config, "systemPrompt");
+  if (!prompt) return messages;
+  const first = messages[0];
+  if (!first || typeof first !== "object" || Array.isArray(first)) return messages;
+  if (normalizeString(first.role).toLowerCase() !== "system") return messages;
+  const parts = Array.isArray(first.parts) ? first.parts : [];
+  if (parts.length !== 1) return messages;
+  const part = parts[0];
+  if (!part || typeof part !== "object" || Array.isArray(part)) return messages;
+  if (normalizeString(part.kind).toLowerCase() !== "text") return messages;
+  if (String(part.text == null ? "" : part.text) !== prompt) return messages;
+  return messages.slice(1);
+}
+
 function estimateProviderRequestChars(messages, toolDefinitions, config) {
-  const messageChars = Array.isArray(messages)
-    ? messages.reduce((sum, message) => sum + estimateMessageChars(message), 0)
+  const budgetMessages = messagesWithoutInjectedSystemPrompt(messages, config);
+  const messageChars = Array.isArray(budgetMessages)
+    ? budgetMessages.reduce((sum, message) => sum + estimateMessageChars(message), 0)
     : 0;
   return messageChars + estimateAgentOverheadChars(config, toolDefinitions);
 }
@@ -793,8 +810,9 @@ function validateProviderRequestBudget(messages, toolDefinitions, config, provid
   if (availableChars <= 0) return;
 
   const systemPromptChars = configString(config, "systemPrompt").length;
-  const messageChars = Array.isArray(messages)
-    ? messages.reduce((sum, message) => sum + estimateMessageChars(message), 0)
+  const budgetMessages = messagesWithoutInjectedSystemPrompt(messages, config);
+  const messageChars = Array.isArray(budgetMessages)
+    ? budgetMessages.reduce((sum, message) => sum + estimateMessageChars(message), 0)
     : 0;
   const tools = Array.isArray(toolDefinitions) ? toolDefinitions : [];
   const toolChars = tools.reduce((sum, definition) => sum + estimateToolDefinitionChars(definition), 0);
