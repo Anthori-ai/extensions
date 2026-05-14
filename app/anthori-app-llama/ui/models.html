@@ -64,39 +64,42 @@
   <body data-llama-surface="models">
     <main class="llama-models-root llama-models-panel">
       <div class="llama-panel-toolbar">
-        <button id="llama-model-add" class="llama-icon-button" type="button" aria-label="Download model" title="Download model">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
         <span class="llama-panel-toolbar-spacer" aria-hidden="true"></span>
-        <button id="llama-download-close" class="llama-icon-button" type="button" aria-label="Close model search" title="Close model search" hidden>
+        <button id="llama-open-extension-settings" class="llama-icon-button" type="button" aria-label="Open app extension settings" title="Open app extension settings">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M18 6 6 18M6 6l12 12" />
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+            <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 1 1-4 0v-.09a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H2.86a2 2 0 1 1 0-4h.09A1.8 1.8 0 0 0 4.6 8a1.8 1.8 0 0 0-.36-1.98l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.8 1.8 0 0 0 9.05 3.6a1.8 1.8 0 0 0 1.1-1.65V1.86a2 2 0 1 1 4 0v.09a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.8 1.8 0 0 0 19.4 8c.28.68.93 1.12 1.65 1.12h.09a2 2 0 1 1 0 4h-.09A1.8 1.8 0 0 0 19.4 15Z" />
           </svg>
         </button>
       </div>
 
-      <div id="llama-model-list" class="llama-list"></div>
+      <section id="llama-runtime-setup-notice" class="llama-setup-notice" hidden>
+        <strong>Llama runtime engine required</strong>
+        <span>Install or select a runtime engine from Settings > Extensions > Llama.</span>
+      </section>
 
-      <section id="llama-download-view" class="llama-download-view" hidden>
+      <section id="llama-download-view" class="llama-download-view">
         <div class="llama-download-view-content">
           <form id="llama-hf-search-form" class="llama-search-form">
             <label class="llama-field">
               <span>Search</span>
-              <input id="llama-hf-query" type="search" autocomplete="off" spellcheck="false" placeholder="GGUF model name" />
+              <input id="llama-hf-query" type="search" autocomplete="off" spellcheck="false" placeholder="unsloth gemma" />
             </label>
             <button class="llama-button" type="submit">Search</button>
           </form>
           <p id="llama-hf-status" class="llama-detail"></p>
           <div id="llama-hf-results-list" class="llama-list"></div>
 
-          <div class="llama-section-header llama-download-history-header">
-            <h3>Downloads</h3>
+          <div id="llama-downloads-section" class="llama-downloads-section" hidden>
+            <div class="llama-section-header llama-download-history-header">
+              <h3>Downloads</h3>
+            </div>
+            <div id="llama-downloads-list" class="llama-list"></div>
           </div>
-          <div id="llama-downloads-list" class="llama-list"></div>
         </div>
       </section>
+
+      <div id="llama-model-list" class="llama-list"></div>
 
       <p id="llama-message" class="llama-message" role="status"></p>
     </main>

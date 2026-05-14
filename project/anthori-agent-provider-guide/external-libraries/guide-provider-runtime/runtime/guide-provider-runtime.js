@@ -137,21 +137,32 @@ function extractAfter(text, markers) {
 function detectTopic(text) {
   var n = normalize(text);
 
+  if (hasAny(n, ["permission", "permissions", "access prompt", "permission prompt", "denied"])) return "permissions";
+  if (hasAny(n, ["troubleshoot", "troubleshooting", "not working", "doesn't work", "does not work", "failed", "failure", "broken", "missing", "unavailable", "cannot connect", "can't connect"])) return "troubleshooting";
   if (hasAny(n, ["openai", "open ai", "gpt", "chatgpt", "o1", "o3", "o4", "codex"])) return "openai";
   if (hasAny(n, ["anthropic", "claude", "sonnet", "opus", "haiku"])) return "anthropic";
   if (hasAny(n, ["ollama"])) return "ollama";
-  if (hasAny(n, ["lmstudio", "lm studio", "local model", "llama"])) return "lmstudio";
+  if (hasAny(n, ["lmstudio", "lm studio"])) return "lmstudio";
+  if (hasAny(n, ["anthori provider", "models panel", "gguf", "hugging face", "huggingface", "llama"])) return "anthori";
   if (hasAny(n, ["simple http", "custom endpoint", "http endpoint", "simple provider"])) return "simple";
+  if (hasAny(n, ["local model", "local models"])) return "providers";
+  if (hasAll(n, ["provider", "extension"])) return "provider_extensions";
   if (hasAny(n, ["provider", "providers"])) return "providers";
   if (hasAny(n, ["api key", "apikey", "api-key", "token", "credential", "secret"])) return "apikey";
   if (hasAny(n, ["tool", "tools", "function call", "function_call"])) return "tools";
   if (hasAny(n, ["agent", "agents", "assistant"])) return "agents";
+  if (hasAny(n, ["extension settings", "extension setting"])) return "extension_settings";
+  if (hasAll(n, ["app", "extension"])) return "app_extensions";
+  if (hasAll(n, ["project", "extension"])) return "project_extensions";
+  if (hasAny(n, ["session", "sessions", "execution history", "chat state", "active session"])) return "sessions";
+  if (hasAny(n, ["channel", "channels", "chat channel", "i/o queue", "io queue"])) return "channels";
   if (hasAny(n, ["project", "projects"])) return "projects";
   if (hasAny(n, ["graph", "graphs", "control", "controls"])) return "graphs";
   if (hasAny(n, ["extension", "extensions", "library", "libraries"])) return "extensions";
   if (hasAny(n, ["workspace", "file", "files"])) return "workspace";
   if (hasAny(n, ["speech", "voice", "microphone", "mic", "dictate"])) return "speech";
   if (hasAny(n, ["setting", "settings", "config", "configure", "preference"])) return "settings";
+  if (hasAny(n, ["panel", "panels", "where do i", "where can i", "where to find", "where is"])) return "panels";
 
   return "";
 }
@@ -252,8 +263,8 @@ rule(
   function () {
     return "I can help with a few things:\n\n" +
       "\u2022 **Getting started** \u2014 a quick overview of how the app works\n" +
-      "\u2022 **Setting up providers** \u2014 connecting OpenAI, Anthropic, LM Studio, Ollama, or a custom endpoint\n" +
-      "\u2022 **Explaining concepts** \u2014 agents, tools, projects, graphs, extensions\n" +
+      "\u2022 **Setting up providers** \u2014 connecting Anthori, OpenAI, Anthropic, LM Studio, Ollama, or a custom endpoint\n" +
+      "\u2022 **Explaining concepts** \u2014 projects, sessions, graphs, agents, tools, providers, extensions\n" +
       "\u2022 **Pointing you in the right direction** \u2014 where to find settings, workspace, etc.\n\n" +
       "I'm not a language model, so I can't write code, analyze data, or have open-ended conversations. For that, you'll want to set up a model provider. Want me to walk you through it?";
   }
@@ -269,10 +280,10 @@ rule(
   },
   function () {
     return "Here's the short version:\n\n" +
-      "1. **Set up a provider** \u2014 this connects the app to a language model (OpenAI, Anthropic, LM Studio, Ollama, etc.)\n" +
-      "2. **Create or open a project** \u2014 projects contain graphs, which are visual workflows\n" +
+      "1. **Create or open a project** \u2014 a project is your workspace for a named unit of work\n" +
+      "2. **Set up a provider** \u2014 use the Providers panel to connect the active project to Anthori, OpenAI, Anthropic, LM Studio, Ollama, or another backend\n" +
       "3. **Use the assistant** \u2014 once a provider is connected, the chat panel and assistant cursor can talk to language models\n\n" +
-      "The most important first step is setting up a provider. Would you like help with that? Just tell me which service you'd like to use \u2014 or say \"providers\" to see all the options.";
+      "If you are setting up your first project, add a provider next. Tell me which service you want to use \u2014 or say \"providers\" to see the options.";
   }
 );
 
@@ -284,12 +295,13 @@ rule(
   },
   function () {
     return "The app supports several model providers:\n\n" +
-      "\u2022 **OpenAI** \u2014 GPT models, most popular option, requires an API key\n" +
-      "\u2022 **Anthropic** \u2014 Claude models, strong reasoning and coding, requires an API key\n" +
-      "\u2022 **LM Studio** \u2014 run models locally on your machine, free, no API key needed\n" +
-      "\u2022 **Ollama** \u2014 run pulled local models through the Ollama server, no API key needed\n" +
+      "\u2022 **Anthori** \u2014 app-managed local GGUF models through the Llama app extension\n" +
+      "\u2022 **OpenAI** \u2014 GPT models, requires an API key\n" +
+      "\u2022 **Anthropic** \u2014 Claude models, requires an API key\n" +
+      "\u2022 **LM Studio** \u2014 local models through the LM Studio server, no API key needed\n" +
+      "\u2022 **Ollama** \u2014 local models through the Ollama server, no API key needed\n" +
       "\u2022 **Simple HTTP** \u2014 connect any service that exposes an HTTP endpoint\n\n" +
-      "Which one interests you? I can walk you through the setup.";
+      "Providers are managed from the **Providers** panel for the active project. Which one interests you?";
   }
 );
 
@@ -300,12 +312,12 @@ rule(
   function (text) {
     if (hasAny(text, ["how", "setup", "set up", "configure", "connect", "add", "get", "use", "start"])) {
       return "To set up OpenAI:\n\n" +
-        "1. Open **Settings** (gear icon or the app menu)\n" +
-        "2. Go to the **Providers** section\n" +
-        "3. Click **Add Provider** and select **OpenAI**\n" +
+        "1. Open the **Providers** panel\n" +
+        "2. Click **New provider (+)**\n" +
+        "3. Select **OpenAI**\n" +
         "4. Paste an API key from platform.openai.com/api-keys\n" +
         "5. Save, and you're connected!\n\n" +
-        "The provider will then be available in any project's agent configuration.";
+        "The provider will then be available to the active project's agent controls and chat.";
     }
     return pick([
       "OpenAI gives you access to the GPT model family. You'll need an API key from platform.openai.com. Want me to walk you through the setup steps?",
@@ -321,9 +333,9 @@ rule(
   function (text) {
     if (hasAny(text, ["how", "setup", "set up", "configure", "connect", "add", "get", "use", "start"])) {
       return "To set up Anthropic:\n\n" +
-        "1. Open **Settings** (gear icon or the app menu)\n" +
-        "2. Go to the **Providers** section\n" +
-        "3. Click **Add Provider** and select **Anthropic**\n" +
+        "1. Open the **Providers** panel\n" +
+        "2. Click **New provider (+)**\n" +
+        "3. Select **Anthropic**\n" +
         "4. Paste your API key from console.anthropic.com\n" +
         "5. Save, and Claude is ready to go!\n\n" +
         "Claude models are excellent at reasoning, coding, and following nuanced instructions.";
@@ -345,8 +357,8 @@ rule(
         "1. Download LM Studio from lmstudio.ai and install it\n" +
         "2. In LM Studio, download a model (Llama, Qwen, Phi, etc.)\n" +
         "3. Start the local server in LM Studio (it runs on port 1234 by default)\n" +
-        "4. Back in this app, open **Settings** > **Providers**\n" +
-        "5. Click **Add Provider** and select **LM Studio**\n" +
+        "4. Back in this app, open the **Providers** panel\n" +
+        "5. Click **New provider (+)** and select **LM Studio**\n" +
         "6. The endpoint should auto-fill as http://127.0.0.1:1234 \u2014 save it\n\n" +
         "No API keys needed! Everything runs on your machine.";
     }
@@ -367,8 +379,8 @@ rule(
         "1. Install Ollama from ollama.com\n" +
         "2. Pull a model, for example `ollama pull llama3.2`\n" +
         "3. Make sure the Ollama server is running on port 11434\n" +
-        "4. Back in this app, open **Settings** > **Providers**\n" +
-        "5. Click **Add Provider** and select **Ollama**\n" +
+        "4. Back in this app, open the **Providers** panel\n" +
+        "5. Click **New provider (+)** and select **Ollama**\n" +
         "6. Use http://127.0.0.1:11434 as the base URL\n\n" +
         "No API key is needed for the local Ollama server.";
     }
@@ -379,14 +391,32 @@ rule(
   }
 );
 
+// -- Anthori local provider -------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "anthori"; },
+  function (text) {
+    if (hasAny(text, ["how", "setup", "set up", "configure", "connect", "add", "get", "use", "start", "download"])) {
+      return "To use Anthori's local GGUF provider:\n\n" +
+        "1. Install the **Llama** app extension from **Settings** > **Extensions** if it is not already installed\n" +
+        "2. Open the **Models** panel and download a GGUF model from Hugging Face\n" +
+        "3. In the active project, make sure the **Anthori Provider** project extension is installed from **Inspector** > **Project** > **Extensions**\n" +
+        "4. Open the **Providers** panel, click **New provider (+)**, and select **Anthori**\n" +
+        "5. Select the downloaded model and save\n\n" +
+        "The provider starts the local llama.cpp runtime when the model is used.";
+    }
+    return "Anthori's local provider uses the Llama app extension to manage llama.cpp runtimes and downloaded GGUF models. Use the **Models** panel to download models, then add an **Anthori** provider from the **Providers** panel.";
+  }
+);
+
 // -- Simple HTTP setup ------------------------------------------------------
 
 rule(
   function (text, ctx) { return ctx.topic === "simple"; },
   function () {
     return "The Simple HTTP provider connects to any service with an HTTP endpoint.\n\n" +
-      "1. Open **Settings** > **Providers**\n" +
-      "2. Click **Add Provider** and select **Simple HTTP**\n" +
+      "1. Open the **Providers** panel\n" +
+      "2. Click **New provider (+)** and select **Simple HTTP**\n" +
       "3. Enter the URL of your endpoint (e.g. http://127.0.0.1:8765/api/submit)\n" +
       "4. The app sends JSON with `model`, `system`, `prompt`, `messages`, and `tools`\n" +
       "5. Your endpoint returns JSON with a `text` field (or OpenAI-compatible format)\n\n" +
@@ -403,7 +433,7 @@ rule(
       "\u2022 **OpenAI** \u2014 get keys at platform.openai.com/api-keys\n" +
       "\u2022 **Anthropic** \u2014 get keys at console.anthropic.com\n\n" +
       "Keys are stored locally in the app's provider configuration. They're sent directly to the provider's API \u2014 they never pass through any intermediary.\n\n" +
-      "If you'd rather not use API keys, **LM Studio** runs entirely locally with no keys needed.";
+      "If you'd rather not use API keys, use a local provider such as **Anthori**, **LM Studio**, or **Ollama**.";
   }
 );
 
@@ -430,16 +460,49 @@ rule(
   }
 );
 
+// -- provider extensions ----------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "provider_extensions"; },
+  function () {
+    return "A provider and a provider extension are related, but not the same thing.\n\n" +
+      "\u2022 A **provider extension** contributes provider definitions and runtime code\n" +
+      "\u2022 A **provider** is a per-project configuration created from one of those definitions\n\n" +
+      "Install provider extensions from **Inspector** > **Project** > **Extensions**. Then open the **Providers** panel, click **New provider (+)**, choose the contributed provider definition, and save its configuration.";
+  }
+);
+
 // -- projects ---------------------------------------------------------------
 
 rule(
   function (text, ctx) { return ctx.topic === "projects"; },
   function () {
-    return "Projects are self-contained workspaces. Each project has:\n\n" +
-      "\u2022 A **graph** \u2014 a visual workflow made of connected controls\n" +
+    return "A project is a workspace for a named unit of work. Each project has:\n\n" +
+      "\u2022 One **graph** \u2014 the project's execution flow and behavior\n" +
+      "\u2022 One or more **sessions** \u2014 separate execution histories, chat state, and logs\n" +
       "\u2022 A **workspace** \u2014 files and assets the project can use\n" +
-      "\u2022 **Settings** \u2014 project-specific configuration, including which providers to use\n\n" +
+      "\u2022 **Project settings** \u2014 project-specific configuration in the Inspector\n\n" +
       "You can create new projects from the projects view, or open the built-in demo projects to explore.";
+  }
+);
+
+// -- sessions ---------------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "sessions"; },
+  function () {
+    return "A session is a container within a project, with its own execution history, chat state, and log.\n\n" +
+      "Sessions let you keep different lines of work separate while using the same project, graph, and workspace. Create or switch sessions from the Projects panel under the project row.";
+  }
+);
+
+// -- channels ---------------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "channels"; },
+  function () {
+    return "Channels are defined within projects and serve as queues for session I/O.\n\n" +
+      "The default chat panel uses a chat channel. Graphs can use channel controls to read and write structured input/output without tying that behavior directly to a specific UI panel.";
   }
 );
 
@@ -448,7 +511,7 @@ rule(
 rule(
   function (text, ctx) { return ctx.topic === "graphs"; },
   function () {
-    return "Graphs are the visual workflows at the heart of each project.\n\n" +
+    return "Graphs define execution flow and behavior. Each project has exactly one graph.\n\n" +
       "\u2022 **Controls** are the building blocks \u2014 each one does something specific\n" +
       "\u2022 **Conduits** (connections) wire controls together, defining the flow\n" +
       "\u2022 Controls can be signals, logic, data, UI actions, or agent calls\n\n" +
@@ -461,11 +524,56 @@ rule(
 rule(
   function (text, ctx) { return ctx.topic === "extensions"; },
   function () {
-    return "Extensions add new capabilities to the app:\n\n" +
-      "\u2022 **Provider extensions** \u2014 add support for model services (OpenAI, Anthropic, etc.)\n" +
-      "\u2022 **Control extensions** \u2014 add new control types for graphs\n" +
-      "\u2022 **UI extensions** \u2014 add editor tabs, dock panels, or settings sections\n\n" +
-      "Each extension bundles its own runtime library, provider definitions, and/or control definitions. I'm actually an extension myself \u2014 the Guide provider!";
+    return "Extensions add controls, providers, runtimes, libraries, templates, or app features.\n\n" +
+      "\u2022 **App extensions** are installed from **Settings** > **Extensions** and can add app-wide features, settings, dock panels, runtimes, or templates\n" +
+      "\u2022 **Project extensions** are installed from **Inspector** > **Project** > **Extensions** and add capabilities to the active project\n\n" +
+      "After a project extension is installed, its controls appear in the Library and its provider definitions appear in the Providers panel. I'm a project extension myself \u2014 the Guide provider.";
+  }
+);
+
+// -- app extensions ---------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "app_extensions"; },
+  function () {
+    return "App extensions are installed once for the user and are managed from **Settings** > **Extensions**.\n\n" +
+      "They can add app-level features such as settings, dock panels, runtime libraries, templates, or other surfaces. If an app extension has its own settings, click the gear icon on its row in **Settings** > **Extensions**.\n\n" +
+      "For example, the Llama app extension adds Llama settings and the Models panel.";
+  }
+);
+
+// -- project extensions -----------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "project_extensions"; },
+  function () {
+    return "Project extensions are installed per project from **Inspector** > **Project** > **Extensions**.\n\n" +
+      "They add project-level capabilities such as graph controls, provider definitions, libraries, templates, symbols, editor tabs, or dock panels. After installation, controls show up in the Library and provider definitions show up when you add a provider in the Providers panel.\n\n" +
+      "Use project extensions for things that belong to a project. Use app extensions for app-wide tools and settings.";
+  }
+);
+
+// -- extension settings -----------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "extension_settings"; },
+  function () {
+    return "Extension settings live with the extension that contributes them.\n\n" +
+      "\u2022 **App extension settings** \u2014 open **Settings** > **Extensions**, then click the gear icon on the extension row\n" +
+      "\u2022 **Project extension management** \u2014 open **Inspector** > **Project** > **Extensions**\n" +
+      "\u2022 **Provider configuration** \u2014 use the **Providers** panel, because providers are configured per project\n\n" +
+      "If an extension does not show a gear icon, it does not currently expose its own settings surface.";
+  }
+);
+
+// -- permissions ------------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "permissions"; },
+  function () {
+    return "Permissions protect access to files, network resources, system commands, and extension capabilities.\n\n" +
+      "When a control or extension needs access outside its current grants, the app shows a prompt with the resource and reason. If something is denied or blocked, check the **Permissions** panel, the control's permission fields, or the extension row that requested access.\n\n" +
+      "A permission should be narrow enough to explain what is being accessed, but broad enough that normal use does not keep prompting for the same thing.";
   }
 );
 
@@ -489,16 +597,51 @@ rule(
   }
 );
 
+// -- panels -----------------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "panels"; },
+  function () {
+    return "Quick panel map:\n\n" +
+      "\u2022 **Projects** \u2014 projects and sessions\n" +
+      "\u2022 **Providers** \u2014 per-project provider configuration\n" +
+      "\u2022 **Library** \u2014 controls, symbols, and templates available to add\n" +
+      "\u2022 **Inspector** \u2014 settings for the selected project, control, conduit, or graph item\n" +
+      "\u2022 **Workspace** \u2014 project files\n" +
+      "\u2022 **Chat** \u2014 run work through the active session\n" +
+      "\u2022 **Log**, **Info**, and **Debug** \u2014 inspect executions\n" +
+      "\u2022 **Models** \u2014 downloaded GGUF models for the Llama app extension\n\n" +
+      "Use **Settings** for app-level preferences and app extensions.";
+  }
+);
+
 // -- settings ---------------------------------------------------------------
 
 rule(
   function (text, ctx) { return ctx.topic === "settings"; },
   function () {
-    return "You can find Settings through the gear icon or the app menu. Key sections:\n\n" +
-      "\u2022 **Providers** \u2014 add, remove, and configure model providers\n" +
-      "\u2022 **Project settings** \u2014 per-project configuration\n" +
-      "\u2022 **Extensions** \u2014 manage installed extensions\n\n" +
-      "The most important one for getting started is Providers \u2014 that's where you connect a model service.";
+    return "You can open Settings from the gear icon or the app menu. Settings is for app-level preferences and installed app extensions.\n\n" +
+      "\u2022 **Extensions** \u2014 install app extensions and open extension settings with the gear icon on a row\n" +
+      "\u2022 **General, Appearance, Chat, Updates, About** \u2014 app preferences and app information\n" +
+      "\u2022 **Project settings** \u2014 select the project and use the **Inspector** panel\n" +
+      "\u2022 **Provider configuration** \u2014 use the **Providers** panel, not Settings\n\n" +
+      "For first-time setup, create or open a project, then add a provider from the Providers panel.";
+  }
+);
+
+// -- troubleshooting --------------------------------------------------------
+
+rule(
+  function (text, ctx) { return ctx.topic === "troubleshooting"; },
+  function () {
+    return "Here are the first places I would check:\n\n" +
+      "\u2022 **No provider configured** \u2014 open the Providers panel and add one for the active project\n" +
+      "\u2022 **Provider definition missing** \u2014 install the provider's project extension from **Inspector** > **Project** > **Extensions**\n" +
+      "\u2022 **Model missing or not selected** \u2014 edit the provider row and choose a model\n" +
+      "\u2022 **Local server unavailable** \u2014 make sure LM Studio or Ollama is running; for Anthori local models, check the Models panel\n" +
+      "\u2022 **Extension missing or broken** \u2014 use **Settings** > **Extensions** for app extensions, or **Inspector** > **Project** > **Extensions** for project extensions\n" +
+      "\u2022 **Permission denied** \u2014 review the prompt, Permissions panel, or the control/extension permission settings\n\n" +
+      "If an execution fails, the Log and Debug panels usually show the most specific error.";
   }
 );
 
@@ -528,6 +671,7 @@ rule(
   function (text, ctx) {
     if (ctx.prevTopic === "providers" || ctx.prevTopic === "") {
       return "Which provider would you like to set up? I can walk you through:\n\n" +
+        "\u2022 **Anthori** \u2014 local GGUF models managed by the Llama app extension\n" +
         "\u2022 **OpenAI** \u2014 GPT models\n" +
         "\u2022 **Anthropic** \u2014 Claude models\n" +
         "\u2022 **LM Studio** \u2014 local models, no API key needed\n" +
@@ -535,10 +679,11 @@ rule(
         "\u2022 **Simple HTTP** \u2014 custom endpoint\n\n" +
         "Just name one!";
     }
-    if (ctx.prevTopic === "openai") return "To set up OpenAI, open **Settings** > **Providers** > **Add Provider** > **OpenAI**, then paste your API key from platform.openai.com/api-keys. That's it!";
-    if (ctx.prevTopic === "anthropic") return "To set up Anthropic, open **Settings** > **Providers** > **Add Provider** > **Anthropic**, then paste your API key from console.anthropic.com.";
-    if (ctx.prevTopic === "lmstudio") return "To set up LM Studio, first download it from lmstudio.ai, start the local server, then in this app go to **Settings** > **Providers** > **Add Provider** > **LM Studio**.";
-    if (ctx.prevTopic === "ollama") return "To set up Ollama, install it, pull a model such as `ollama pull llama3.2`, then in this app go to **Settings** > **Providers** > **Add Provider** > **Ollama** and use http://127.0.0.1:11434.";
+    if (ctx.prevTopic === "anthori") return "To set up Anthori locally, use the **Models** panel to download a GGUF model, then open the **Providers** panel, click **New provider (+)**, choose **Anthori**, select the model, and save.";
+    if (ctx.prevTopic === "openai") return "To set up OpenAI, open the **Providers** panel, click **New provider (+)**, choose **OpenAI**, then paste your API key from platform.openai.com/api-keys.";
+    if (ctx.prevTopic === "anthropic") return "To set up Anthropic, open the **Providers** panel, click **New provider (+)**, choose **Anthropic**, then paste your API key from console.anthropic.com.";
+    if (ctx.prevTopic === "lmstudio") return "To set up LM Studio, first download it from lmstudio.ai, start the local server, then open the **Providers** panel, click **New provider (+)**, and choose **LM Studio**.";
+    if (ctx.prevTopic === "ollama") return "To set up Ollama, install it, pull a model such as `ollama pull llama3.2`, then open the **Providers** panel, click **New provider (+)**, choose **Ollama**, and use http://127.0.0.1:11434.";
     return "Got it. What would you like to know more about?";
   }
 );
@@ -602,7 +747,7 @@ rule(
   function (text) {
     var after = extractAfter(text, ["i want ", "i need ", "i wish "]);
     if (after && hasAny(after, ["provider", "model", "ai", "llm", "gpt", "claude", "agent"])) {
-      return "Great \u2014 I can help with that! Which provider interests you: OpenAI, Anthropic, LM Studio, Ollama, or Simple HTTP?";
+      return "Great \u2014 I can help with that! Which provider interests you: Anthori, OpenAI, Anthropic, LM Studio, Ollama, or Simple HTTP?";
     }
     if (after) {
       return "You want " + reflect(after) + "? I might be able to help if it's related to setting up the app. Otherwise, a model provider would be much better at this kind of conversation.";

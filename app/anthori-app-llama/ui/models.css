@@ -76,6 +76,31 @@ body {
   min-width: 0;
 }
 
+.llama-setup-notice {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-medium);
+}
+
+.llama-setup-notice[hidden] {
+  display: none;
+}
+
+.llama-setup-notice strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.llama-setup-notice span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .llama-icon-button {
   flex: 0 0 auto;
   display: inline-flex;
@@ -110,6 +135,11 @@ body {
   stroke: currentColor;
 }
 
+.llama-icon-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 .llama-section {
   display: grid;
   gap: 12px;
@@ -126,6 +156,12 @@ body {
 
 .llama-download-history-header {
   margin-top: 4px;
+}
+
+.llama-downloads-section {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
 }
 
 .llama-download-history-header h3 {
@@ -428,6 +464,27 @@ body {
   font-weight: 650;
 }
 
+.llama-vision-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  color: var(--accent);
+  vertical-align: -2px;
+}
+
+.llama-vision-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .llama-card-meta {
   min-width: 0;
   color: var(--text-secondary);
@@ -501,6 +558,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 8px;
   padding-right: 10px;
 }
 
@@ -585,6 +643,10 @@ body {
   gap: 6px;
 }
 
+.llama-model-row > .llama-file-list {
+  padding: 0 10px 10px 34px;
+}
+
 .llama-file-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -619,6 +681,70 @@ body {
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: 11px;
+}
+
+.llama-file-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.llama-file-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.llama-file-download {
+  opacity: 0;
+}
+
+.llama-file-download.is-active {
+  opacity: 1;
+}
+
+.llama-file-row:hover .llama-file-download,
+.llama-file-row:focus-within .llama-file-download {
+  opacity: 1;
+}
+
+.llama-file-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-light);
+  border-top-color: currentColor;
+  border-radius: 999px;
+  animation: llama-file-spinner 0.8s linear infinite;
+}
+
+@keyframes llama-file-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.llama-file-size {
+  font-weight: 650;
+}
+
+.llama-file-size.good {
+  color: #3fb950;
+}
+
+.llama-file-size.warn {
+  color: #e3b341;
+}
+
+.llama-file-size.bad {
+  color: #ff7b72;
+}
+
+.llama-file-size.unknown {
+  color: var(--text-muted);
 }
 
 .llama-advanced {

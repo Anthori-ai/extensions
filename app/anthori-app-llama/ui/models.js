@@ -7,6 +7,9 @@
   const DOWNLOAD_STATUS_MISSING_LIMIT = 10
   const RUNTIME_LOAD_STATUS_POLL_MS = 1500
   const RUNTIME_STATUS_POLL_MS = 3000
+  const MODEL_FIT_CONTEXT_TOKENS = 256000
+  const MODEL_FIT_MIN_CONTEXT_RESERVE_BYTES = 6 * 1000 * 1000 * 1000
+  const MODEL_FIT_MAX_CONTEXT_RESERVE_BYTES = 48 * 1000 * 1000 * 1000
 
   const DEFAULTS = Object.freeze({
     modelRoot: "",
@@ -46,9 +49,12 @@
     runtimeStatusPollTimer: 0,
     runtimeStatusPollInFlight: false,
     downloading: false,
-    downloadViewOpen: false,
     expandedModels: new Set(),
+    expandedHuggingFaceRepositories: new Set(),
     activeDownloads: {},
+    cancelingDownloads: new Set(),
+    removingDownloads: new Set(),
+    removingModels: new Set(),
     downloadStatusPollTimer: 0,
     saving: false,
     hf: {
@@ -88,6 +94,12 @@
     return parts[parts.length - 1] || value
   }
 
+  function dirname(path) {
+    const value = normalizeString(path).replace(/\\/g, "/")
+    const index = value.lastIndexOf("/")
+    return index > 0 ? value.slice(0, index) : ""
+  }
+
   function formatCount(value) {
     const number = Number(value)
     if (!Number.isFinite(number) || number <= 0) return ""
@@ -112,6 +124,15 @@
     return `${rounded} ${units[index]}`
   }
 
+  function formatShortBytes(value) {
+    const bytes = Number(value)
+    if (!Number.isFinite(bytes) || bytes <= 0) return ""
+    const gb = bytes / 1000 / 1000 / 1000
+    if (gb >= 10) return `${Math.round(gb)} GB`
+    if (gb >= 1) return `${Math.round(gb * 10) / 10} GB`
+    return formatBytes(bytes)
+  }
+
   function normalizeByteCount(...values) {
     for (const value of values) {
       const number = Number(value)
@@ -120,6 +141,12 @@
       }
     }
     return 0
+  }
+
+  function clampNumber(value, min, max) {
+    const number = Number(value)
+    if (!Number.isFinite(number)) return min
+    return Math.max(min, Math.min(max, number))
   }
 
   function normalizePositiveInteger(value) {
@@ -236,6 +263,99 @@
     }
   }
 
+  function selectedVramBytes(hardware) {
+    const info = hardware || state.hardware
+    if (!info || !Array.isArray(info.gpus) || info.gpus.length === 0) return 0
+    const selectedIds = selectedGpuIdsForHardware(info)
+    return info.gpus.reduce((total, gpu) => {
+      if (!gpu.id || !selectedIds.has(gpu.id)) return total
+      return total + normalizeByteCount(gpu.vramBytes)
+    }, 0)
+  }
+
+  function modelFitEstimate(fileBytes) {
+    const bytes = normalizeByteCount(fileBytes)
+    if (bytes <= 0) {
+      return {
+        tier: "unknown",
+        label: "Unknown",
+        title: "Model size is unavailable.",
+      }
+    }
+    const hardware = state.hardware || normalizeHardware(null)
+    const ramBytes = normalizeByteCount(hardware.memory?.ramBytes)
+    const vramBytes = selectedRuntimeSupportsAcceleration() ? selectedVramBytes(hardware) : 0
+    const hasGpuTarget = vramBytes > 0
+    const totalBytes = ramBytes + vramBytes
+    const primaryBytes = hasGpuTarget ? vramBytes : ramBytes
+    if (primaryBytes <= 0 && totalBytes <= 0) {
+      return {
+        tier: "unknown",
+        label: "Unknown",
+        title: "System memory is unavailable.",
+      }
+    }
+    const contextReserve = clampNumber(bytes * 0.35, MODEL_FIT_MIN_CONTEXT_RESERVE_BYTES, MODEL_FIT_MAX_CONTEXT_RESERVE_BYTES)
+    const estimatedBytes = bytes + contextReserve
+    const memoryLabel = [hasGpuTarget ? `${formatShortBytes(vramBytes)} VRAM` : "", ramBytes > 0 ? `${formatShortBytes(ramBytes)} RAM` : ""]
+      .filter(Boolean)
+      .join(" + ")
+    const targetLabel = hasGpuTarget ? "enabled VRAM" : "RAM"
+    const title = `Estimated for ${formatCount(MODEL_FIT_CONTEXT_TOKENS)} context tokens. Needs about ${formatShortBytes(estimatedBytes)} against ${memoryLabel || formatShortBytes(primaryBytes || totalBytes)}.`
+    if (primaryBytes > 0 && estimatedBytes <= primaryBytes * 0.75) {
+      return { tier: "good", label: "Fits", title }
+    }
+    if (hasGpuTarget) {
+      if (estimatedBytes <= vramBytes) {
+        return { tier: "warn", label: "Borderline", title: `${title} Close to ${targetLabel} limit.` }
+      }
+      if (estimatedBytes <= totalBytes) {
+        return { tier: "warn", label: "Borderline", title: `${title} May require partial CPU/RAM fallback.` }
+      }
+    } else if (estimatedBytes <= primaryBytes) {
+      return { tier: "warn", label: "Borderline", title: `${title} Close to ${targetLabel} limit.` }
+    }
+    return { tier: "bad", label: "Too large", title }
+  }
+
+  function applyFitStyle(element, fileBytes) {
+    if (!(element instanceof HTMLElement)) return
+    const estimate = modelFitEstimate(fileBytes)
+    element.classList.add("llama-file-size", estimate.tier)
+    element.title = estimate.title
+  }
+
+  function setIconButtonSvg(button, pathData) {
+    button.replaceChildren()
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    svg.setAttribute("viewBox", "0 0 24 24")
+    svg.setAttribute("aria-hidden", "true")
+    const paths = Array.isArray(pathData) ? pathData : [pathData]
+    paths.forEach((value) => {
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+      path.setAttribute("d", value)
+      svg.appendChild(path)
+    })
+    button.appendChild(svg)
+  }
+
+  function setIconButtonSpinner(button) {
+    button.replaceChildren()
+    const spinner = document.createElement("span")
+    spinner.className = "llama-file-spinner"
+    spinner.setAttribute("aria-hidden", "true")
+    button.appendChild(spinner)
+  }
+
+  function createVisionIcon(title = "Vision-capable model") {
+    const icon = document.createElement("span")
+    icon.className = "llama-vision-icon"
+    icon.title = title
+    icon.setAttribute("aria-label", title)
+    icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>'
+    return icon
+  }
+
   function selectedRuntimePack() {
     const selectedId = normalizeString(state.values.runtimeId || state.selectedRuntimeId || state.runtimePacks.find((pack) => pack.selected)?.id)
     if (!selectedId) return null
@@ -248,6 +368,25 @@
     const variant = normalizeString(pack.variant).toLowerCase()
     const id = normalizeString(pack.id).toLowerCase()
     return variant !== "cpu" && !id.includes(".cpu")
+  }
+
+  function runtimePackKey(value) {
+    return normalizeString(value).toLowerCase()
+  }
+
+  function isModelsSurface() {
+    return normalizeString(document.body?.dataset?.llamaSurface).toLowerCase() === "models"
+  }
+
+  function runtimeEngineSetupMessage() {
+    if (!isModelsSurface()) return ""
+    const selectedId = runtimePackKey(state.values.runtimeId || state.selectedRuntimeId || state.runtimePacks.find((pack) => pack.selected)?.id)
+    if (!selectedId) return "Install or select a runtime engine from Settings > Extensions > Llama."
+    const pack = state.runtimePacks.find((entry) => runtimePackKey(entry.id) === selectedId)
+    if (!pack || !pack.compatible || !pack.installed) {
+      return "Install or select a runtime engine from Settings > Extensions > Llama."
+    }
+    return ""
   }
 
   function encodePathSegments(value) {
@@ -310,7 +449,11 @@
 
   function downloadIsTerminal(download) {
     const status = normalizeString(download?.status)
-    return status === "complete" || status === "failed"
+    return status === "complete" || status === "failed" || status === "canceled"
+  }
+
+  function downloadIsComplete(download) {
+    return normalizeString(download?.status) === "complete"
   }
 
   function downloadTimestamp(value) {
@@ -330,17 +473,25 @@
       const key = normalizeModelLookupKey(model.id)
       if (key) keys.add(key)
     })
-    state.values.downloads.forEach((download) => {
-      if (normalizeString(download.status) !== "complete") return
-      const key = huggingFaceModelKey(download.repository, download.file)
-      if (key) keys.add(key)
-    })
     return keys
   }
 
   function isDownloadedHuggingFaceFile(repository, file) {
     const key = huggingFaceModelKey(repository, file)
     return key ? downloadedModelKeys().has(key) : false
+  }
+
+  function downloadedHuggingFaceModel(repository, file) {
+    const key = huggingFaceModelKey(repository, file)
+    if (!key) return null
+    return state.backendModels.map(normalizeModel).filter(Boolean).find((model) => normalizeModelLookupKey(model.id) === key) || null
+  }
+
+  function isDownloadedHuggingFaceEntry(repository, file) {
+    if (!isDownloadedHuggingFaceFile(repository, file?.file)) return false
+    if (!normalizeString(file?.projectorFile)) return true
+    const model = downloadedHuggingFaceModel(repository, file.file)
+    return Boolean(model?.projectorPath)
   }
 
   async function callLlamaAction(actionId, input = {}) {
@@ -354,6 +505,19 @@
       input: input && typeof input === "object" ? input : {},
     })
     return isPlainObject(response?.output) ? response.output : {}
+  }
+
+  async function openAppExtensionsSettings() {
+    const api = window.anthoriExtension && window.anthoriExtension.host
+    if (!api || typeof api.openSettings !== "function") {
+      setMessage("Settings bridge is unavailable.")
+      return
+    }
+    try {
+      await api.openSettings("extensions")
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Settings failed to open.")
+    }
   }
 
   function huggingFaceUrl(path, query = {}) {
@@ -498,20 +662,64 @@
     if (!isPlainObject(entry)) return null
     const file = normalizeString(entry.rfilename) || normalizeString(entry.path) || normalizeString(entry.name)
     if (!file || !file.toLowerCase().endsWith(".gguf")) return null
+    if (isSplitGgufShardFile(file)) return null
     const lfs = isPlainObject(entry.lfs) ? entry.lfs : {}
     const blobLfs = isPlainObject(entry.blobLfs) ? entry.blobLfs : {}
     return {
       file,
       bytes: normalizeByteCount(entry.size, lfs.size, blobLfs.size),
+      projector: isProjectorGgufFile(file),
     }
+  }
+
+  function isSplitGgufShardFile(file) {
+    return /-\d{5}-of-\d{5}\.gguf$/i.test(normalizeString(file))
+  }
+
+  function isProjectorGgufFile(file) {
+    const name = basename(file).toLowerCase()
+    return name.endsWith(".gguf") && (name.startsWith("mmproj") || name.startsWith("projector"))
+  }
+
+  function sortHuggingFaceFilesBySize(left, right) {
+    const leftBytes = normalizeByteCount(left?.bytes)
+    const rightBytes = normalizeByteCount(right?.bytes)
+    if (leftBytes > 0 && rightBytes > 0 && leftBytes !== rightBytes) return leftBytes - rightBytes
+    if (leftBytes > 0 && rightBytes <= 0) return -1
+    if (leftBytes <= 0 && rightBytes > 0) return 1
+    return normalizeString(left?.file).localeCompare(normalizeString(right?.file))
+  }
+
+  function chooseProjectorForFile(file, projectors) {
+    if (!file || !Array.isArray(projectors) || projectors.length === 0) return null
+    const fileDir = dirname(file.file)
+    const candidates = projectors.slice().sort((left, right) => {
+      const leftSameDir = dirname(left.file) === fileDir
+      const rightSameDir = dirname(right.file) === fileDir
+      if (leftSameDir !== rightSameDir) return leftSameDir ? -1 : 1
+      return normalizeString(left.file).localeCompare(normalizeString(right.file))
+    })
+    return candidates[0] || null
   }
 
   function normalizeHuggingFaceFiles(detail) {
     const siblings = Array.isArray(detail?.siblings) ? detail.siblings : []
-    return siblings
+    const files = siblings
       .map(normalizeHuggingFaceFile)
       .filter(Boolean)
-      .sort((a, b) => a.file.localeCompare(b.file))
+    const projectors = files.filter((file) => file.projector)
+    return files
+      .filter((file) => !file.projector)
+      .map((file) => {
+        const projector = chooseProjectorForFile(file, projectors)
+        if (!projector) return file
+        return Object.assign({}, file, {
+          projectorFile: projector.file,
+          projectorBytes: projector.bytes,
+          visionCapable: true,
+        })
+      })
+      .sort(sortHuggingFaceFilesBySize)
   }
 
   function normalizeModel(entry) {
@@ -523,6 +731,8 @@
       id: normalizeString(entry.id) || createId("model"),
       name,
       path,
+      projectorPath: normalizeString(entry.projectorPath),
+      visionCapable: entry.visionCapable === true || Boolean(normalizeString(entry.projectorPath)),
       source: normalizeString(entry.source) || "local",
       bytes: normalizeByteCount(entry.bytes),
       readonly: entry.readonly === true,
@@ -539,6 +749,8 @@
       id: normalizeString(entry.id) || createId("download"),
       repository,
       file,
+      projectorFile: normalizeString(entry.projectorFile),
+      projectorBytes: normalizeByteCount(entry.projectorBytes),
       bytes: normalizeByteCount(entry.bytes, entry.bytesTotal),
       bytesDownloaded: normalizeByteCount(entry.bytesDownloaded, entry.downloadedBytes),
       revision: normalizeString(entry.revision) || "main",
@@ -556,6 +768,8 @@
       id: entry.id,
       repository: entry.repository,
       file: entry.file,
+      projectorFile: entry.projectorFile,
+      projectorBytes: entry.projectorBytes,
       revision: entry.revision,
       status: normalizeString(entry.status) || "downloading",
       bytes: normalizeByteCount(entry.bytesTotal, entry.bytes),
@@ -574,15 +788,17 @@
     const raw = isPlainObject(rawProgress) ? rawProgress : {}
     const model = normalizeModel(raw.model)
     const bytes = normalizeByteCount(
-      model?.bytes,
       normalized.bytes,
       raw.bytesTotal,
       fallbackDownload.bytes,
+      model?.bytes,
       normalized.bytesDownloaded,
       raw.bytesDownloaded,
     )
     return Object.assign({}, fallbackDownload, normalized, {
       bytes,
+      projectorFile: normalized.projectorFile || fallbackDownload.projectorFile || normalizeString(raw.projectorFile),
+      projectorBytes: normalizeByteCount(normalized.projectorBytes, fallbackDownload.projectorBytes, raw.projectorBytes),
       bytesDownloaded: downloadIsTerminal(normalized)
         ? normalizeByteCount(normalized.bytesDownloaded, bytes)
         : normalizeByteCount(normalized.bytesDownloaded),
@@ -597,13 +813,24 @@
       normalizeString(left?.revision) === normalizeString(right?.revision) &&
       normalizeString(left?.status) === normalizeString(right?.status) &&
       normalizeString(left?.error) === normalizeString(right?.error) &&
+      normalizeString(left?.projectorFile) === normalizeString(right?.projectorFile) &&
       normalizeByteCount(left?.bytes) === normalizeByteCount(right?.bytes) &&
+      normalizeByteCount(left?.projectorBytes) === normalizeByteCount(right?.projectorBytes) &&
       normalizeByteCount(left?.bytesDownloaded) === normalizeByteCount(right?.bytesDownloaded)
+  }
+
+  function downloadTotalBytes(download) {
+    return normalizeByteCount(download?.bytes) + normalizeByteCount(download?.projectorBytes)
   }
 
   function upsertStoredDownload(progress, rawProgress = null, fallback = null) {
     const stored = storedDownloadFromProgress(progress, rawProgress, fallback)
     if (!stored || !downloadIsTerminal(stored)) return false
+    if (downloadIsComplete(stored)) {
+      const previousLength = state.values.downloads.length
+      state.values.downloads = state.values.downloads.filter((item) => item.id !== stored.id)
+      return state.values.downloads.length !== previousLength
+    }
     const previous = state.values.downloads.find((item) => item.id === stored.id)
     if (previous && downloadsMatch(previous, stored)) return false
     state.values.downloads = [
@@ -875,7 +1102,9 @@
       modelRoot: normalizeString(source.modelRoot),
       models: Array.isArray(source.models) ? source.models.map(normalizeModel).filter(Boolean) : [],
       modelOptions: normalizeModelOptions(source.modelOptions),
-      downloads: Array.isArray(source.downloads) ? source.downloads.map(normalizeDownload).filter(Boolean) : [],
+      downloads: Array.isArray(source.downloads)
+        ? source.downloads.map(normalizeDownload).filter((download) => download && !downloadIsComplete(download))
+        : [],
       runtimeId: normalizeString(source.runtimeId),
       gpuStrategy: normalizeGpuStrategy(source.gpuStrategy),
       enabledGpuIds: normalizeStringList(source.enabledGpuIds),
@@ -903,6 +1132,33 @@
     const normalized = normalizeModel(model)
     if (!normalized) return ""
     return normalized.id || normalized.path
+  }
+
+  function modelPathKey(model) {
+    const normalized = normalizeModel(model)
+    if (!normalized) return ""
+    return normalized.path || normalized.id
+  }
+
+  function removeModelLocalSettings(model) {
+    const normalized = normalizeModel(model)
+    if (!normalized) return
+    const modelKeys = new Set([
+      modelOptionsKey(normalized),
+      normalized.id,
+      normalized.path,
+    ].map(normalizeModelLookupKey).filter(Boolean))
+    const options = {}
+    Object.entries(state.values.modelOptions || {}).forEach(([key, value]) => {
+      if (modelKeys.has(normalizeModelLookupKey(key))) return
+      options[key] = value
+    })
+    state.values.modelOptions = options
+    state.values.downloads = state.values.downloads.filter((download) => {
+      const key = huggingFaceModelKey(download.repository, download.file)
+      return !key || !modelKeys.has(key)
+    })
+    state.expandedModels.delete(modelOptionsKey(normalized))
   }
 
   function modelOptionsForModel(model) {
@@ -1096,7 +1352,9 @@
       return
     }
     if (state.backendModels.length === 0) {
-      renderEmpty(els.modelList, "No downloaded models. Use + to download one.")
+      if (activeDownloadItems().length === 0) {
+        renderEmpty(els.modelList, "No downloaded models.")
+      }
       return
     }
     const runtime = state.runtime || normalizeRuntime(null)
@@ -1118,13 +1376,18 @@
       body.className = "llama-runtime-card-main"
       const title = document.createElement("div")
       title.className = "llama-card-title"
-      title.textContent = model.name || basename(model.path)
+      title.append(document.createTextNode(model.name || basename(model.path)))
+      if (model.visionCapable) {
+        title.appendChild(createVisionIcon())
+      }
       const isCurrentModel = runtime.running && runtime.modelPath === model.path
       const isStarting = isCurrentModel && runtimeIsLoading(runtime)
       const isRunning = isCurrentModel && runtimeIsReady(runtime)
       const isRuntimeAction = state.runtimeModelActionPath === model.path
       const isLoading = isRuntimeAction && state.runtimeModelAction === "load" && !isRunning
       const isUnloading = isRuntimeAction && state.runtimeModelAction === "unload"
+      const modelRemoveKey = modelPathKey(model)
+      const isRemoving = Boolean(modelRemoveKey && state.removingModels.has(modelRemoveKey))
       const metaParts = []
       if (model.id) metaParts.push(model.id)
       const size = formatBytes(model.bytes)
@@ -1154,7 +1417,7 @@
         : isRunning
         ? "Unload"
         : "Load"
-      start.disabled = state.downloading || !state.backendAvailable
+      start.disabled = state.downloading || !state.backendAvailable || isRemoving
       start.addEventListener("click", () => {
         if (isCurrentModel) {
           void stopRuntime(model)
@@ -1162,9 +1425,18 @@
           void startRuntime(model)
         }
       })
+      const remove = document.createElement("button")
+      remove.className = "llama-button danger"
+      remove.type = "button"
+      remove.textContent = isRemoving ? "Removing..." : "Remove"
+      remove.disabled = state.downloading || !state.backendAvailable || isCurrentModel || isRemoving
+      remove.title = isCurrentModel ? "Unload the model before removing it." : "Remove model file"
+      remove.addEventListener("click", () => {
+        void removeLocalModel(model)
+      })
       const actions = document.createElement("div")
       actions.className = "llama-model-row-actions"
-      actions.appendChild(start)
+      actions.append(start, remove)
       row.append(main, actions)
       card.appendChild(row)
       if (isExpanded) {
@@ -1246,25 +1518,26 @@
     }
     state.hf.results.forEach((model) => {
       const card = document.createElement("article")
-      card.className = "llama-card"
+      const isExpanded = state.expandedHuggingFaceRepositories.has(model.repository)
+      card.className = `llama-model-row${isExpanded ? " is-expanded" : ""}`
       const row = document.createElement("div")
-      row.className = "llama-row"
+      row.className = "llama-model-row-header"
+      const main = document.createElement("button")
+      main.className = "llama-model-row-main"
+      main.type = "button"
+      main.setAttribute("aria-expanded", isExpanded ? "true" : "false")
+      const chevron = document.createElement("span")
+      chevron.className = "llama-model-chevron"
+      chevron.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>'
+      const body = document.createElement("div")
+      body.className = "llama-runtime-card-main"
       const title = document.createElement("div")
       title.className = "llama-card-title"
       title.textContent = model.repository
-      const filesButton = document.createElement("button")
-      filesButton.className = "llama-button secondary"
-      filesButton.type = "button"
       const isLoading = state.hf.loadingRepository === model.repository
       const files = Array.isArray(state.hf.filesByRepository[model.repository])
         ? state.hf.filesByRepository[model.repository]
         : null
-      filesButton.textContent = files ? "Refresh Files" : (isLoading ? "Loading" : "Files")
-      filesButton.disabled = state.hf.searching || isLoading
-      filesButton.addEventListener("click", () => {
-        void loadHuggingFaceFiles(model.repository)
-      })
-      row.append(title, filesButton)
       const metaParts = []
       const downloads = formatCount(model.downloads)
       const likes = formatCount(model.likes)
@@ -1274,42 +1547,89 @@
       if (visibleTags.length > 0) metaParts.push(visibleTags.join(", "))
       const meta = document.createElement("div")
       meta.className = "llama-card-meta"
-      meta.textContent = metaParts.join(" - ")
-      card.append(row, meta)
-      if (files) {
+      meta.textContent = isLoading ? "Loading files..." : metaParts.join(" - ")
+      body.append(title, meta)
+      main.append(chevron, body)
+      main.addEventListener("click", () => {
+        if (state.expandedHuggingFaceRepositories.has(model.repository)) {
+          state.expandedHuggingFaceRepositories.delete(model.repository)
+          render()
+          return
+        }
+        state.expandedHuggingFaceRepositories.add(model.repository)
+        render()
+        if (!files && !isLoading) {
+          void loadHuggingFaceFiles(model.repository)
+        }
+      })
+      row.appendChild(main)
+      card.appendChild(row)
+      if (isExpanded) {
         const list = document.createElement("div")
         list.className = "llama-file-list"
-        if (files.length === 0) {
+        if (isLoading && !files) {
+          renderEmpty(list, "Loading files...")
+        } else if (!files) {
+          renderEmpty(list, "Files unavailable.")
+        } else if (files.length === 0) {
           renderEmpty(list, "No GGUF files found.")
         } else {
           files.forEach((file) => {
             const activeDownload = activeDownloadFor(model.repository, file.file)
             const isActiveDownload = Boolean(activeDownload)
-            const isDownloaded = isDownloadedHuggingFaceFile(model.repository, file.file)
+            const isDownloaded = isDownloadedHuggingFaceEntry(model.repository, file)
             const fileRow = document.createElement("div")
             fileRow.className = "llama-file-row"
+            const main = document.createElement("div")
+            main.className = "llama-file-main"
             const name = document.createElement("div")
             name.className = "llama-file-name"
             const size = formatBytes(file.bytes)
-            name.textContent = size ? `${file.file} - ${size}` : `${file.file} - Size unavailable`
+            name.append(document.createTextNode(file.file))
+            if (file.visionCapable) {
+              name.appendChild(createVisionIcon("Vision-capable model; downloads the projector file too."))
+            }
+            const meta = document.createElement("div")
+            meta.className = "llama-file-meta"
+            const sizeText = document.createElement("span")
+            sizeText.textContent = size || "Size unavailable"
+            applyFitStyle(sizeText, file.bytes)
+            meta.appendChild(sizeText)
+            main.append(name, meta)
             const download = document.createElement("button")
-            download.className = "llama-button"
+            download.className = "llama-icon-button llama-file-download"
+            download.classList.toggle("is-active", isActiveDownload)
             download.type = "button"
-            download.textContent = isActiveDownload
-              ? (downloadProgressPercent(activeDownload) > 0 ? `${downloadProgressPercent(activeDownload)}%` : "Downloading")
+            const progress = downloadProgressPercent(activeDownload)
+            download.setAttribute("aria-label", isActiveDownload
+              ? (progress > 0 ? `Downloading ${file.file}: ${progress}%` : `Downloading ${file.file}`)
+              : isDownloaded
+              ? `${file.file} downloaded`
+              : `Download ${file.file}`)
+            download.title = isActiveDownload
+              ? (progress > 0 ? `Downloading ${progress}%` : "Downloading")
               : isDownloaded
               ? "Downloaded"
               : "Download"
+            if (isActiveDownload) {
+              setIconButtonSpinner(download)
+            } else {
+              setIconButtonSvg(download, isDownloaded
+                ? "M20 6 9 17l-5-5"
+                : ["M12 3v12", "M7 10l5 5 5-5", "M5 21h14"])
+            }
             download.disabled = state.hf.searching || !state.backendAvailable || isActiveDownload || isDownloaded
             download.addEventListener("click", () => {
               void downloadHuggingFaceModel({
                 repository: model.repository,
                 file: file.file,
+                projectorFile: file.projectorFile,
+                projectorBytes: file.projectorBytes,
                 bytes: file.bytes,
                 revision: "main",
               })
             })
-            fileRow.append(name, download)
+            fileRow.append(main, download)
             list.appendChild(fileRow)
           })
         }
@@ -1323,14 +1643,17 @@
     if (!els.downloadsList) return
     const active = activeDownloadItems()
     const activeIds = new Set(active.map((download) => download.id))
-    const downloads = active.concat(state.values.downloads.filter((download) => !activeIds.has(download.id)))
+    const downloads = active.concat(state.values.downloads.filter((download) => !activeIds.has(download.id) && !downloadIsComplete(download)))
     els.downloadsList.replaceChildren()
     if (downloads.length === 0) {
-      renderEmpty(els.downloadsList, "No downloads queued.")
+      if (els.downloadsSection) els.downloadsSection.hidden = true
       return
     }
+    if (els.downloadsSection) els.downloadsSection.hidden = false
     downloads.forEach((download) => {
       const isActiveDownload = activeIds.has(download.id)
+      const isCanceling = state.cancelingDownloads.has(download.id)
+      const isRemoving = state.removingDownloads.has(download.id)
       const card = document.createElement("article")
       card.className = "llama-card"
       const row = document.createElement("div")
@@ -1339,14 +1662,16 @@
       title.className = "llama-card-title"
       title.textContent = `${download.repository}/${download.file}`
       const remove = document.createElement("button")
-      remove.className = isActiveDownload ? "llama-button secondary" : "llama-button danger"
+      remove.className = "llama-button danger"
       remove.type = "button"
-      remove.textContent = isActiveDownload ? "Downloading" : "Remove"
-      remove.disabled = isActiveDownload
+      remove.textContent = isActiveDownload ? (isCanceling ? "Canceling..." : "Cancel") : (isRemoving ? "Removing..." : "Remove")
+      remove.disabled = isCanceling || isRemoving
       remove.addEventListener("click", () => {
-        if (isActiveDownload) return
-        state.values.downloads = state.values.downloads.filter((item) => item.id !== download.id)
-        void saveAndRender()
+        if (isActiveDownload) {
+          void cancelDownload(download)
+          return
+        }
+        void removeDownload(download)
       })
       row.append(title, remove)
       const meta = document.createElement("div")
@@ -1358,21 +1683,6 @@
       appendDownloadProgress(card, download)
       els.downloadsList.appendChild(card)
     })
-  }
-
-  function renderDownloadView() {
-    if (els.modelAdd) {
-      els.modelAdd.hidden = state.downloadViewOpen === true
-    }
-    if (els.downloadClose) {
-      els.downloadClose.hidden = state.downloadViewOpen !== true
-    }
-    if (els.modelList) {
-      els.modelList.hidden = state.downloadViewOpen === true
-    }
-    if (els.downloadView) {
-      els.downloadView.hidden = state.downloadViewOpen !== true
-    }
   }
 
   function renderRuntimePacks() {
@@ -1596,12 +1906,17 @@
         ? "Searching Hugging Face..."
         : (state.hf.results.length > 0 ? `${state.hf.results.length} repositories` : "")
     }
+    if (els.runtimeSetupNotice) {
+      const message = runtimeEngineSetupMessage()
+      els.runtimeSetupNotice.hidden = !message
+      const messageNode = els.runtimeSetupNotice.querySelector("span")
+      if (messageNode) messageNode.textContent = message
+    }
     renderLocalModels()
     renderRuntimePacks()
     renderHardware()
     renderHuggingFaceResults()
     renderDownloads()
-    renderDownloadView()
   }
 
   async function refreshBackendModels(options = {}) {
@@ -1645,6 +1960,13 @@
     items.forEach((rawProgress) => {
       const progress = normalizeDownloadProgress(rawProgress)
       if (!progress) return
+      if (state.removingDownloads.has(progress.id)) {
+        if (state.activeDownloads[progress.id]) {
+          removeActiveDownload(progress.id)
+          changed = true
+        }
+        return
+      }
       const activeDownload = state.activeDownloads[progress.id]
       const merged = Object.assign({}, activeDownload || {}, progress)
       if (downloadIsActive(merged) && !downloadIsStaleStarting(merged)) {
@@ -1858,12 +2180,14 @@
       const items = Array.isArray(data) ? data : (Array.isArray(data?.models) ? data.models : [])
       state.hf.results = items.map(normalizeHuggingFaceModel).filter(Boolean)
       state.hf.filesByRepository = {}
+      state.expandedHuggingFaceRepositories.clear()
       if (state.hf.results.length === 0) {
         state.hf.error = "No GGUF models found."
       }
     } catch (error) {
       state.hf.results = []
       state.hf.filesByRepository = {}
+      state.expandedHuggingFaceRepositories.clear()
       state.hf.error = error instanceof Error ? error.message : "Model search failed."
     } finally {
       state.hf.searching = false
@@ -1913,7 +2237,7 @@
         missingStatusCount = 0
       }
       const status = normalizeString(progress?.status)
-      if (status === "complete" || status === "failed") {
+      if (status === "complete" || status === "failed" || status === "canceled") {
         return data.download || progress
       }
       if (progress && downloadIsStaleStarting(Object.assign({}, activeDownload || {}, progress))) {
@@ -1928,6 +2252,8 @@
       id: createId("download"),
       repository: input?.repository,
       file: input?.file,
+      projectorFile: input?.projectorFile,
+      projectorBytes: input?.projectorBytes,
       bytes: input?.bytes,
       revision: input?.revision,
       status: "queued",
@@ -1965,36 +2291,46 @@
       id: download.id,
       repository: download.repository,
       file: download.file,
-      bytes: download.bytes,
+      projectorFile: download.projectorFile,
+      projectorBytes: download.projectorBytes,
+      bytes: downloadTotalBytes(download) || download.bytes,
       bytesDownloaded: 0,
       revision: download.revision,
       status: "starting",
     })
     render()
-    setMessage(`Downloading ${download.file}...`)
     try {
       await callLlamaAction("models-download", {
         id: download.id,
         modelRoot: state.values.modelRoot,
         repository: download.repository,
         file: download.file,
+        extraFiles: download.projectorFile
+          ? [{ file: download.projectorFile, bytes: download.projectorBytes }]
+          : [],
         bytes: download.bytes,
         revision: download.revision,
       })
       const completed = await waitForDownloadComplete(download.id)
       const completedStatus = normalizeString(completed?.status)
+      if (completedStatus === "canceled") {
+        const activeDownload = state.activeDownloads[download.id]
+        const bytes = normalizeByteCount(completed?.bytesTotal, activeDownload?.bytes, downloadTotalBytes(download), download.bytes)
+        const bytesDownloaded = normalizeByteCount(completed?.bytesDownloaded, activeDownload?.bytesDownloaded)
+        state.values.downloads = [
+          Object.assign({}, download, { bytes, bytesDownloaded, status: "canceled" }),
+        ].concat(state.values.downloads.filter((item) => item.id !== download.id))
+        await saveSettings()
+        setMessage("Download canceled.")
+        return
+      }
       if (completedStatus === "failed") {
         throw new Error(normalizeString(completed?.error) || "Download failed.")
       }
-      const model = normalizeModel(completed?.model)
-      const activeDownload = state.activeDownloads[download.id]
-      const bytes = normalizeByteCount(model?.bytes, completed?.bytesDownloaded, completed?.bytesTotal, activeDownload?.bytesDownloaded, activeDownload?.bytes, download.bytes)
-      state.values.downloads = [
-        Object.assign({}, download, { bytes, bytesDownloaded: bytes, status: "complete" }),
-      ].concat(state.values.downloads.filter((item) => item.id !== download.id))
-      await saveSettings()
+      state.values.downloads = state.values.downloads.filter((item) => item.id !== download.id)
+      await callLlamaAction("models-download-status", { id: download.id, remove: true }).catch(() => {})
       await refreshBackendModels()
-      setMessage("Download complete.")
+      await saveSettings()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Download failed."
       const activeDownload = state.activeDownloads[download.id]
@@ -2009,6 +2345,84 @@
       setMessage(message)
     } finally {
       removeActiveDownload(download.id)
+      render()
+    }
+  }
+
+  async function cancelDownload(download) {
+    const normalized = normalizeDownload(download)
+    if (!normalized || !downloadIsActive(normalized)) return
+    state.cancelingDownloads.add(normalized.id)
+    render()
+    try {
+      const data = await callLlamaAction("models-download-status", { id: normalized.id, cancel: true })
+      const progress = normalizeDownloadProgress(data.download)
+      if (progress) {
+        removeActiveDownload(progress.id)
+        state.values.downloads = [
+          Object.assign({}, normalized, progress, { status: "canceled" }),
+        ].concat(state.values.downloads.filter((item) => item.id !== progress.id))
+        await saveSettings()
+      } else {
+        await refreshDownloadStatuses()
+      }
+      setMessage("Download canceled.")
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Download cancel failed.")
+    } finally {
+      state.cancelingDownloads.delete(normalized.id)
+      render()
+    }
+  }
+
+  async function removeDownload(download) {
+    const normalized = normalizeDownload(download)
+    if (!normalized) return
+    state.removingDownloads.add(normalized.id)
+    render()
+    try {
+      const data = await callLlamaAction("models-download-status", { id: normalized.id, remove: true })
+      if (data.removed !== true) {
+        throw new Error("Download record was not removed.")
+      }
+      state.values.downloads = state.values.downloads.filter((item) => item.id !== normalized.id)
+      await saveSettings()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Download remove failed.")
+    } finally {
+      state.removingDownloads.delete(normalized.id)
+      render()
+    }
+  }
+
+  async function removeLocalModel(model) {
+    const normalized = normalizeModel(model)
+    if (!normalized) return
+    const removeKey = modelPathKey(normalized)
+    if (!removeKey) return
+    state.removingModels.add(removeKey)
+    render()
+    try {
+      const data = await callLlamaAction("models-list", {
+        modelRoot: state.values.modelRoot,
+        modelPath: normalized.path,
+        remove: true,
+      })
+      if (data.removed !== true) {
+        throw new Error("Model file was not removed.")
+      }
+      removeModelLocalSettings(normalized)
+      if (Array.isArray(data.models)) {
+        state.backendModels = data.models.map(normalizeModel).filter(Boolean)
+        state.resolvedModelRoot = normalizeString(data.modelRoot)
+      } else {
+        await refreshBackendModels()
+      }
+      await saveSettings()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Model remove failed.")
+    } finally {
+      state.removingModels.delete(removeKey)
       render()
     }
   }
@@ -2144,6 +2558,7 @@
       defaultOffloadKvCache: state.values.offloadKvCache,
       modelGuardrail: state.values.modelGuardrail,
     }
+    if (normalized.projectorPath) body.projectorPath = normalized.projectorPath
     if (modelOptions.contextSize > 0) body.contextSize = modelOptions.contextSize
     if (modelOptions.draftModelPath) body.draftModelPath = modelOptions.draftModelPath
     if (modelOptions.threads > 0) body.threads = modelOptions.threads
@@ -2285,25 +2700,8 @@
       void pollRuntimeStatus()
     })
 
-    on(els.modelAdd, "click", () => {
-      state.downloadViewOpen = true
-      render()
-      setTimeout(() => {
-        if (els.hfQuery instanceof HTMLInputElement) {
-          els.hfQuery.focus()
-        }
-      }, 0)
-    })
-
-    on(els.downloadClose, "click", () => {
-      state.downloadViewOpen = false
-      render()
-    })
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape" || state.downloadViewOpen !== true) return
-      state.downloadViewOpen = false
-      render()
+    on(els.openExtensionSettings, "click", () => {
+      void openAppExtensionsSettings()
     })
 
     on(els.modelRoot, "change", () => {
@@ -2344,11 +2742,12 @@
     els.runtimeUrl = $("llama-runtime-url")
     els.runtimeStop = $("llama-runtime-stop")
     els.runtimeDetail = $("llama-runtime-detail")
+    els.runtimeSetupNotice = $("llama-runtime-setup-notice")
+    els.openExtensionSettings = $("llama-open-extension-settings")
     els.modelRoot = $("llama-model-root")
-    els.modelAdd = $("llama-model-add")
-    els.downloadClose = $("llama-download-close")
     els.modelList = $("llama-model-list")
     els.downloadView = $("llama-download-view")
+    els.downloadsSection = $("llama-downloads-section")
     els.downloadsList = $("llama-downloads-list")
     els.hfSearchForm = $("llama-hf-search-form")
     els.hfQuery = $("llama-hf-query")

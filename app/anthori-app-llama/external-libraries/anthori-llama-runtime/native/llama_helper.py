@@ -1010,6 +1010,51 @@ def gguf_context_length(path):
     return None
 
 
+def is_split_gguf_shard(path_value):
+    return re.search(r"-\d{5}-of-\d{5}\.gguf$", Path(str(path_value)).name, re.IGNORECASE) is not None
+
+
+def is_projector_gguf_path(path_value):
+    name = Path(str(path_value)).name.lower()
+    return name.endswith(".gguf") and (name.startswith("mmproj") or name.startswith("projector"))
+
+
+def projector_search_roots(root, model_path):
+    roots = [Path(model_path).parent]
+    try:
+        rel = Path(model_path).relative_to(Path(root))
+        if len(rel.parts) >= 3:
+            roots.append(Path(root) / rel.parts[0] / rel.parts[1])
+    except ValueError:
+        pass
+    seen = set()
+    output_roots = []
+    for item in roots:
+        key = str(item)
+        if key in seen:
+            continue
+        seen.add(key)
+        output_roots.append(item)
+    return output_roots
+
+
+def find_projector_for_model(root, model_path):
+    if is_projector_gguf_path(model_path) or is_split_gguf_shard(model_path):
+        return None
+    candidates = []
+    for search_root in projector_search_roots(root, model_path):
+        if not search_root.exists():
+            continue
+        for path in search_root.rglob("*.gguf"):
+            if path.is_file() and is_projector_gguf_path(path) and not is_split_gguf_shard(path):
+                candidates.append(path)
+    if not candidates:
+        return None
+    model_parent = Path(model_path).parent
+    candidates.sort(key=lambda path: (0 if path.parent == model_parent else 1, path.name.lower(), str(path).lower()))
+    return candidates[0]
+
+
 def model_info_from_path(root, path_value, source):
     path = Path(path_value)
     stat = path.stat()
@@ -1028,6 +1073,14 @@ def model_info_from_path(root, path_value, source):
     max_context_tokens = gguf_context_length(path)
     if max_context_tokens:
         info["maxContextTokens"] = max_context_tokens
+    projector = find_projector_for_model(root, path)
+    if projector:
+        try:
+            projector_path = projector.relative_to(Path(root)).as_posix()
+        except ValueError:
+            projector_path = str(projector)
+        info["projectorPath"] = projector_path
+        info["visionCapable"] = True
     return info
 
 
@@ -1036,10 +1089,53 @@ def list_models(state_dir, request):
     models = []
     if root.exists():
         for path in root.rglob("*"):
-            if path.is_file() and path.suffix.lower() == ".gguf":
+            if path.is_file() and path.suffix.lower() == ".gguf" and not is_split_gguf_shard(path) and not is_projector_gguf_path(path):
                 models.append(model_info_from_path(root, path, "directory"))
     models.sort(key=lambda item: item.get("id", "").lower())
     return {"modelRoot": str(root), "models": models}
+
+
+def prune_empty_model_dirs(root, path_value):
+    try:
+        root_resolved = Path(root).resolve()
+        current = Path(path_value).resolve().parent
+    except OSError:
+        return
+    while current != root_resolved and path_inside(root_resolved, current):
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
+def resolve_model_file_for_removal(state_dir, request):
+    text = normalize_string(request.get("modelPath") or request.get("path") or request.get("id"))
+    if not text:
+        raise ValueError("modelPath is required")
+    root = model_root(state_dir, request.get("modelRoot"))
+    path = resolve_model_path_value(state_dir, request, text, "modelPath")
+    if not path_inside(root, path):
+        raise ValueError("modelPath escapes model directory")
+    if not path.exists():
+        raise ValueError("model file is missing")
+    if not path.is_file():
+        raise ValueError("modelPath is not a file")
+    if path.suffix.lower() != ".gguf" or is_split_gguf_shard(path) or is_projector_gguf_path(path):
+        raise ValueError("modelPath must be a model GGUF file")
+    return root, path
+
+
+def remove_model_file(state_dir, request):
+    root, path = resolve_model_file_for_removal(state_dir, request)
+    path.unlink()
+    if path.exists():
+        raise ValueError("model file could not be removed")
+    prune_empty_model_dirs(root, path)
+    result = list_models(state_dir, request)
+    result["removed"] = True
+    result["removedPath"] = str(path)
+    return result
 
 
 def normalize_hugging_face_path(value, field):
@@ -1065,8 +1161,34 @@ def hugging_face_resolve_url(repository, revision, file_name):
     )
 
 
+def normalize_extra_download_files(value, primary_file):
+    if not isinstance(value, list):
+        return []
+    primary = normalize_hugging_face_path(primary_file, "file")
+    seen = {primary}
+    files = []
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            continue
+        file_name = normalize_hugging_face_path(item.get("file"), "extraFiles[{}].file".format(index))
+        if file_name in seen:
+            continue
+        if not file_name.lower().endswith(".gguf") or not is_projector_gguf_path(file_name) or is_split_gguf_shard(file_name):
+            raise ValueError("extraFiles[{}].file must be a GGUF projector file".format(index))
+        seen.add(file_name)
+        files.append({
+            "file": file_name,
+            "bytes": normalize_int(item.get("bytes"), 0) or 0,
+        })
+    return files
+
+
 def progress_path(state_dir, download_id):
     return downloads_root(state_dir) / (safe_name(download_id) + ".json")
+
+
+def download_request_path(state_dir, download_id):
+    return downloads_root(state_dir) / (safe_name(download_id) + ".request.json")
 
 
 def write_progress(state_dir, progress):
@@ -1088,19 +1210,116 @@ def read_progress(state_dir, download_id):
     return items
 
 
+def download_worker_request(state_dir, download_id):
+    payload = read_json(download_request_path(state_dir, download_id), {}) or {}
+    return payload.get("request") if isinstance(payload.get("request"), dict) else {}
+
+
+def request_bool(value):
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return False
+
+
+def remove_download_temp_files(root, repository, file_name, extra_files):
+    root = Path(root)
+    repository_dir = root / Path(repository)
+    download_files = [file_name]
+    download_files.extend(item.get("file") for item in extra_files if isinstance(item, dict))
+    for download_file in download_files:
+        text = normalize_string(download_file)
+        if not text:
+            continue
+        temp_path = (repository_dir / Path(text)).with_suffix(Path(text).suffix + ".download")
+        if not path_inside(root, temp_path):
+            continue
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def cancel_model_download(state_dir, request):
+    if request_bool(request.get("remove")):
+        return remove_model_download(state_dir, request)
+    download_id = normalize_string(request.get("id"))
+    if not download_id:
+        raise ValueError("id is required")
+    progress = read_progress(state_dir, download_id) or {"id": download_id}
+    if normalize_string(progress.get("status")) in ("complete", "failed", "canceled"):
+        return {"download": progress}
+    worker_pid = normalize_int(progress.get("workerPid"), 1) or 0
+    if worker_pid:
+        stop_process_tree(worker_pid, 2)
+    worker_request = download_worker_request(state_dir, download_id)
+    try:
+        repository = normalize_hugging_face_path(worker_request.get("repository"), "repository")
+        file_name = normalize_hugging_face_path(worker_request.get("file"), "file")
+        extra_files = normalize_extra_download_files(worker_request.get("extraFiles"), file_name)
+        root = Path(normalize_string(worker_request.get("modelRoot")))
+        if root:
+            remove_download_temp_files(root, repository, file_name, extra_files)
+    except Exception:
+        pass
+    progress = read_progress(state_dir, download_id) or progress
+    if normalize_string(progress.get("status")) in ("complete", "failed", "canceled"):
+        return {"download": progress}
+    progress["id"] = download_id
+    progress["status"] = "canceled"
+    progress["error"] = ""
+    progress["canceledAt"] = now_iso()
+    write_progress(state_dir, progress)
+    return {"download": progress}
+
+
+def remove_model_download(state_dir, request):
+    download_id = normalize_string(request.get("id"))
+    if not download_id:
+        raise ValueError("id is required")
+    progress = read_progress(state_dir, download_id) or {"id": download_id}
+    if normalize_string(progress.get("status")) in ("starting", "downloading"):
+        cancel_request = dict(request)
+        cancel_request.pop("remove", None)
+        cancel_model_download(state_dir, cancel_request)
+    worker_request = download_worker_request(state_dir, download_id)
+    try:
+        repository = normalize_hugging_face_path(worker_request.get("repository") or progress.get("repository"), "repository")
+        file_name = normalize_hugging_face_path(worker_request.get("file") or progress.get("file"), "file")
+        extra_files = normalize_extra_download_files(worker_request.get("extraFiles"), file_name)
+        root_text = normalize_string(worker_request.get("modelRoot"))
+        root = Path(root_text) if root_text else model_root(state_dir, "")
+        remove_download_temp_files(root, repository, file_name, extra_files)
+    except Exception:
+        pass
+    progress_file = progress_path(state_dir, download_id)
+    request_file = download_request_path(state_dir, download_id)
+    progress_file.unlink(missing_ok=True)
+    request_file.unlink(missing_ok=True)
+    if progress_file.exists() or request_file.exists():
+        raise ValueError("download record could not be removed")
+    return {"id": download_id, "removed": True}
+
+
 def start_model_download(state_dir, request):
     download_id = normalize_string(request.get("id")) or "download-{}".format(time.time_ns())
     repository = normalize_hugging_face_path(request.get("repository"), "repository")
     file_name = normalize_hugging_face_path(request.get("file"), "file")
+    extra_files = normalize_extra_download_files(request.get("extraFiles"), file_name)
     revision = normalize_string(request.get("revision")) or "main"
     root = model_root(state_dir, request.get("modelRoot"))
+    bytes_total = normalize_int(request.get("bytes"), 0) or 0
+    bytes_total += sum(normalize_int(item.get("bytes"), 0) or 0 for item in extra_files)
     progress = {
         "id": download_id,
         "repository": repository,
         "file": file_name,
+        "projectorFile": extra_files[0]["file"] if extra_files else "",
+        "projectorBytes": extra_files[0]["bytes"] if extra_files else 0,
         "revision": revision,
         "status": "starting",
-        "bytesTotal": normalize_int(request.get("bytes"), 0) or 0,
+        "bytesTotal": bytes_total,
         "bytesDownloaded": 0,
         "startedAt": now_iso(),
         "updatedAt": now_iso(),
@@ -1113,6 +1332,7 @@ def start_model_download(state_dir, request):
             "modelRoot": str(root),
             "repository": repository,
             "file": file_name,
+            "extraFiles": extra_files,
             "revision": revision,
         },
     }
@@ -1151,15 +1371,17 @@ def download_worker(request_path):
     download_id = normalize_string(request.get("id"))
     repository = normalize_hugging_face_path(request.get("repository"), "repository")
     file_name = normalize_hugging_face_path(request.get("file"), "file")
+    extra_files = normalize_extra_download_files(request.get("extraFiles"), file_name)
     revision = normalize_string(request.get("revision")) or "main"
     root = Path(normalize_string(request.get("modelRoot")))
-    dest = root / Path(file_name)
     repository_dir = root / Path(repository)
-    dest = repository_dir / Path(file_name)
-    if not path_inside(root, dest):
-        raise ValueError("download path escapes model directory")
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    source_url = hugging_face_resolve_url(repository, revision, file_name)
+
+    def destination_for(download_file):
+        dest = repository_dir / Path(download_file)
+        if not path_inside(root, dest):
+            raise ValueError("download path escapes model directory")
+        return dest
+
     progress = read_progress(state_dir, download_id) or {
         "id": download_id,
         "repository": repository,
@@ -1169,33 +1391,52 @@ def download_worker(request_path):
     }
     progress["workerPid"] = os.getpid()
     progress["status"] = "downloading"
+    progress["projectorFile"] = extra_files[0]["file"] if extra_files else ""
+    progress["projectorBytes"] = extra_files[0]["bytes"] if extra_files else 0
     write_progress(state_dir, progress)
-    temp_path = dest.with_suffix(dest.suffix + ".download")
-    request_obj = urllib.request.Request(source_url, headers={"User-Agent": "Anthori"})
-    with urllib.request.urlopen(request_obj, timeout=60) as response:
-        total = int(response.headers.get("Content-Length") or "0")
-        if total > 0:
-            progress["bytesTotal"] = total
-            write_progress(state_dir, progress)
-        downloaded = 0
-        reported = 0
-        with open(temp_path, "wb") as handle:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                handle.write(chunk)
-                downloaded += len(chunk)
-                if downloaded - reported >= 1024 * 1024:
-                    reported = downloaded
-                    progress["bytesDownloaded"] = downloaded
+
+    def download_one(download_file, cumulative_downloaded):
+        dest = destination_for(download_file)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        source_url = hugging_face_resolve_url(repository, revision, download_file)
+        temp_path = dest.with_suffix(dest.suffix + ".download")
+        request_obj = urllib.request.Request(source_url, headers={"User-Agent": "Anthori"})
+        with urllib.request.urlopen(request_obj, timeout=60) as response:
+            total = int(response.headers.get("Content-Length") or "0")
+            if total > 0:
+                known_total = cumulative_downloaded + total
+                if known_total > (normalize_int(progress.get("bytesTotal"), 0) or 0):
+                    progress["bytesTotal"] = known_total
                     write_progress(state_dir, progress)
-    replace_file(temp_path, dest)
+            downloaded = 0
+            reported = 0
+            with open(temp_path, "wb") as handle:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+                    downloaded += len(chunk)
+                    if downloaded - reported >= 1024 * 1024:
+                        reported = downloaded
+                        progress["bytesDownloaded"] = cumulative_downloaded + downloaded
+                        write_progress(state_dir, progress)
+        replace_file(temp_path, dest)
+        progress["bytesDownloaded"] = cumulative_downloaded + downloaded
+        write_progress(state_dir, progress)
+        return dest, downloaded
+
+    dest, downloaded = download_one(file_name, 0)
+    total_downloaded = downloaded
+    for extra in extra_files:
+        _extra_dest, downloaded = download_one(extra.get("file"), total_downloaded)
+        total_downloaded += downloaded
+
     model = model_info_from_path(root, dest, "huggingface")
     progress["status"] = "complete"
-    progress["bytesDownloaded"] = model.get("bytes", 0)
+    progress["bytesDownloaded"] = total_downloaded or model.get("bytes", 0)
     if not progress.get("bytesTotal"):
-        progress["bytesTotal"] = model.get("bytes", 0)
+        progress["bytesTotal"] = progress["bytesDownloaded"]
     progress["model"] = model
     write_progress(state_dir, progress)
 
@@ -1689,7 +1930,7 @@ def choose_port(value):
     return port or DEFAULT_RUNTIME_PORT
 
 
-def build_server_args(request, model_path, draft_model_path, port, settings, hardware, allow_device_selection):
+def build_server_args(request, model_path, draft_model_path, projector_path, port, settings, hardware, allow_device_selection):
     args = [
         "--host", "127.0.0.1",
         "--port", str(port),
@@ -1699,6 +1940,8 @@ def build_server_args(request, model_path, draft_model_path, port, settings, har
     ]
     if draft_model_path:
         args.extend(["--model-draft", str(draft_model_path)])
+    if projector_path:
+        args.extend(["--mmproj", str(projector_path)])
     mappings = [
         ("contextSize", "--ctx-size", 1),
         ("threads", "--threads", 1),
@@ -1800,6 +2043,14 @@ def start_runtime(state_dir, request):
         draft_model_path = resolve_model_path_value(state_dir, request, draft_model_value, "draftModelPath")
         if not draft_model_path.is_file():
             raise ValueError("draftModelPath is not a file: {}".format(draft_model_path))
+    projector_path = None
+    projector_value = normalize_string(request.get("projectorPath"))
+    if projector_value:
+        projector_path = resolve_model_path_value(state_dir, request, projector_value, "projectorPath")
+        if not projector_path.is_file():
+            raise ValueError("projectorPath is not a file: {}".format(projector_path))
+    else:
+        projector_path = find_projector_for_model(model_root(state_dir, request.get("modelRoot")), model_path)
     port = choose_port(request.get("port"))
     if not port_available(port):
         raise ValueError("port {} is unavailable".format(port))
@@ -1808,7 +2059,7 @@ def start_runtime(state_dir, request):
     runtime_id = normalize_string(request.get("runtimeId")).lower()
     allow_device_selection = ".cpu" not in runtime_id
     check_model_guardrail(settings, hardware, model_path, allow_device_selection)
-    args = build_server_args(request, model_path, draft_model_path, port, settings, hardware, allow_device_selection)
+    args = build_server_args(request, model_path, draft_model_path, projector_path, port, settings, hardware, allow_device_selection)
     log_path = runtime_log_path(state_dir)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_offset = file_size(log_path)
@@ -1840,6 +2091,7 @@ def start_runtime(state_dir, request):
         "watchdogPid": watchdog_pid,
         "baseUrl": base_url,
         "modelPath": str(model_path),
+        "projectorPath": str(projector_path) if projector_path else "",
         "binaryPath": binary_path,
         "binaryAvailable": True,
         "startedAt": now_iso(),
@@ -1863,10 +2115,16 @@ def dispatch(action, input_value):
     state_dir = extension_state_dir(input_value)
     request = extension_request(input_value)
     if action == "models-list":
+        if request_bool(request.get("remove")):
+            return remove_model_file(state_dir, request)
         return list_models(state_dir, request)
     if action == "models-download":
         return start_model_download(state_dir, request)
     if action == "models-download-status":
+        if request_bool(request.get("remove")):
+            return remove_model_download(state_dir, request)
+        if request_bool(request.get("cancel")):
+            return cancel_model_download(state_dir, request)
         download_id = normalize_string(request.get("id"))
         if download_id:
             return {"download": read_progress(state_dir, download_id)}
