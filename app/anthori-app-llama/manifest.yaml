@@ -35,6 +35,6 @@ dockPanels:
     label: Models
     title: Models
     assetPath: ui/models.html
-    dock: right
+    dock: free
     width: 420
     height: 620
