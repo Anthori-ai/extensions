@@ -2225,8 +2225,20 @@
     const downloadId = normalizeString(id)
     if (!downloadId) return null
     let missingStatusCount = 0
+    let statusErrorCount = 0
     for (;;) {
-      const data = await callLlamaAction("models-download-status", { id: downloadId })
+      let data
+      try {
+        data = await callLlamaAction("models-download-status", { id: downloadId })
+        statusErrorCount = 0
+      } catch (error) {
+        statusErrorCount += 1
+        if (statusErrorCount >= DOWNLOAD_STATUS_MISSING_LIMIT) {
+          throw error
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 500))
+        continue
+      }
       const progress = normalizeDownloadProgress(data.download)
       const activeDownload = state.activeDownloads[downloadId]
       if (progress && activeDownload) {

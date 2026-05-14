@@ -24,6 +24,7 @@ STABLE_TAG = "b9113"
 LATEST_RELEASE_API_URL = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
 DEFAULT_RUNTIME_PORT = 11435
 GPU_SELECTION_NONE = "__none__"
+WINDOWS_FILE_RETRY_ATTEMPTS = 80
 
 
 def now_iso():
@@ -181,14 +182,33 @@ def runtime_log_path(state_dir):
     return state_dir / "runtime" / "llama-server.log"
 
 
+def transient_file_attempts():
+    return WINDOWS_FILE_RETRY_ATTEMPTS if os.name == "nt" else 1
+
+
+def sleep_for_transient_file_error(index):
+    if os.name == "nt":
+        time.sleep(min(0.02 * (index + 1), 0.25))
+
+
 def read_json(path, fallback=None):
-    try:
-        with open(path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
-    except FileNotFoundError:
+    last_permission_error = None
+    for index in range(transient_file_attempts()):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except FileNotFoundError:
+            return fallback
+        except json.JSONDecodeError:
+            return fallback
+        except PermissionError as exc:
+            if os.name != "nt":
+                raise
+            last_permission_error = exc
+            sleep_for_transient_file_error(index)
+    if last_permission_error is not None:
         return fallback
-    except json.JSONDecodeError:
-        return fallback
+    return fallback
 
 
 def write_json(path, value):
@@ -208,9 +228,8 @@ def write_json(path, value):
 
 
 def replace_file(source, target):
-    attempts = 25 if os.name == "nt" else 1
     last_error = None
-    for index in range(attempts):
+    for index in range(transient_file_attempts()):
         try:
             os.replace(source, target)
             return
@@ -218,7 +237,7 @@ def replace_file(source, target):
             last_error = exc
             if os.name != "nt":
                 raise
-            time.sleep(min(0.02 * (index + 1), 0.25))
+            sleep_for_transient_file_error(index)
     if last_error is not None:
         raise last_error
 
