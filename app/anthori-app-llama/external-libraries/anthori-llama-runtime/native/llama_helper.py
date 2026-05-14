@@ -194,10 +194,33 @@ def read_json(path, fallback=None):
 def write_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(path.suffix + ".tmp")
-    with open(temp, "w", encoding="utf-8") as handle:
-        json.dump(value, handle, separators=(",", ":"))
-    os.replace(temp, path)
+    temp = path.with_name("{}.tmp.{}.{}".format(path.name, os.getpid(), time.time_ns()))
+    try:
+        with open(temp, "w", encoding="utf-8") as handle:
+            json.dump(value, handle, separators=(",", ":"))
+        replace_file(temp, path)
+    finally:
+        try:
+            if temp.exists():
+                temp.unlink()
+        except OSError:
+            pass
+
+
+def replace_file(source, target):
+    attempts = 25 if os.name == "nt" else 1
+    last_error = None
+    for index in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError as exc:
+            last_error = exc
+            if os.name != "nt":
+                raise
+            time.sleep(min(0.02 * (index + 1), 0.25))
+    if last_error is not None:
+        raise last_error
 
 
 def llama_server_executable_name():
@@ -1167,7 +1190,7 @@ def download_worker(request_path):
                     reported = downloaded
                     progress["bytesDownloaded"] = downloaded
                     write_progress(state_dir, progress)
-    os.replace(temp_path, dest)
+    replace_file(temp_path, dest)
     model = model_info_from_path(root, dest, "huggingface")
     progress["status"] = "complete"
     progress["bytesDownloaded"] = model.get("bytes", 0)
