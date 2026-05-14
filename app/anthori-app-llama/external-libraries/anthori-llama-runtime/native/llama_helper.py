@@ -738,16 +738,22 @@ def port_available(port):
 def runtime_status(state_dir, request):
     binary_path, binary_available, binary_error = resolve_binary_path(state_dir, request.get("runtimeId"))
     status = read_json(runtime_status_path(state_dir), {}) or {}
+    requested_runtime_id = normalize_string(request.get("runtimeId")).lower()
+    status_runtime_id = normalize_string(status.get("runtimeId")).lower()
+    status_exited_at = normalize_string(status.get("exitedAt"))
+    runtime_id = status_runtime_id if status_runtime_id and not status_exited_at else (requested_runtime_id or status_runtime_id)
     base_url = normalize_string(status.get("baseUrl")) or "http://127.0.0.1:{}".format(DEFAULT_RUNTIME_PORT)
     pid = normalize_int(status.get("pid"), 1) or 0
     log_offset = normalize_int(status.get("logOffset"), 0) or 0
     log_path = runtime_log_path(state_dir)
     log_ready = ready_log_seen(log_path, log_offset)
-    health_is_ready = health_ready(base_url, timeout=0.5)
-    running = (
-        process_alive(pid) or
-        health_is_ready or
-        runtime_port_open(base_url, timeout=0.25)
+    stopped_by_request = bool(status_exited_at) and not pid
+    health_is_ready = False if stopped_by_request else health_ready(base_url, timeout=0.5)
+    running = process_alive(pid) or (
+        not stopped_by_request and (
+            health_is_ready or
+            runtime_port_open(base_url, timeout=0.25)
+        )
     )
     ready = running and (health_is_ready or log_ready)
     if not running:
@@ -755,10 +761,11 @@ def runtime_status(state_dir, request):
             "running": False,
             "ready": False,
             "starting": False,
+            "runtimeId": runtime_id,
             "baseUrl": base_url,
             "modelPath": normalize_string(status.get("modelPath")),
             "lastError": binary_error or normalize_string(status.get("lastError")),
-            "exitedAt": normalize_string(status.get("exitedAt")) or now_iso(),
+            "exitedAt": status_exited_at or now_iso(),
         }
         write_json(runtime_status_path(state_dir), stopped_status)
         response = dict(stopped_status)
@@ -771,6 +778,7 @@ def runtime_status(state_dir, request):
         "ready": ready,
         "starting": not ready,
         "pid": pid,
+        "runtimeId": runtime_id,
         "baseUrl": base_url,
         "modelPath": normalize_string(status.get("modelPath")),
         "binaryPath": binary_path,
@@ -1856,6 +1864,38 @@ def selected_gpu_ids(settings, hardware):
     return ids
 
 
+def runtime_backend(runtime_id):
+    text = normalize_string(runtime_id).lower()
+    if ".cuda" in text:
+        return "cuda"
+    if ".vulkan" in text:
+        return "vulkan"
+    if ".metal" in text:
+        return "metal"
+    if ".cpu" in text:
+        return "cpu"
+    return ""
+
+
+def gpu_id_backend(gpu_id):
+    text = normalize_string(gpu_id).lower()
+    if text.startswith("cuda"):
+        return "cuda"
+    if text.startswith("vulkan"):
+        return "vulkan"
+    if text.startswith("metal"):
+        return "metal"
+    return ""
+
+
+def selected_gpu_ids_for_runtime(settings, hardware, runtime_id):
+    backend = runtime_backend(runtime_id)
+    ids = selected_gpu_ids(settings, hardware)
+    if backend in ("cuda", "vulkan", "metal"):
+        return [gpu_id for gpu_id in ids if gpu_id_backend(gpu_id) == backend]
+    return ids
+
+
 def selected_gpu_memory(settings, hardware):
     selected = set(selected_gpu_ids(settings, hardware))
     total = 0
@@ -1970,7 +2010,10 @@ def build_server_args(request, model_path, draft_model_path, projector_path, por
             args.extend([flag, value])
     if not allow_device_selection:
         return args
-    args.extend(["--fit", "on" if settings.get("limitDedicatedGpuMemory") else "off"])
+    runtime_id = normalize_string(request.get("runtimeId")).lower()
+    gpu_ids = selected_gpu_ids_for_runtime(settings, hardware, runtime_id)
+    fit_enabled = bool(settings.get("limitDedicatedGpuMemory")) and len(gpu_ids) == 1
+    args.extend(["--fit", "on" if fit_enabled else "off"])
     offload_kv = settings.get("offloadKvCache", True)
     override = request.get("offloadKvCache")
     if isinstance(override, bool):
@@ -1979,7 +2022,6 @@ def build_server_args(request, model_path, draft_model_path, projector_path, por
     if settings.get("enabledGpuIds") == [GPU_SELECTION_NONE]:
         args.extend(["--device", "none"])
         return args
-    gpu_ids = selected_gpu_ids(settings, hardware)
     if gpu_ids:
         args.extend(["--device", ",".join(gpu_ids)])
         if settings.get("gpuStrategy") == "first":
@@ -1994,6 +2036,8 @@ def build_server_args(request, model_path, draft_model_path, projector_path, por
 def stop_runtime(state_dir, request):
     status = read_json(runtime_status_path(state_dir), {}) or {}
     pid = normalize_int(status.get("pid"), 1) or 0
+    runtime_id = normalize_string(status.get("runtimeId") or request.get("runtimeId")).lower()
+    base_url = normalize_string(status.get("baseUrl")) or "http://127.0.0.1:{}".format(DEFAULT_RUNTIME_PORT)
     if pid:
         if os.name == "nt":
             completed = subprocess.run(
@@ -2005,6 +2049,9 @@ def stop_runtime(state_dir, request):
             output_text = normalize_string(completed.stdout)
             if completed.returncode != 0 and "not found" not in output_text.lower():
                 raise RuntimeError("Failed to stop llama-server process {}: {}".format(pid, output_text or "taskkill failed"))
+            deadline = time.time() + 5
+            while time.time() < deadline and (process_alive(pid) or runtime_port_open(base_url, timeout=0.25)):
+                time.sleep(0.1)
         elif process_alive(pid):
             try:
                 os.kill(pid, signal.SIGTERM)
@@ -2013,13 +2060,17 @@ def stop_runtime(state_dir, request):
                     time.sleep(0.1)
                 if process_alive(pid):
                     os.kill(pid, signal.SIGKILL)
+                deadline = time.time() + 5
+                while time.time() < deadline and runtime_port_open(base_url, timeout=0.25):
+                    time.sleep(0.1)
             except OSError:
                 pass
     next_status = {
         "running": False,
         "ready": False,
         "starting": False,
-        "baseUrl": normalize_string(status.get("baseUrl")) or "http://127.0.0.1:{}".format(DEFAULT_RUNTIME_PORT),
+        "runtimeId": runtime_id,
+        "baseUrl": base_url,
         "modelPath": normalize_string(status.get("modelPath")),
         "exitedAt": now_iso(),
     }
@@ -2057,7 +2108,7 @@ def start_runtime(state_dir, request):
     settings = runtime_settings_from_request(request)
     hardware = hardware_info()
     runtime_id = normalize_string(request.get("runtimeId")).lower()
-    allow_device_selection = ".cpu" not in runtime_id
+    allow_device_selection = runtime_backend(runtime_id) != "cpu"
     check_model_guardrail(settings, hardware, model_path, allow_device_selection)
     args = build_server_args(request, model_path, draft_model_path, projector_path, port, settings, hardware, allow_device_selection)
     log_path = runtime_log_path(state_dir)
@@ -2089,6 +2140,7 @@ def start_runtime(state_dir, request):
         "pid": process.pid,
         "ownerPid": owner_pid,
         "watchdogPid": watchdog_pid,
+        "runtimeId": runtime_id,
         "baseUrl": base_url,
         "modelPath": str(model_path),
         "projectorPath": str(projector_path) if projector_path else "",

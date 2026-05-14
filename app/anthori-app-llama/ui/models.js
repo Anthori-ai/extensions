@@ -374,6 +374,10 @@
     return normalizeString(value).toLowerCase()
   }
 
+  function runtimePackIsSelectable(pack) {
+    return Boolean(pack && pack.compatible && pack.installed)
+  }
+
   function isModelsSurface() {
     return normalizeString(document.body?.dataset?.llamaSurface).toLowerCase() === "models"
   }
@@ -383,10 +387,20 @@
     const selectedId = runtimePackKey(state.values.runtimeId || state.selectedRuntimeId || state.runtimePacks.find((pack) => pack.selected)?.id)
     if (!selectedId) return "Install or select a runtime engine from Settings > Extensions > Llama."
     const pack = state.runtimePacks.find((entry) => runtimePackKey(entry.id) === selectedId)
-    if (!pack || !pack.compatible || !pack.installed) {
+    if (!runtimePackIsSelectable(pack)) {
       return "Install or select a runtime engine from Settings > Extensions > Llama."
     }
     return ""
+  }
+
+  function adoptSelectedRuntimeFromPacks() {
+    if (normalizeString(state.values.runtimeId)) return false
+    const selectedId = normalizeString(state.selectedRuntimeId || state.runtimePacks.find((pack) => pack.selected)?.id)
+    if (!selectedId) return false
+    const selectedPack = state.runtimePacks.find((pack) => runtimePackKey(pack.id) === runtimePackKey(selectedId))
+    if (!runtimePackIsSelectable(selectedPack)) return false
+    state.values.runtimeId = selectedPack.id
+    return true
   }
 
   function encodePathSegments(value) {
@@ -938,6 +952,7 @@
       starting: source.starting === true,
       ready: source.ready === true,
       pid: Number.isFinite(Number(source.pid)) ? Math.max(0, Math.floor(Number(source.pid))) : 0,
+      runtimeId: normalizeString(source.runtimeId),
       baseUrl: normalizeString(source.baseUrl),
       modelPath: normalizeString(source.modelPath),
       binaryPath: normalizeString(source.binaryPath),
@@ -1690,20 +1705,6 @@
     const packs = state.runtimePacks.filter((pack) => pack.compatible)
 
     if (els.runtimePlatform) els.runtimePlatform.textContent = state.runtimePlatform || ""
-    if (els.runtimePackSelect) {
-      els.runtimePackSelect.replaceChildren()
-      state.runtimePacks.forEach((pack) => {
-        const option = document.createElement("option")
-        option.value = pack.id
-        option.textContent = pack.version ? `${pack.name} (${pack.version})` : pack.name
-        option.disabled = !pack.compatible
-        els.runtimePackSelect.appendChild(option)
-      })
-    }
-    const selectedId = normalizeString(state.values.runtimeId || state.selectedRuntimeId || state.runtimePacks.find((pack) => pack.selected)?.id)
-    if (selectedId && els.runtimePackSelect) {
-      els.runtimePackSelect.value = selectedId
-    }
     if (els.runtimeCheckUpdates) {
       els.runtimeCheckUpdates.disabled = state.downloading || state.runtimeCheckingUpdates || Boolean(state.runtimeBusyId)
       els.runtimeCheckUpdates.textContent = state.runtimeCheckingUpdates ? "Checking" : "Check for updates"
@@ -2054,6 +2055,10 @@
       state.runtimePacks = Array.isArray(data.runtimes)
         ? data.runtimes.map(normalizeRuntimePack).filter(Boolean)
         : []
+      const adoptedSelection = adoptSelectedRuntimeFromPacks()
+      if (adoptedSelection) {
+        await saveSettings()
+      }
       state.runtime = normalizeRuntime(data.status)
       render()
       if (options.notify === true) {
@@ -2492,17 +2497,45 @@
   async function selectRuntimePack(runtimeId) {
     const id = normalizeString(runtimeId)
     if (!id) return
+    const pack = state.runtimePacks.find((entry) => runtimePackKey(entry.id) === runtimePackKey(id))
+    if (!runtimePackIsSelectable(pack)) {
+      setMessage("Install the runtime pack before selecting it.")
+      render()
+      return
+    }
+    const currentRuntimeId = normalizeString(state.values.runtimeId || state.selectedRuntimeId)
+    const runtime = state.runtime || normalizeRuntime(null)
+    const switchingRuntime = runtimePackKey(currentRuntimeId) !== runtimePackKey(id)
+    let stoppedRuntime = false
     state.runtimeBusyId = id
+    state.downloading = true
     render()
-    setMessage("Selecting runtime pack...")
+    setMessage(switchingRuntime && runtime.running ? "Stopping loaded model before switching runtime..." : "Selecting runtime pack...")
     try {
+      if (switchingRuntime && runtime.running) {
+        state.runtimeModelAction = "unload"
+        state.runtimeModelActionPath = runtime.modelPath
+        state.runtimeModelActionStartedAt = Date.now()
+        state.runtimeModelActionToken += 1
+        render()
+        state.runtime = normalizeRuntime(await callLlamaAction("runtime-stop", {
+          runtimeId: currentRuntimeId || runtime.runtimeId,
+        }))
+        stoppedRuntime = true
+      }
       state.values.runtimeId = id
       await saveSettings()
       await refreshRuntimePacks()
-      setMessage("Runtime pack selected.")
+      await refreshRuntimeStatus({ updateRuntimeMessage: false })
+      setMessage(stoppedRuntime ? "Runtime pack selected. Loaded model was unloaded." : "Runtime pack selected.")
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Runtime selection failed.")
     } finally {
+      state.downloading = false
+      state.runtimeModelAction = ""
+      state.runtimeModelActionPath = ""
+      state.runtimeModelActionStartedAt = 0
+      state.runtimeModelActionToken = 0
       state.runtimeBusyId = ""
       render()
     }
@@ -2640,10 +2673,6 @@
   }
 
   function bindEvents() {
-    on(els.runtimePackSelect, "change", () => {
-      void selectRuntimePack(els.runtimePackSelect.value)
-    })
-
     on(els.runtimeCheckUpdates, "click", () => {
       void checkRuntimeUpdates()
     })
@@ -2721,7 +2750,6 @@
 
   function initElements() {
     els.runtimePlatform = $("llama-runtime-platform")
-    els.runtimePackSelect = $("llama-runtime-pack-select")
     els.runtimeCheckUpdates = $("llama-runtime-check-updates")
     els.runtimePackList = $("llama-runtime-pack-list")
     els.copyHardware = $("llama-copy-hardware")
