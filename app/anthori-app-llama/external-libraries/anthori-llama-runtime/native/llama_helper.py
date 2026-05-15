@@ -546,6 +546,9 @@ def windows_process_table():
 
 
 def default_runtime_owner_pid():
+    env_pid = normalize_int(os.environ.get("ANTHORI_SERVER_PID"), 1) or 0
+    if env_pid:
+        return env_pid
     parent_pid = os.getppid()
     if os.name != "nt":
         return parent_pid
@@ -775,6 +778,28 @@ def runtime_status(state_dir, request):
         )
     )
     ready = running and (health_is_ready or log_ready)
+    owner_pid = normalize_int(status.get("ownerPid"), 1) or 0
+    current_owner_pid = normalize_int(request.get("ownerPid"), 1) or default_runtime_owner_pid()
+    owner_is_stale = owner_pid and owner_pid != current_owner_pid and not process_alive(owner_pid)
+    legacy_ready_without_owner = running and not owner_pid and ready
+    if running and (owner_is_stale or legacy_ready_without_owner):
+        stop_process_tree(pid)
+        status = {
+            "running": False,
+            "ready": False,
+            "starting": False,
+            "runtimeId": runtime_id,
+            "baseUrl": base_url,
+            "modelPath": normalize_string(status.get("modelPath")),
+            "lastError": binary_error or normalize_string(status.get("lastError")),
+            "exitedAt": now_iso(),
+        }
+        if owner_is_stale:
+            status["stopReason"] = "app-exit"
+        write_json(runtime_status_path(state_dir), status)
+        status_exited_at = normalize_string(status.get("exitedAt"))
+        running = False
+        ready = False
     if not running:
         stopped_status = {
             "running": False,
@@ -786,6 +811,9 @@ def runtime_status(state_dir, request):
             "lastError": binary_error or normalize_string(status.get("lastError")),
             "exitedAt": status_exited_at or now_iso(),
         }
+        stop_reason = normalize_string(status.get("stopReason"))
+        if stop_reason:
+            stopped_status["stopReason"] = stop_reason
         write_json(runtime_status_path(state_dir), stopped_status)
         response = dict(stopped_status)
         response["binaryPath"] = binary_path
@@ -2142,16 +2170,15 @@ def start_runtime(state_dir, request):
             "stdin": subprocess.DEVNULL,
             "close_fds": True,
         }
-        if os.name == "nt":
-            popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        else:
-            popen_kwargs["start_new_session"] = True
         process = subprocess.Popen([binary_path] + args, **popen_kwargs)
     finally:
         log_file.close()
     base_url = "http://127.0.0.1:{}".format(port)
     owner_pid = normalize_int(request.get("ownerPid"), 1) or default_runtime_owner_pid()
     watchdog_pid = start_runtime_watchdog(state_dir, process.pid, owner_pid)
+    if not watchdog_pid:
+        stop_process_tree(process.pid)
+        raise RuntimeError("failed to start llama runtime watchdog")
     write_json(runtime_status_path(state_dir), {
         "running": True,
         "ready": False,
@@ -2174,6 +2201,7 @@ def start_runtime(state_dir, request):
         current = read_json(runtime_status_path(state_dir), {}) or {}
         current["lastError"] = str(exc)
         write_json(runtime_status_path(state_dir), current)
+        stop_process_tree(process.pid)
         raise
     current = read_json(runtime_status_path(state_dir), {}) or {}
     current["ready"] = True
@@ -2211,6 +2239,10 @@ def dispatch(action, input_value):
     if action == "hardware-info":
         return hardware_info()
     if action == "runtime-status":
+        owner_pid = extension_owner_pid(input_value)
+        if owner_pid:
+            request = dict(request)
+            request["ownerPid"] = owner_pid
         return runtime_status(state_dir, request)
     if action == "runtime-start":
         owner_pid = extension_owner_pid(input_value)
