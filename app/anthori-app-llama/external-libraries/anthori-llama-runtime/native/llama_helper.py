@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import concurrent.futures
 import ctypes
 import json
 import os
@@ -12,6 +13,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -25,6 +27,7 @@ LATEST_RELEASE_API_URL = "https://api.github.com/repos/ggml-org/llama.cpp/releas
 DEFAULT_RUNTIME_PORT = 11435
 GPU_SELECTION_NONE = "__none__"
 WINDOWS_FILE_RETRY_ATTEMPTS = 80
+DOWNLOAD_FILE_CONCURRENCY = 3
 
 
 def now_iso():
@@ -648,6 +651,25 @@ def health_ready(base_url, timeout=1.0):
         return False
 
 
+def runtime_json_endpoint(base_url, endpoint, timeout=0.5):
+    url = normalize_string(base_url).rstrip("/") + "/" + normalize_string(endpoint).lstrip("/")
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "Anthori"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            if not 200 <= int(response.status) < 300:
+                return None
+            return json.load(response)
+    except Exception:
+        return None
+
+
+def runtime_slots(base_url):
+    value = runtime_json_endpoint(base_url, "slots", timeout=0.5)
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    return []
+
+
 def runtime_port_open(base_url, timeout=0.25):
     parsed = urllib.parse.urlparse(normalize_string(base_url))
     host = parsed.hostname
@@ -747,6 +769,161 @@ def runtime_start_failure_detail(message, last_error, log_path, log_offset=0):
     return "\n\n".join(part for part in parts if part)
 
 
+def parse_runtime_prompt_activity(log_tail):
+    tasks = {}
+    if not log_tail:
+        return tasks
+    line_patterns = {
+        "start": re.compile(r"slot\s+\S+:\s+id\s+(\d+)\s+\|\s+task\s+(-?\d+)\s+\|\s+new prompt\b.*task\.n_tokens\s*=\s*(\d+)", re.IGNORECASE),
+        "progress": re.compile(r"slot\s+\S+:\s+id\s+(\d+)\s+\|\s+task\s+(-?\d+)\s+\|\s+prompt processing progress,\s+n_tokens\s*=\s*(\d+).*progress\s*=\s*([0-9.]+)", re.IGNORECASE),
+        "done": re.compile(r"slot\s+\S+:\s+id\s+(\d+)\s+\|\s+task\s+(-?\d+)\s+\|\s+prompt processing done,\s+n_tokens\s*=\s*(\d+)", re.IGNORECASE),
+    }
+    for line in log_tail.splitlines():
+        start_match = line_patterns["start"].search(line)
+        if start_match:
+            task_id = int(start_match.group(2))
+            if task_id >= 0:
+                tasks[task_id] = {
+                    "slotId": int(start_match.group(1)),
+                    "taskId": task_id,
+                    "promptTokens": int(start_match.group(3)),
+                    "promptProcessedTokens": 0,
+                    "promptProgress": 0,
+                    "promptDone": False,
+                }
+            continue
+        progress_match = line_patterns["progress"].search(line)
+        if progress_match:
+            task_id = int(progress_match.group(2))
+            if task_id >= 0:
+                entry = tasks.setdefault(task_id, {
+                    "slotId": int(progress_match.group(1)),
+                    "taskId": task_id,
+                })
+                processed = int(progress_match.group(3))
+                try:
+                    progress = float(progress_match.group(4))
+                except ValueError:
+                    progress = 0
+                entry["promptProcessedTokens"] = processed
+                entry["promptProgress"] = max(0, min(1, progress))
+            continue
+        done_match = line_patterns["done"].search(line)
+        if done_match:
+            task_id = int(done_match.group(2))
+            if task_id >= 0:
+                processed = int(done_match.group(3))
+                entry = tasks.setdefault(task_id, {
+                    "slotId": int(done_match.group(1)),
+                    "taskId": task_id,
+                })
+                entry["promptProcessedTokens"] = processed
+                if not normalize_int(entry.get("promptTokens"), 1):
+                    entry["promptTokens"] = processed
+                entry["promptProgress"] = 1
+                entry["promptDone"] = True
+    return tasks
+
+
+def runtime_slot_decoded_tokens(slot):
+    values = []
+    next_tokens = slot.get("next_token")
+    if isinstance(next_tokens, list):
+        for item in next_tokens:
+            if isinstance(item, dict):
+                decoded = normalize_int(item.get("n_decoded"), 0)
+                if decoded is not None:
+                    values.append(decoded)
+    decoded = normalize_int(slot.get("n_decoded"), 0)
+    if decoded is not None:
+        values.append(decoded)
+    return max(values) if values else 0
+
+
+def runtime_slot_remaining_tokens(slot):
+    next_tokens = slot.get("next_token")
+    values = []
+    if isinstance(next_tokens, list):
+        for item in next_tokens:
+            if isinstance(item, dict):
+                remaining = normalize_int(item.get("n_remain"))
+                if remaining is not None and remaining >= 0:
+                    values.append(remaining)
+    return min(values) if values else -1
+
+
+def runtime_activity_from_slots(slots, log_tail):
+    active = []
+    prompt_activity = parse_runtime_prompt_activity(log_tail)
+    for slot in slots:
+        if slot.get("is_processing") is not True:
+            continue
+        slot_id = normalize_int(slot.get("id"), 0)
+        task_id = normalize_int(slot.get("id_task"))
+        if slot_id is None:
+            slot_id = -1
+        if task_id is None:
+            task_id = -1
+        log_entry = prompt_activity.get(task_id, {}) if task_id >= 0 else {}
+        prompt_tokens = normalize_int(log_entry.get("promptTokens"), 0) or 0
+        prompt_processed = normalize_int(log_entry.get("promptProcessedTokens"), 0) or 0
+        prompt_progress = normalize_float(log_entry.get("promptProgress"), 0, 1) or 0
+        prompt_done = log_entry.get("promptDone") is True or prompt_progress >= 1
+        output_tokens = runtime_slot_decoded_tokens(slot)
+        remaining_tokens = runtime_slot_remaining_tokens(slot)
+        if not prompt_done and output_tokens <= 0:
+            state = "processing_prompt"
+        elif output_tokens > 0:
+            state = "generating"
+        else:
+            state = "starting_generation"
+        active.append({
+            "slotId": slot_id,
+            "taskId": task_id,
+            "state": state,
+            "promptTokens": prompt_tokens,
+            "promptProcessedTokens": prompt_processed,
+            "promptProgress": prompt_progress,
+            "outputTokens": output_tokens,
+            "outputRemainingTokens": remaining_tokens,
+        })
+    if not active:
+        return {
+            "active": False,
+            "state": "idle",
+            "activeSlots": 0,
+            "updatedAt": now_iso(),
+        }
+    processing = [item for item in active if item.get("state") == "processing_prompt"]
+    generating = [item for item in active if item.get("state") == "generating"]
+    primary = processing[0] if processing else (generating[0] if generating else active[0])
+    prompt_tokens = sum(normalize_int(item.get("promptTokens"), 0) or 0 for item in processing)
+    prompt_processed = sum(normalize_int(item.get("promptProcessedTokens"), 0) or 0 for item in processing)
+    prompt_progress = primary.get("promptProgress", 0)
+    if prompt_tokens > 0:
+        prompt_progress = max(0, min(1, prompt_processed / prompt_tokens))
+    output_tokens = sum(normalize_int(item.get("outputTokens"), 0) or 0 for item in active)
+    remaining_values = [
+        normalize_int(item.get("outputRemainingTokens"))
+        for item in active
+        if normalize_int(item.get("outputRemainingTokens")) is not None and normalize_int(item.get("outputRemainingTokens")) >= 0
+    ]
+    return {
+        "active": True,
+        "state": primary.get("state") or "processing",
+        "activeSlots": len(active),
+        "slotIds": [item.get("slotId") for item in active],
+        "taskIds": [item.get("taskId") for item in active],
+        "promptTokens": prompt_tokens or normalize_int(primary.get("promptTokens"), 0) or 0,
+        "promptProcessedTokens": prompt_processed or normalize_int(primary.get("promptProcessedTokens"), 0) or 0,
+        "promptProgress": prompt_progress,
+        "outputTokens": output_tokens,
+        "outputRemainingTokens": sum(remaining_values) if remaining_values else -1,
+        "slots": active,
+        "updatedAt": now_iso(),
+    }
+
+
 def port_available(port):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -768,6 +945,7 @@ def runtime_status(state_dir, request):
     pid = normalize_int(status.get("pid"), 1) or 0
     log_offset = normalize_int(status.get("logOffset"), 0) or 0
     log_path = runtime_log_path(state_dir)
+    log_tail = tail_text_since(log_path, log_offset, 32768)
     log_ready = ready_log_seen(log_path, log_offset)
     stopped_by_request = bool(status_exited_at) and not pid
     health_is_ready = False if stopped_by_request else health_ready(base_url, timeout=0.5)
@@ -818,8 +996,10 @@ def runtime_status(state_dir, request):
         response = dict(stopped_status)
         response["binaryPath"] = binary_path
         response["binaryAvailable"] = binary_available
-        response["stderr"] = tail_text_since(log_path, log_offset, 32768)
+        response["stderr"] = log_tail
+        response["activity"] = runtime_activity_from_slots([], log_tail)
         return response
+    slots = runtime_slots(base_url) if ready else []
     return {
         "running": True,
         "ready": ready,
@@ -832,7 +1012,8 @@ def runtime_status(state_dir, request):
         "binaryAvailable": binary_available,
         "startedAt": normalize_string(status.get("startedAt")),
         "lastError": binary_error or normalize_string(status.get("lastError")),
-        "stderr": tail_text_since(log_path, log_offset, 32768),
+        "stderr": log_tail,
+        "activity": runtime_activity_from_slots(slots, log_tail),
     }
 
 
@@ -851,6 +1032,24 @@ def file_size(path):
     try:
         return Path(path).stat().st_size
     except OSError:
+        return 0
+
+
+def response_content_length(response):
+    try:
+        return int(response.headers.get("Content-Length") or "0")
+    except (TypeError, ValueError):
+        return 0
+
+
+def response_content_range_total(response):
+    text = normalize_string(response.headers.get("Content-Range"))
+    match = re.match(r"bytes\s+\d+-\d+/(\d+|\*)", text, re.IGNORECASE)
+    if not match or match.group(1) == "*":
+        return 0
+    try:
+        return int(match.group(1))
+    except ValueError:
         return 0
 
 
@@ -1069,9 +1268,56 @@ def is_split_gguf_shard(path_value):
     return re.search(r"-\d{5}-of-\d{5}\.gguf$", Path(str(path_value)).name, re.IGNORECASE) is not None
 
 
+def split_gguf_shard_info(path_value):
+    match = re.match(r"^(.*)-(\d{5})-of-(\d{5})\.gguf$", Path(str(path_value)).name, re.IGNORECASE)
+    if not match:
+        return None
+    index = int(match.group(2))
+    total = int(match.group(3))
+    if index < 1 or total < 2 or index > total:
+        return None
+    return {
+        "prefix": match.group(1),
+        "index": index,
+        "total": total,
+    }
+
+
+def is_split_gguf_primary_shard(path_value):
+    info = split_gguf_shard_info(path_value)
+    return bool(info and info.get("index") == 1)
+
+
 def is_projector_gguf_path(path_value):
     name = Path(str(path_value)).name.lower()
     return name.endswith(".gguf") and (name.startswith("mmproj") or name.startswith("projector"))
+
+
+def split_gguf_shard_group_paths(path_value):
+    path = Path(path_value)
+    info = split_gguf_shard_info(path)
+    if not info:
+        return [path]
+    candidates = []
+    try:
+        items = list(path.parent.glob("*.gguf"))
+    except OSError:
+        items = []
+    for candidate in items:
+        candidate_info = split_gguf_shard_info(candidate)
+        if not candidate_info:
+            continue
+        if candidate_info.get("prefix") == info.get("prefix") and candidate_info.get("total") == info.get("total"):
+            candidates.append(candidate)
+    candidates.sort(key=lambda item: (split_gguf_shard_info(item) or {}).get("index", 0))
+    return candidates or [path]
+
+
+def model_file_size(path_value):
+    path = Path(path_value)
+    if not is_split_gguf_primary_shard(path):
+        return file_size(path)
+    return sum(file_size(item) for item in split_gguf_shard_group_paths(path))
 
 
 def projector_search_roots(root, model_path):
@@ -1122,7 +1368,7 @@ def model_info_from_path(root, path_value, source):
         "name": path.stem,
         "path": str(path),
         "source": source,
-        "bytes": int(stat.st_size),
+        "bytes": int(model_file_size(path)),
         "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stat.st_mtime)),
     }
     max_context_tokens = gguf_context_length(path)
@@ -1144,7 +1390,9 @@ def list_models(state_dir, request):
     models = []
     if root.exists():
         for path in root.rglob("*"):
-            if path.is_file() and path.suffix.lower() == ".gguf" and not is_split_gguf_shard(path) and not is_projector_gguf_path(path):
+            if path.is_file() and path.suffix.lower() == ".gguf" and not is_projector_gguf_path(path):
+                if is_split_gguf_shard(path) and not is_split_gguf_primary_shard(path):
+                    continue
                 models.append(model_info_from_path(root, path, "directory"))
     models.sort(key=lambda item: item.get("id", "").lower())
     return {"modelRoot": str(root), "models": models}
@@ -1176,20 +1424,26 @@ def resolve_model_file_for_removal(state_dir, request):
         raise ValueError("model file is missing")
     if not path.is_file():
         raise ValueError("modelPath is not a file")
-    if path.suffix.lower() != ".gguf" or is_split_gguf_shard(path) or is_projector_gguf_path(path):
+    if path.suffix.lower() != ".gguf" or is_projector_gguf_path(path):
+        raise ValueError("modelPath must be a model GGUF file")
+    if is_split_gguf_shard(path) and not is_split_gguf_primary_shard(path):
         raise ValueError("modelPath must be a model GGUF file")
     return root, path
 
 
 def remove_model_file(state_dir, request):
     root, path = resolve_model_file_for_removal(state_dir, request)
-    path.unlink()
-    if path.exists():
+    removed_paths = split_gguf_shard_group_paths(path) if is_split_gguf_primary_shard(path) else [path]
+    for item in removed_paths:
+        item.unlink(missing_ok=True)
+    remaining = [item for item in removed_paths if item.exists()]
+    if remaining:
         raise ValueError("model file could not be removed")
     prune_empty_model_dirs(root, path)
     result = list_models(state_dir, request)
     result["removed"] = True
     result["removedPath"] = str(path)
+    result["removedPaths"] = [str(item) for item in removed_paths]
     return result
 
 
@@ -1220,6 +1474,8 @@ def normalize_extra_download_files(value, primary_file):
     if not isinstance(value, list):
         return []
     primary = normalize_hugging_face_path(primary_file, "file")
+    primary_split = split_gguf_shard_info(primary)
+    primary_dir = primary.rsplit("/", 1)[0] if "/" in primary else ""
     seen = {primary}
     files = []
     for index, item in enumerate(value):
@@ -1228,14 +1484,39 @@ def normalize_extra_download_files(value, primary_file):
         file_name = normalize_hugging_face_path(item.get("file"), "extraFiles[{}].file".format(index))
         if file_name in seen:
             continue
-        if not file_name.lower().endswith(".gguf") or not is_projector_gguf_path(file_name) or is_split_gguf_shard(file_name):
-            raise ValueError("extraFiles[{}].file must be a GGUF projector file".format(index))
+        if not file_name.lower().endswith(".gguf"):
+            raise ValueError("extraFiles[{}].file must be a GGUF file".format(index))
+        file_split = split_gguf_shard_info(file_name)
+        file_dir = file_name.rsplit("/", 1)[0] if "/" in file_name else ""
+        is_projector = is_projector_gguf_path(file_name) and not file_split
+        is_related_split = bool(
+            primary_split and
+            file_split and
+            file_dir == primary_dir and
+            file_split.get("prefix") == primary_split.get("prefix") and
+            file_split.get("total") == primary_split.get("total") and
+            file_split.get("index") != primary_split.get("index")
+        )
+        if not is_projector and not is_related_split:
+            raise ValueError("extraFiles[{}].file must be a related split GGUF shard or projector file".format(index))
         seen.add(file_name)
         files.append({
             "file": file_name,
             "bytes": normalize_int(item.get("bytes"), 0) or 0,
+            "role": "projector" if is_projector else "model",
         })
     return files
+
+
+def extra_model_download_files(extra_files):
+    return [item for item in extra_files if isinstance(item, dict) and normalize_string(item.get("role")) != "projector"]
+
+
+def extra_projector_download_file(extra_files):
+    for item in extra_files:
+        if isinstance(item, dict) and normalize_string(item.get("role")) == "projector":
+            return item
+    return None
 
 
 def progress_path(state_dir, download_id):
@@ -1308,16 +1589,6 @@ def cancel_model_download(state_dir, request):
     worker_pid = normalize_int(progress.get("workerPid"), 1) or 0
     if worker_pid:
         stop_process_tree(worker_pid, 2)
-    worker_request = download_worker_request(state_dir, download_id)
-    try:
-        repository = normalize_hugging_face_path(worker_request.get("repository"), "repository")
-        file_name = normalize_hugging_face_path(worker_request.get("file"), "file")
-        extra_files = normalize_extra_download_files(worker_request.get("extraFiles"), file_name)
-        root = Path(normalize_string(worker_request.get("modelRoot")))
-        if root:
-            remove_download_temp_files(root, repository, file_name, extra_files)
-    except Exception:
-        pass
     progress = read_progress(state_dir, download_id) or progress
     if normalize_string(progress.get("status")) in ("complete", "failed", "canceled"):
         return {"download": progress}
@@ -1366,12 +1637,15 @@ def start_model_download(state_dir, request):
     root = model_root(state_dir, request.get("modelRoot"))
     bytes_total = normalize_int(request.get("bytes"), 0) or 0
     bytes_total += sum(normalize_int(item.get("bytes"), 0) or 0 for item in extra_files)
+    model_extra_files = extra_model_download_files(extra_files)
+    projector_extra_file = extra_projector_download_file(extra_files) or {}
     progress = {
         "id": download_id,
         "repository": repository,
         "file": file_name,
-        "projectorFile": extra_files[0]["file"] if extra_files else "",
-        "projectorBytes": extra_files[0]["bytes"] if extra_files else 0,
+        "extraFiles": model_extra_files,
+        "projectorFile": projector_extra_file.get("file", ""),
+        "projectorBytes": projector_extra_file.get("bytes", 0),
         "revision": revision,
         "status": "starting",
         "bytesTotal": bytes_total,
@@ -1387,6 +1661,7 @@ def start_model_download(state_dir, request):
             "modelRoot": str(root),
             "repository": repository,
             "file": file_name,
+            "bytes": normalize_int(request.get("bytes"), 0) or 0,
             "extraFiles": extra_files,
             "revision": revision,
         },
@@ -1430,6 +1705,12 @@ def download_worker(request_path):
     revision = normalize_string(request.get("revision")) or "main"
     root = Path(normalize_string(request.get("modelRoot")))
     repository_dir = root / Path(repository)
+    extra_file_bytes = {
+        normalize_string(item.get("file")): normalize_int(item.get("bytes"), 0) or 0
+        for item in extra_files
+        if isinstance(item, dict) and normalize_string(item.get("file"))
+    }
+    primary_file_bytes = normalize_int(request.get("bytes"), 0) or 0
 
     def destination_for(download_file):
         dest = repository_dir / Path(download_file)
@@ -1437,6 +1718,15 @@ def download_worker(request_path):
             raise ValueError("download path escapes model directory")
         return dest
 
+    def expected_bytes_for(download_file):
+        text = normalize_string(download_file)
+        if text == file_name:
+            return primary_file_bytes
+        return extra_file_bytes.get(text, 0)
+
+    download_items = [{"file": file_name, "bytes": primary_file_bytes, "role": "model"}]
+    download_items.extend(extra_files)
+    file_concurrency = max(1, min(DOWNLOAD_FILE_CONCURRENCY, len(download_items)))
     progress = read_progress(state_dir, download_id) or {
         "id": download_id,
         "repository": repository,
@@ -1446,27 +1736,103 @@ def download_worker(request_path):
     }
     progress["workerPid"] = os.getpid()
     progress["status"] = "downloading"
-    progress["projectorFile"] = extra_files[0]["file"] if extra_files else ""
-    progress["projectorBytes"] = extra_files[0]["bytes"] if extra_files else 0
+    model_extra_files = extra_model_download_files(extra_files)
+    projector_extra_file = extra_projector_download_file(extra_files) or {}
+    progress["extraFiles"] = model_extra_files
+    progress["projectorFile"] = projector_extra_file.get("file", "")
+    progress["projectorBytes"] = projector_extra_file.get("bytes", 0)
+    progress["downloadFileCount"] = len(download_items)
+    progress["downloadFileConcurrency"] = file_concurrency
     write_progress(state_dir, progress)
 
-    def download_one(download_file, cumulative_downloaded):
+    progress_lock = threading.Lock()
+    cancel_event = threading.Event()
+    file_progress = {}
+    file_totals = {}
+    for item in download_items:
+        download_file = normalize_string(item.get("file") if isinstance(item, dict) else item)
+        if not download_file:
+            continue
+        file_progress[download_file] = 0
+        expected_bytes = expected_bytes_for(download_file)
+        if expected_bytes > 0:
+            file_totals[download_file] = expected_bytes
+
+    def write_download_progress(download_file=None, downloaded=None, total=None):
+        with progress_lock:
+            if download_file:
+                if downloaded is not None:
+                    file_progress[download_file] = max(0, int(downloaded))
+                if total is not None and int(total) > 0:
+                    file_totals[download_file] = max(int(total), file_progress.get(download_file, 0))
+            progress["bytesDownloaded"] = sum(file_progress.values())
+            known_total = sum(file_totals.values())
+            existing_total = normalize_int(progress.get("bytesTotal"), 0) or 0
+            if known_total > existing_total:
+                progress["bytesTotal"] = known_total
+            write_progress(state_dir, progress)
+
+    write_download_progress()
+
+    def download_one(download_file):
+        download_file = normalize_hugging_face_path(download_file, "file")
         dest = destination_for(download_file)
         dest.parent.mkdir(parents=True, exist_ok=True)
+        expected_bytes = expected_bytes_for(download_file)
+        if expected_bytes > 0:
+            write_download_progress(download_file, 0, expected_bytes)
+        if dest.exists():
+            downloaded = file_size(dest)
+            if expected_bytes <= 0 or downloaded >= expected_bytes:
+                write_download_progress(download_file, downloaded, max(expected_bytes, downloaded))
+                return dest, downloaded
         source_url = hugging_face_resolve_url(repository, revision, download_file)
         temp_path = dest.with_suffix(dest.suffix + ".download")
-        request_obj = urllib.request.Request(source_url, headers={"User-Agent": "Anthori"})
-        with urllib.request.urlopen(request_obj, timeout=60) as response:
-            total = int(response.headers.get("Content-Length") or "0")
-            if total > 0:
-                known_total = cumulative_downloaded + total
-                if known_total > (normalize_int(progress.get("bytesTotal"), 0) or 0):
-                    progress["bytesTotal"] = known_total
-                    write_progress(state_dir, progress)
-            downloaded = 0
-            reported = 0
-            with open(temp_path, "wb") as handle:
+        resume_from = file_size(temp_path)
+        if expected_bytes > 0 and resume_from >= expected_bytes:
+            if resume_from == expected_bytes:
+                replace_file(temp_path, dest)
+                write_download_progress(download_file, resume_from, expected_bytes)
+                return dest, resume_from
+            temp_path.unlink(missing_ok=True)
+            resume_from = 0
+        if resume_from > 0:
+            write_download_progress(download_file, resume_from, expected_bytes)
+        headers = {"User-Agent": "Anthori"}
+        if resume_from > 0:
+            headers["Range"] = "bytes={}-".format(resume_from)
+        request_obj = urllib.request.Request(source_url, headers=headers)
+        try:
+            response_cm = urllib.request.urlopen(request_obj, timeout=60)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 416 and resume_from > 0 and expected_bytes > 0 and resume_from >= expected_bytes:
+                replace_file(temp_path, dest)
+                write_download_progress(download_file, resume_from, expected_bytes)
+                return dest, resume_from
+            if exc.code == 416 and resume_from > 0:
+                temp_path.unlink(missing_ok=True)
+                resume_from = 0
+                write_download_progress(download_file, 0, expected_bytes)
+                request_obj = urllib.request.Request(source_url, headers={"User-Agent": "Anthori"})
+                response_cm = urllib.request.urlopen(request_obj, timeout=60)
+            else:
+                raise
+        with response_cm as response:
+            status_code = response.getcode()
+            resuming = resume_from > 0 and status_code == 206
+            if resume_from > 0 and not resuming:
+                resume_from = 0
+            content_length = response_content_length(response)
+            content_range_total = response_content_range_total(response)
+            file_total = expected_bytes or content_range_total or (resume_from + content_length if resuming else content_length)
+            downloaded = resume_from
+            reported = resume_from
+            mode = "ab" if resuming else "wb"
+            write_download_progress(download_file, downloaded, file_total)
+            with open(temp_path, mode) as handle:
                 while True:
+                    if cancel_event.is_set():
+                        raise RuntimeError("download stopped after another file failed")
                     chunk = response.read(1024 * 1024)
                     if not chunk:
                         break
@@ -1474,23 +1840,38 @@ def download_worker(request_path):
                     downloaded += len(chunk)
                     if downloaded - reported >= 1024 * 1024:
                         reported = downloaded
-                        progress["bytesDownloaded"] = cumulative_downloaded + downloaded
-                        write_progress(state_dir, progress)
+                        write_download_progress(download_file, downloaded, file_total)
+        if expected_bytes > 0 and downloaded != expected_bytes:
+            raise ValueError("downloaded size mismatch for {}: expected {} bytes, got {}".format(download_file, expected_bytes, downloaded))
         replace_file(temp_path, dest)
-        progress["bytesDownloaded"] = cumulative_downloaded + downloaded
-        write_progress(state_dir, progress)
+        write_download_progress(download_file, downloaded, max(expected_bytes, downloaded))
         return dest, downloaded
 
-    dest, downloaded = download_one(file_name, 0)
-    total_downloaded = downloaded
-    for extra in extra_files:
-        _extra_dest, downloaded = download_one(extra.get("file"), total_downloaded)
-        total_downloaded += downloaded
+    downloaded_results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=file_concurrency) as executor:
+        future_to_file = {}
+        for item in download_items:
+            download_file = normalize_string(item.get("file") if isinstance(item, dict) else item)
+            if not download_file:
+                continue
+            future_to_file[executor.submit(download_one, download_file)] = download_file
+        for future in concurrent.futures.as_completed(future_to_file):
+            download_file = future_to_file[future]
+            try:
+                downloaded_results[download_file] = future.result()
+            except Exception:
+                cancel_event.set()
+                for pending in future_to_file:
+                    pending.cancel()
+                raise
+
+    dest, _primary_downloaded = downloaded_results.get(file_name, (destination_for(file_name), 0))
+    total_downloaded = sum(downloaded for _download_dest, downloaded in downloaded_results.values())
 
     model = model_info_from_path(root, dest, "huggingface")
     progress["status"] = "complete"
     progress["bytesDownloaded"] = total_downloaded or model.get("bytes", 0)
-    if not progress.get("bytesTotal"):
+    if (normalize_int(progress.get("bytesTotal"), 0) or 0) < progress["bytesDownloaded"]:
         progress["bytesTotal"] = progress["bytesDownloaded"]
     progress["model"] = model
     write_progress(state_dir, progress)

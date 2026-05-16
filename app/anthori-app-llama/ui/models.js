@@ -6,7 +6,7 @@
   const DOWNLOAD_START_STALE_MS = 30000
   const DOWNLOAD_STATUS_MISSING_LIMIT = 10
   const RUNTIME_LOAD_STATUS_POLL_MS = 1500
-  const RUNTIME_STATUS_POLL_MS = 3000
+  const RUNTIME_STATUS_POLL_MS = 1000
   const MODEL_FIT_CONTEXT_TOKENS = 256000
   const MODEL_FIT_MIN_CONTEXT_RESERVE_BYTES = 6 * 1000 * 1000 * 1000
   const MODEL_FIT_MAX_CONTEXT_RESERVE_BYTES = 48 * 1000 * 1000 * 1000
@@ -48,6 +48,7 @@
     runtimeLoadStatusTimer: 0,
     runtimeStatusPollTimer: 0,
     runtimeStatusPollInFlight: false,
+    runtimeActivitySamples: {},
     downloading: false,
     expandedModels: new Set(),
     expandedHuggingFaceRepositories: new Set(),
@@ -56,6 +57,7 @@
     removingDownloads: new Set(),
     removingModels: new Set(),
     downloadStatusPollTimer: 0,
+    downloadRateSamples: {},
     saving: false,
     hf: {
       query: "",
@@ -110,7 +112,7 @@
     }
   }
 
-  function formatBytes(value) {
+  function formatBytes(value, options = {}) {
     const bytes = Number(value)
     if (!Number.isFinite(bytes) || bytes <= 0) return ""
     const units = ["B", "KB", "MB", "GB", "TB"]
@@ -120,8 +122,10 @@
       amount /= 1000
       index += 1
     }
-    const rounded = amount >= 10 || index === 0 ? Math.round(amount) : Math.round(amount * 10) / 10
-    return `${rounded} ${units[index]}`
+    const decimals = Number.isFinite(Number(options.decimals))
+      ? Math.max(0, Math.floor(Number(options.decimals)))
+      : (amount >= 10 || index === 0 ? 0 : 1)
+    return `${amount.toFixed(decimals).replace(/\.0+$/, "")} ${units[index]}`
   }
 
   function formatShortBytes(value) {
@@ -447,7 +451,45 @@
     const next = Object.assign({}, state.activeDownloads)
     delete next[downloadId]
     state.activeDownloads = next
+    const nextSamples = Object.assign({}, state.downloadRateSamples || {})
+    delete nextSamples[downloadId]
+    state.downloadRateSamples = nextSamples
     updateDownloadStatusPolling()
+  }
+
+  function updateDownloadRateSample(download) {
+    const normalized = normalizeDownload(download)
+    if (!normalized) return null
+    const downloaded = normalizeByteCount(normalized.bytesDownloaded)
+    const now = Date.now()
+    const previous = state.downloadRateSamples[normalized.id]
+    let rateBytesPerSecond = normalizeByteCount(previous?.rateBytesPerSecond)
+    if (previous && downloaded > previous.bytesDownloaded && now > previous.at) {
+      const elapsedSeconds = (now - previous.at) / 1000
+      const instantRate = elapsedSeconds > 0 ? (downloaded - previous.bytesDownloaded) / elapsedSeconds : 0
+      if (instantRate > 0) {
+        rateBytesPerSecond = rateBytesPerSecond > 0
+          ? (rateBytesPerSecond * 0.65) + (instantRate * 0.35)
+          : instantRate
+      }
+    }
+    state.downloadRateSamples = Object.assign({}, state.downloadRateSamples || {}, {
+      [normalized.id]: {
+        bytesDownloaded: downloaded,
+        at: now,
+        rateBytesPerSecond,
+      },
+    })
+    return state.downloadRateSamples[normalized.id]
+  }
+
+  function downloadRateText(download) {
+    const normalized = normalizeDownload(download)
+    if (!normalized) return ""
+    const sample = state.downloadRateSamples[normalized.id]
+    const rate = Number(sample?.rateBytesPerSecond)
+    if (!Number.isFinite(rate) || rate <= 0) return ""
+    return `${formatBytes(rate, { decimals: 1 })}/s`
   }
 
   function activeDownloadFor(repository, file) {
@@ -534,6 +576,31 @@
     }
   }
 
+  async function selectModelRootDirectory() {
+    const api = window.anthoriExtension && window.anthoriExtension.host
+    if (!api || typeof api.selectPath !== "function") {
+      setMessage("Path picker is unavailable.")
+      return
+    }
+    try {
+      const selected = await api.selectPath({
+        title: "Choose Model Directory",
+        message: "Choose a folder for Llama models.",
+        selection: "directory",
+        initialPath: state.values.modelRoot || state.resolvedModelRoot,
+        selectLabel: "Use Folder",
+        showFiles: false,
+        allowCreate: true,
+        returnEntry: true,
+      })
+      const selectedPath = normalizeString(isPlainObject(selected) ? selected.path : selected)
+      if (!selectedPath) return
+      await saveModelRoot(selectedPath)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Path picker failed.")
+    }
+  }
+
   function huggingFaceUrl(path, query = {}) {
     const url = new URL(path, "https://huggingface.co")
     Object.entries(query).forEach(([key, value]) => {
@@ -545,7 +612,7 @@
     return url.toString()
   }
 
-  async function fetchHuggingFaceJson(url) {
+  async function fetchHuggingFaceJsonResponse(url) {
     const api = window.anthoriExtension && window.anthoriExtension.network
     if (!api || typeof api.fetch !== "function") {
       throw new Error("Network access is unavailable.")
@@ -574,7 +641,55 @@
       const message = normalizeString(parsed?.error) || normalizeString(parsed?.message) || `Hugging Face returned ${status || "an error"}.`
       throw new Error(message)
     }
-    return parsed
+    return {
+      data: parsed,
+      headers: isPlainObject(response?.headers) ? response.headers : {},
+      url,
+    }
+  }
+
+  async function fetchHuggingFaceJson(url) {
+    const response = await fetchHuggingFaceJsonResponse(url)
+    return response.data
+  }
+
+  function responseHeader(headers, name) {
+    if (!isPlainObject(headers)) return ""
+    const target = normalizeString(name).toLowerCase()
+    const match = Object.entries(headers).find(([key]) => normalizeString(key).toLowerCase() === target)
+    return match ? normalizeString(match[1]) : ""
+  }
+
+  function nextLinkUrl(headers, baseUrl = "") {
+    const link = responseHeader(headers, "link")
+    if (!link) return ""
+    const match = /<([^>]+)>\s*;\s*rel="?next"?/i.exec(link)
+    const href = match ? normalizeString(match[1]) : ""
+    if (!href) return ""
+    try {
+      return new URL(href, baseUrl || "https://huggingface.co").toString()
+    } catch (_error) {
+      return href
+    }
+  }
+
+  async function fetchHuggingFaceJsonPages(url, options = {}) {
+    const maxPages = Math.max(1, Math.floor(Number(options.maxPages) || 50))
+    const items = []
+    let nextUrl = normalizeString(url)
+    const seen = new Set()
+    for (let page = 0; nextUrl && page < maxPages; page += 1) {
+      if (seen.has(nextUrl)) break
+      seen.add(nextUrl)
+      const response = await fetchHuggingFaceJsonResponse(nextUrl)
+      if (Array.isArray(response.data)) {
+        items.push(...response.data)
+      } else if (response.data) {
+        items.push(response.data)
+      }
+      nextUrl = nextLinkUrl(response.headers, nextUrl)
+    }
+    return items
   }
 
   async function ensureHuggingFaceDownloadPermission() {
@@ -676,18 +791,35 @@
     if (!isPlainObject(entry)) return null
     const file = normalizeString(entry.rfilename) || normalizeString(entry.path) || normalizeString(entry.name)
     if (!file || !file.toLowerCase().endsWith(".gguf")) return null
-    if (isSplitGgufShardFile(file)) return null
     const lfs = isPlainObject(entry.lfs) ? entry.lfs : {}
     const blobLfs = isPlainObject(entry.blobLfs) ? entry.blobLfs : {}
+    const split = splitGgufShardInfo(file)
     return {
       file,
       bytes: normalizeByteCount(entry.size, lfs.size, blobLfs.size),
       projector: isProjectorGgufFile(file),
+      split,
     }
   }
 
   function isSplitGgufShardFile(file) {
     return /-\d{5}-of-\d{5}\.gguf$/i.test(normalizeString(file))
+  }
+
+  function splitGgufShardInfo(file) {
+    const path = normalizeString(file)
+    const name = basename(path)
+    const match = /^(.*)-(\d{5})-of-(\d{5})\.gguf$/i.exec(name)
+    if (!match) return null
+    const index = Number.parseInt(match[2], 10)
+    const total = Number.parseInt(match[3], 10)
+    if (!Number.isInteger(index) || !Number.isInteger(total) || index < 1 || total < 2 || index > total) return null
+    const dir = dirname(path)
+    return {
+      key: `${dir}/${match[1]}:${total}`.toLowerCase(),
+      index,
+      total,
+    }
   }
 
   function isProjectorGgufFile(file) {
@@ -696,12 +828,19 @@
   }
 
   function sortHuggingFaceFilesBySize(left, right) {
-    const leftBytes = normalizeByteCount(left?.bytes)
-    const rightBytes = normalizeByteCount(right?.bytes)
+    const leftBytes = huggingFaceFileTotalBytes(left)
+    const rightBytes = huggingFaceFileTotalBytes(right)
     if (leftBytes > 0 && rightBytes > 0 && leftBytes !== rightBytes) return leftBytes - rightBytes
     if (leftBytes > 0 && rightBytes <= 0) return -1
     if (leftBytes <= 0 && rightBytes > 0) return 1
     return normalizeString(left?.file).localeCompare(normalizeString(right?.file))
+  }
+
+  function huggingFaceFileTotalBytes(file) {
+    const extraBytes = Array.isArray(file?.extraFiles)
+      ? file.extraFiles.reduce((total, item) => total + normalizeByteCount(item?.bytes), 0)
+      : 0
+    return normalizeByteCount(file?.bytes) + normalizeByteCount(file?.projectorBytes) + extraBytes
   }
 
   function chooseProjectorForFile(file, projectors) {
@@ -716,13 +855,48 @@
     return candidates[0] || null
   }
 
+  function huggingFaceTreeEntries(detail) {
+    if (Array.isArray(detail)) return detail
+    if (Array.isArray(detail?.siblings)) return detail.siblings
+    if (Array.isArray(detail?.tree)) return detail.tree
+    if (Array.isArray(detail?.files)) return detail.files
+    return []
+  }
+
+  function groupedSplitHuggingFaceFiles(files) {
+    const groups = new Map()
+    files.forEach((file) => {
+      if (!file?.split || file.projector) return
+      const group = groups.get(file.split.key) || []
+      group.push(file)
+      groups.set(file.split.key, group)
+    })
+    return Array.from(groups.values())
+      .map((group) => {
+        const sorted = group.slice().sort((left, right) => left.split.index - right.split.index)
+        const first = sorted.find((file) => file.split.index === 1)
+        if (!first) return null
+        const indexes = new Set(sorted.map((file) => file.split.index))
+        const complete = indexes.size === first.split.total
+        if (!complete) return null
+        return Object.assign({}, first, {
+          extraFiles: sorted
+            .filter((file) => file.file !== first.file)
+            .map((file) => ({ file: file.file, bytes: file.bytes, role: "model" })),
+          splitFileCount: first.split.total,
+        })
+      })
+      .filter(Boolean)
+  }
+
   function normalizeHuggingFaceFiles(detail) {
-    const siblings = Array.isArray(detail?.siblings) ? detail.siblings : []
-    const files = siblings
+    const files = huggingFaceTreeEntries(detail)
       .map(normalizeHuggingFaceFile)
       .filter(Boolean)
     const projectors = files.filter((file) => file.projector)
     return files
+      .filter((file) => !file.split)
+      .concat(groupedSplitHuggingFaceFiles(files))
       .filter((file) => !file.projector)
       .map((file) => {
         const projector = chooseProjectorForFile(file, projectors)
@@ -754,6 +928,24 @@
     }
   }
 
+  function normalizeDownloadExtraFiles(value) {
+    if (!Array.isArray(value)) return []
+    const seen = new Set()
+    return value
+      .map((entry) => {
+        if (!isPlainObject(entry)) return null
+        const file = normalizeString(entry.file)
+        if (!file || seen.has(file)) return null
+        seen.add(file)
+        return {
+          file,
+          bytes: normalizeByteCount(entry.bytes),
+          role: normalizeString(entry.role) || "model",
+        }
+      })
+      .filter(Boolean)
+  }
+
   function normalizeDownload(entry) {
     if (!isPlainObject(entry)) return null
     const repository = normalizeString(entry.repository)
@@ -765,6 +957,7 @@
       file,
       projectorFile: normalizeString(entry.projectorFile),
       projectorBytes: normalizeByteCount(entry.projectorBytes),
+      extraFiles: normalizeDownloadExtraFiles(entry.extraFiles),
       bytes: normalizeByteCount(entry.bytes, entry.bytesTotal),
       bytesDownloaded: normalizeByteCount(entry.bytesDownloaded, entry.downloadedBytes),
       revision: normalizeString(entry.revision) || "main",
@@ -784,6 +977,7 @@
       file: entry.file,
       projectorFile: entry.projectorFile,
       projectorBytes: entry.projectorBytes,
+      extraFiles: entry.extraFiles,
       revision: entry.revision,
       status: normalizeString(entry.status) || "downloading",
       bytes: normalizeByteCount(entry.bytesTotal, entry.bytes),
@@ -813,6 +1007,7 @@
       bytes,
       projectorFile: normalized.projectorFile || fallbackDownload.projectorFile || normalizeString(raw.projectorFile),
       projectorBytes: normalizeByteCount(normalized.projectorBytes, fallbackDownload.projectorBytes, raw.projectorBytes),
+      extraFiles: normalized.extraFiles.length > 0 ? normalized.extraFiles : fallbackDownload.extraFiles || normalizeDownloadExtraFiles(raw.extraFiles),
       bytesDownloaded: downloadIsTerminal(normalized)
         ? normalizeByteCount(normalized.bytesDownloaded, bytes)
         : normalizeByteCount(normalized.bytesDownloaded),
@@ -828,13 +1023,17 @@
       normalizeString(left?.status) === normalizeString(right?.status) &&
       normalizeString(left?.error) === normalizeString(right?.error) &&
       normalizeString(left?.projectorFile) === normalizeString(right?.projectorFile) &&
+      JSON.stringify(normalizeDownloadExtraFiles(left?.extraFiles)) === JSON.stringify(normalizeDownloadExtraFiles(right?.extraFiles)) &&
       normalizeByteCount(left?.bytes) === normalizeByteCount(right?.bytes) &&
       normalizeByteCount(left?.projectorBytes) === normalizeByteCount(right?.projectorBytes) &&
       normalizeByteCount(left?.bytesDownloaded) === normalizeByteCount(right?.bytesDownloaded)
   }
 
   function downloadTotalBytes(download) {
-    return normalizeByteCount(download?.bytes) + normalizeByteCount(download?.projectorBytes)
+    const extraBytes = Array.isArray(download?.extraFiles)
+      ? download.extraFiles.reduce((total, item) => total + normalizeByteCount(item?.bytes), 0)
+      : 0
+    return normalizeByteCount(download?.bytes) + normalizeByteCount(download?.projectorBytes) + extraBytes
   }
 
   function upsertStoredDownload(progress, rawProgress = null, fallback = null) {
@@ -864,24 +1063,29 @@
     const status = normalizeString(download?.status)
     const total = normalizeByteCount(download?.bytes)
     const downloaded = normalizeByteCount(download?.bytesDownloaded)
+    const rate = downloadRateText(download)
+    const suffix = rate ? ` - ${rate}` : ""
     if (total > 0 && downloaded > 0) {
       const percent = downloadProgressPercent(download)
-      return `${formatBytes(downloaded)} / ${formatBytes(total)} (${percent}%)`
+      return `${formatBytes(downloaded, { decimals: 1 })} / ${formatBytes(total, { decimals: 1 })} (${percent}%)${suffix}`
     }
-    if (downloaded > 0) return `${formatBytes(downloaded)} downloaded`
-    if (status === "downloading" && total > 0) return `0 B / ${formatBytes(total)} (0%)`
+    if (downloaded > 0) return `${formatBytes(downloaded, { decimals: 1 })} downloaded${suffix}`
+    if (status === "downloading" && total > 0) return `0 B / ${formatBytes(total, { decimals: 1 })} (0%)${suffix}`
     if (status === "downloading") return "Connecting..."
     if (status === "starting") return "Starting..."
     return ""
   }
 
   function appendDownloadProgress(container, download) {
+    const normalized = normalizeDownload(download)
     const progressText = formatDownloadProgress(download)
     if (!progressText) return
     const progress = document.createElement("div")
     progress.className = "llama-progress"
+    if (normalized?.id) progress.dataset.llamaDownloadProgressId = normalized.id
     const detail = document.createElement("div")
     detail.className = "llama-card-meta"
+    if (normalized?.id) detail.dataset.llamaDownloadProgressTextId = normalized.id
     detail.textContent = progressText
     progress.appendChild(detail)
     if (normalizeString(download?.status) === "downloading" || normalizeString(download?.status) === "starting") {
@@ -889,11 +1093,65 @@
       bar.className = "llama-progress-bar"
       const fill = document.createElement("div")
       fill.className = "llama-progress-fill"
+      if (normalized?.id) fill.dataset.llamaDownloadProgressFillId = normalized.id
       fill.style.width = `${downloadProgressPercent(download)}%`
       bar.appendChild(fill)
       progress.appendChild(bar)
     }
     container.appendChild(progress)
+  }
+
+  function renderDownloadStatusText() {
+    if (!els.hfStatus) return
+    const active = activeDownloadItems()
+    els.hfStatus.textContent = active.length === 1
+      ? `Downloading ${active[0].file}${formatDownloadProgress(active[0]) ? ` - ${formatDownloadProgress(active[0])}` : "..."}`
+      : active.length > 1
+      ? `Downloading ${active.length} models`
+      : state.hf.searching
+      ? "Searching Hugging Face..."
+      : (state.hf.results.length > 0 ? `${state.hf.results.length} repositories` : "")
+  }
+
+  function downloadElementsByData(attribute, id) {
+    const downloadId = normalizeString(id)
+    if (!downloadId) return []
+    return Array.from(document.querySelectorAll(`[${attribute}]`))
+      .filter((element) => element instanceof HTMLElement && element.dataset[attribute.replace(/^data-/, "").replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase())] === downloadId)
+  }
+
+  function updateDownloadProgressViews(download) {
+    const normalized = normalizeDownload(download)
+    if (!normalized) return false
+    let updated = false
+    renderDownloadStatusText()
+    const progressText = formatDownloadProgress(normalized)
+    const progressPercent = downloadProgressPercent(normalized)
+    downloadElementsByData("data-llama-download-id", normalized.id).forEach((button) => {
+      if (!(button instanceof HTMLButtonElement)) return
+      button.classList.add("is-active")
+      button.disabled = true
+      button.setAttribute("aria-label", progressPercent > 0
+        ? `Downloading ${normalized.file}: ${progressPercent}%`
+        : `Downloading ${normalized.file}`)
+      button.title = progressPercent > 0 ? `Downloading ${progressPercent}%` : "Downloading"
+      updated = true
+    })
+    downloadElementsByData("data-llama-download-meta-id", normalized.id).forEach((meta) => {
+      meta.textContent = [formatBytes(normalized.bytes), normalized.revision, normalized.status, normalized.error]
+        .filter(Boolean)
+        .join(" - ")
+      updated = true
+    })
+    downloadElementsByData("data-llama-download-progress-text-id", normalized.id).forEach((detail) => {
+      detail.textContent = progressText
+      updated = true
+    })
+    downloadElementsByData("data-llama-download-progress-fill-id", normalized.id).forEach((fill) => {
+      fill.style.width = `${progressPercent}%`
+      updated = true
+    })
+    return updated
   }
 
   function normalizeModelOptionEntry(entry) {
@@ -945,6 +1203,32 @@
     return options
   }
 
+  function normalizeRuntimeActivity(entry) {
+    const source = isPlainObject(entry) ? entry : {}
+    const activeSlots = normalizePositiveInteger(source.activeSlots)
+    const promptProgress = Number(source.promptProgress)
+    const taskIds = Array.isArray(source.taskIds)
+      ? source.taskIds.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      : []
+    const slotIds = Array.isArray(source.slotIds)
+      ? source.slotIds.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+      : []
+    return {
+      active: source.active === true,
+      state: normalizeString(source.state) || "idle",
+      activeSlots,
+      slotIds,
+      taskIds,
+      promptTokens: normalizeByteCount(source.promptTokens),
+      promptProcessedTokens: normalizeByteCount(source.promptProcessedTokens),
+      promptProgress: Number.isFinite(promptProgress) ? Math.max(0, Math.min(1, promptProgress)) : 0,
+      outputTokens: normalizeByteCount(source.outputTokens),
+      outputRemainingTokens: Number.isFinite(Number(source.outputRemainingTokens)) ? Math.floor(Number(source.outputRemainingTokens)) : -1,
+      outputTokensPerSecond: Number.isFinite(Number(source.outputTokensPerSecond)) ? Math.max(0, Number(source.outputTokensPerSecond)) : 0,
+      updatedAt: normalizeString(source.updatedAt),
+    }
+  }
+
   function normalizeRuntime(entry) {
     const source = isPlainObject(entry) ? entry : {}
     return {
@@ -960,7 +1244,47 @@
       startedAt: normalizeString(source.startedAt),
       lastError: normalizeString(source.lastError),
       stderr: normalizeString(source.stderr),
+      activity: normalizeRuntimeActivity(source.activity),
     }
+  }
+
+  function runtimeActivitySampleKey(activity) {
+    if (!activity || activity.active !== true) return ""
+    const taskIds = Array.isArray(activity.taskIds) ? activity.taskIds.filter((id) => Number.isFinite(Number(id)) && Number(id) >= 0) : []
+    if (taskIds.length > 0) return `task:${taskIds.join(",")}`
+    const slotIds = Array.isArray(activity.slotIds) ? activity.slotIds.filter((id) => Number.isFinite(Number(id)) && Number(id) >= 0) : []
+    if (slotIds.length > 0) return `slot:${slotIds.join(",")}`
+    return "active"
+  }
+
+  function trackRuntimeActivity(runtime) {
+    const normalized = normalizeRuntime(runtime)
+    const activity = normalized.activity
+    const key = runtimeActivitySampleKey(activity)
+    if (!key || activity.state !== "generating") {
+      state.runtimeActivitySamples = key ? state.runtimeActivitySamples : {}
+      return normalized
+    }
+    const now = Date.now()
+    const previous = state.runtimeActivitySamples[key]
+    let rate = Number(previous?.rate)
+    if (!Number.isFinite(rate) || rate < 0) rate = 0
+    if (previous && activity.outputTokens > previous.outputTokens && now > previous.at) {
+      const elapsedSeconds = (now - previous.at) / 1000
+      const instantRate = elapsedSeconds > 0 ? (activity.outputTokens - previous.outputTokens) / elapsedSeconds : 0
+      if (instantRate > 0) {
+        rate = rate > 0 ? (rate * 0.65) + (instantRate * 0.35) : instantRate
+      }
+    }
+    activity.outputTokensPerSecond = rate
+    state.runtimeActivitySamples = {
+      [key]: {
+        outputTokens: activity.outputTokens,
+        at: now,
+        rate,
+      },
+    }
+    return normalized
   }
 
   function runtimeIsLoading(runtime) {
@@ -1027,6 +1351,230 @@
     const line = runtimeStartupLine(runtime)
     const prefix = elapsed ? `Loading model (${elapsed})` : "Loading model"
     return line ? `${prefix} - ${line}` : `${prefix} - waiting for llama.cpp to report readiness`
+  }
+
+  function parseRuntimeMemorySize(amount, unit) {
+    const value = Number(amount)
+    if (!Number.isFinite(value) || value <= 0) return 0
+    const normalizedUnit = normalizeString(unit).toLowerCase()
+    const binary = normalizedUnit.includes("i")
+    const base = binary ? 1024 : 1000
+    switch (normalizedUnit.replace("i", "")) {
+      case "b":
+        return Math.round(value)
+      case "kb":
+        return Math.round(value * base)
+      case "mb":
+        return Math.round(value * base * base)
+      case "gb":
+        return Math.round(value * base * base * base)
+      case "tb":
+        return Math.round(value * base * base * base * base)
+      default:
+        return 0
+    }
+  }
+
+  function categorizeRuntimeMemoryLine(line) {
+    const text = normalizeString(line).toLowerCase()
+    if (text.includes("kv self size") || text.includes("kv buffer size")) return "kv"
+    if (text.includes("model buffer size")) return "model"
+    if (text.includes("compute buffer size")) return "compute"
+    if (text.includes("output buffer size")) return "output"
+    return "other"
+  }
+
+  function runtimeMemorySummary(runtime) {
+    const stderr = normalizeString(runtime?.stderr)
+    if (!stderr) return null
+    const totals = {
+      model: 0,
+      kv: 0,
+      compute: 0,
+      output: 0,
+      other: 0,
+    }
+    const entries = []
+    const seen = new Set()
+    let kvSelfBytes = 0
+    stderr.split(/\r?\n/).forEach((rawLine) => {
+      const line = compactRuntimeLogLine(rawLine)
+      if (!line) return
+      const kvSelfMatch = /\bKV self size\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*([KMGT]i?B|B)\b/i.exec(line)
+      if (kvSelfMatch) {
+        kvSelfBytes = Math.max(kvSelfBytes, parseRuntimeMemorySize(kvSelfMatch[1], kvSelfMatch[2]))
+      }
+      const bufferMatch = /\b(?:buffer|cache)\s+size\s*=\s*([0-9]+(?:\.[0-9]+)?)\s*([KMGT]i?B|B)\b/i.exec(line)
+      if (!bufferMatch) return
+      const bytes = parseRuntimeMemorySize(bufferMatch[1], bufferMatch[2])
+      if (bytes <= 0) return
+      const category = categorizeRuntimeMemoryLine(line)
+      const key = `${category}:${line}`
+      if (seen.has(key)) return
+      seen.add(key)
+      totals[category] += bytes
+      entries.push({ category, bytes, line })
+    })
+    if (totals.kv <= 0 && kvSelfBytes > 0) {
+      totals.kv = kvSelfBytes
+      entries.push({ category: "kv", bytes: kvSelfBytes, line: "KV self size" })
+    }
+    const total = Object.values(totals).reduce((sum, value) => sum + value, 0)
+    if (total <= 0) return null
+    return Object.assign({ total, entries }, totals)
+  }
+
+  function formatRuntimeMemorySummary(summary) {
+    if (!summary || summary.total <= 0) return ""
+    const parts = []
+    if (summary.model > 0) parts.push(`model ${formatShortBytes(summary.model)}`)
+    if (summary.kv > 0) parts.push(`KV ${formatShortBytes(summary.kv)}`)
+    if (summary.compute > 0) parts.push(`compute ${formatShortBytes(summary.compute)}`)
+    if (summary.output > 0) parts.push(`output ${formatShortBytes(summary.output)}`)
+    if (summary.other > 0) parts.push(`other ${formatShortBytes(summary.other)}`)
+    return `Runtime memory ${formatShortBytes(summary.total)}${parts.length > 0 ? ` (${parts.join(", ")})` : ""}`
+  }
+
+  function runtimeMemorySummaryTitle(summary) {
+    if (!summary || !Array.isArray(summary.entries) || summary.entries.length === 0) return ""
+    return summary.entries
+      .map((entry) => `${entry.category}: ${formatBytes(entry.bytes)} - ${entry.line}`)
+      .join("\n")
+  }
+
+  function runtimeActivityForModel(runtime, model) {
+    const normalizedRuntime = runtime || normalizeRuntime(null)
+    const normalizedModel = normalizeModel(model)
+    if (!normalizedRuntime.running || !normalizedModel) return null
+    if (normalizeString(normalizedRuntime.modelPath) !== normalizeString(normalizedModel.path)) return null
+    return normalizedRuntime.activity || normalizeRuntimeActivity(null)
+  }
+
+  function formatTokenRate(value) {
+    const rate = Number(value)
+    if (!Number.isFinite(rate) || rate <= 0) return ""
+    const rounded = rate >= 10 ? Math.round(rate) : Math.round(rate * 10) / 10
+    return `${rounded} tok/s`
+  }
+
+  function runtimeActivityProgress(activity) {
+    if (!activity || activity.active !== true) return 0
+    if (activity.state === "processing_prompt") {
+      if (activity.promptProgress > 0) return activity.promptProgress
+      if (activity.promptTokens > 0 && activity.promptProcessedTokens > 0) {
+        return Math.max(0, Math.min(1, activity.promptProcessedTokens / activity.promptTokens))
+      }
+    }
+    if (activity.state === "generating" && activity.outputRemainingTokens >= 0) {
+      const total = activity.outputTokens + activity.outputRemainingTokens
+      if (total > 0) return Math.max(0, Math.min(1, activity.outputTokens / total))
+    }
+    return 0
+  }
+
+  function formatRuntimeActivity(activity) {
+    const normalized = normalizeRuntimeActivity(activity)
+    if (!normalized.active) return "Idle"
+    const prefix = normalized.activeSlots > 1 ? `${normalized.activeSlots} slots - ` : ""
+    if (normalized.state === "processing_prompt") {
+      const progress = runtimeActivityProgress(normalized)
+      if (normalized.promptTokens > 0 && normalized.promptProcessedTokens > 0) {
+        return `${prefix}Processing prompt ${Math.round(progress * 100)}% (${formatCount(normalized.promptProcessedTokens)} / ${formatCount(normalized.promptTokens)} tokens)`
+      }
+      return `${prefix}Processing prompt`
+    }
+    if (normalized.state === "generating") {
+      const rate = formatTokenRate(normalized.outputTokensPerSecond)
+      const suffix = rate ? ` at ${rate}` : ""
+      if (normalized.outputRemainingTokens >= 0) {
+        const total = normalized.outputTokens + normalized.outputRemainingTokens
+        const percent = total > 0 ? ` ${Math.round(runtimeActivityProgress(normalized) * 100)}%` : ""
+        return `${prefix}Generating output${percent} (${formatCount(normalized.outputTokens)} / ${formatCount(total)} tokens)${suffix}`
+      }
+      return `${prefix}Generating output - ${formatCount(normalized.outputTokens)} tokens${suffix}`
+    }
+    if (normalized.state === "starting_generation") {
+      return `${prefix}Starting generation`
+    }
+    return `${prefix}Processing request`
+  }
+
+  function runtimeActivityTitle(activity) {
+    const normalized = normalizeRuntimeActivity(activity)
+    if (!normalized.active) return "The loaded model is idle."
+    const parts = [formatRuntimeActivity(normalized)]
+    if (normalized.taskIds.length > 0) parts.push(`Tasks: ${normalized.taskIds.join(", ")}`)
+    if (normalized.slotIds.length > 0) parts.push(`Slots: ${normalized.slotIds.join(", ")}`)
+    return parts.join("\n")
+  }
+
+  function updateRuntimeActivityElement(element, activity) {
+    if (!(element instanceof HTMLElement)) return false
+    const normalized = normalizeRuntimeActivity(activity)
+    const text = element.querySelector("[data-llama-runtime-activity-text]")
+    const bar = element.querySelector("[data-llama-runtime-activity-bar]")
+    const fill = element.querySelector("[data-llama-runtime-activity-fill]")
+    if (text) text.textContent = formatRuntimeActivity(normalized)
+    element.title = runtimeActivityTitle(normalized)
+    element.classList.toggle("is-active", normalized.active)
+    element.classList.toggle("is-idle", !normalized.active)
+    const progress = runtimeActivityProgress(normalized)
+    if (bar instanceof HTMLElement) {
+      bar.hidden = progress <= 0
+    }
+    if (fill instanceof HTMLElement) {
+      fill.style.width = `${Math.round(progress * 100)}%`
+    }
+    return true
+  }
+
+  function createRuntimeActivityElement(runtime, model) {
+    const activity = runtimeActivityForModel(runtime, model)
+    if (!activity) return null
+    const element = document.createElement("div")
+    element.className = "llama-model-activity"
+    element.dataset.llamaRuntimeActivityPath = normalizeString(model?.path)
+    const text = document.createElement("span")
+    text.className = "llama-model-activity-text"
+    text.dataset.llamaRuntimeActivityText = "true"
+    const bar = document.createElement("div")
+    bar.className = "llama-model-activity-bar"
+    bar.dataset.llamaRuntimeActivityBar = "true"
+    const fill = document.createElement("div")
+    fill.className = "llama-model-activity-fill"
+    fill.dataset.llamaRuntimeActivityFill = "true"
+    bar.appendChild(fill)
+    element.append(text, bar)
+    updateRuntimeActivityElement(element, activity)
+    return element
+  }
+
+  function updateRuntimeModelActivityViews() {
+    const runtime = state.runtime || normalizeRuntime(null)
+    const activity = runtime.activity || normalizeRuntimeActivity(null)
+    let updated = false
+    document.querySelectorAll("[data-llama-runtime-activity-path]").forEach((element) => {
+      if (!(element instanceof HTMLElement)) return
+      if (normalizeString(element.dataset.llamaRuntimeActivityPath) !== normalizeString(runtime.modelPath)) {
+        element.remove()
+        return
+      }
+      if (updateRuntimeActivityElement(element, activity)) {
+        updated = true
+      }
+    })
+    return updated
+  }
+
+  function runtimeModelListCanBePreserved(previous, next) {
+    const left = previous || normalizeRuntime(null)
+    const right = next || normalizeRuntime(null)
+    if (state.runtimeModelAction) return false
+    return left.running === right.running &&
+      left.ready === right.ready &&
+      left.starting === right.starting &&
+      left.pid === right.pid &&
+      normalizeString(left.modelPath) === normalizeString(right.modelPath)
   }
 
   function shouldUpdateRuntimeLoadMessage(runtime, token) {
@@ -1141,6 +1689,14 @@
     empty.className = "llama-empty"
     empty.textContent = text
     container.appendChild(empty)
+  }
+
+  function modelListHasInteractiveFocus() {
+    const active = document.activeElement
+    return active instanceof HTMLElement &&
+      els.modelList instanceof HTMLElement &&
+      els.modelList.contains(active) &&
+      Boolean(active.closest("input, select, textarea, button"))
   }
 
   function modelOptionsKey(model) {
@@ -1411,6 +1967,22 @@
       meta.className = "llama-card-meta"
       meta.textContent = metaParts.join(" - ")
       body.append(title, meta)
+      if (isRunning) {
+        const activity = createRuntimeActivityElement(runtime, model)
+        if (activity) {
+          body.appendChild(activity)
+        }
+        const memorySummary = runtimeMemorySummary(runtime)
+        const memoryText = formatRuntimeMemorySummary(memorySummary)
+        if (memoryText) {
+          const memory = document.createElement("div")
+          memory.className = "llama-card-meta llama-model-memory"
+          memory.textContent = memoryText
+          const memoryTitle = runtimeMemorySummaryTitle(memorySummary)
+          if (memoryTitle) memory.title = memoryTitle
+          body.appendChild(memory)
+        }
+      }
       main.append(chevron, body)
       main.addEventListener("click", () => {
         if (!modelKey) return
@@ -1599,7 +2171,8 @@
             main.className = "llama-file-main"
             const name = document.createElement("div")
             name.className = "llama-file-name"
-            const size = formatBytes(file.bytes)
+            const totalBytes = downloadTotalBytes(file) || normalizeByteCount(file.bytes)
+            const size = formatBytes(totalBytes)
             name.append(document.createTextNode(file.file))
             if (file.visionCapable) {
               name.appendChild(createVisionIcon("Vision-capable model; downloads the projector file too."))
@@ -1608,13 +2181,19 @@
             meta.className = "llama-file-meta"
             const sizeText = document.createElement("span")
             sizeText.textContent = size || "Size unavailable"
-            applyFitStyle(sizeText, file.bytes)
+            applyFitStyle(sizeText, totalBytes)
             meta.appendChild(sizeText)
+            if (Number(file.splitFileCount) > 1) {
+              const splitText = document.createElement("span")
+              splitText.textContent = `${file.splitFileCount} split files`
+              meta.appendChild(splitText)
+            }
             main.append(name, meta)
             const download = document.createElement("button")
             download.className = "llama-icon-button llama-file-download"
             download.classList.toggle("is-active", isActiveDownload)
             download.type = "button"
+            if (activeDownload?.id) download.dataset.llamaDownloadId = activeDownload.id
             const progress = downloadProgressPercent(activeDownload)
             download.setAttribute("aria-label", isActiveDownload
               ? (progress > 0 ? `Downloading ${file.file}: ${progress}%` : `Downloading ${file.file}`)
@@ -1640,6 +2219,7 @@
                 file: file.file,
                 projectorFile: file.projectorFile,
                 projectorBytes: file.projectorBytes,
+                extraFiles: file.extraFiles,
                 bytes: file.bytes,
                 revision: "main",
               })
@@ -1671,6 +2251,7 @@
       const isRemoving = state.removingDownloads.has(download.id)
       const card = document.createElement("article")
       card.className = "llama-card"
+      if (download.id) card.dataset.llamaDownloadCardId = download.id
       const row = document.createElement("div")
       row.className = "llama-row"
       const title = document.createElement("div")
@@ -1691,6 +2272,7 @@
       row.append(title, remove)
       const meta = document.createElement("div")
       meta.className = "llama-card-meta"
+      if (download.id) meta.dataset.llamaDownloadMetaId = download.id
       meta.textContent = [formatBytes(download.bytes), download.revision, download.status, download.error]
         .filter(Boolean)
         .join(" - ")
@@ -1860,11 +2442,20 @@
     })
   }
 
-  function render() {
+  function renderModelRootControls() {
     if (els.modelRoot) {
       els.modelRoot.value = state.values.modelRoot
       els.modelRoot.placeholder = state.resolvedModelRoot || ""
     }
+    if (els.modelRootBrowse) {
+      els.modelRootBrowse.disabled = state.downloading || state.saving
+    }
+    if (els.modelRootReset) {
+      els.modelRootReset.disabled = state.downloading || state.saving || !normalizeString(state.values.modelRoot)
+    }
+  }
+
+  function renderRuntimeStatusControls() {
     const runtime = state.runtime || normalizeRuntime(null)
     if (els.runtimeUrl) els.runtimeUrl.value = runtime.baseUrl
     if (els.runtimeStop) {
@@ -1893,27 +2484,30 @@
       }
       els.runtimeStatus.classList.toggle("muted", !runtime.running)
     }
-    if (els.hfQuery) els.hfQuery.value = state.hf.query
-    if (els.hfSearchSubmit) {
-      els.hfSearchSubmit.disabled = state.downloading || state.hf.searching || !window.anthoriExtension?.network?.fetch
-    }
-    if (els.hfStatus) {
-      const active = activeDownloadItems()
-      els.hfStatus.textContent = active.length === 1
-        ? `Downloading ${active[0].file}${formatDownloadProgress(active[0]) ? ` - ${formatDownloadProgress(active[0])}` : "..."}`
-        : active.length > 1
-        ? `Downloading ${active.length} models`
-        : state.hf.searching
-        ? "Searching Hugging Face..."
-        : (state.hf.results.length > 0 ? `${state.hf.results.length} repositories` : "")
-    }
     if (els.runtimeSetupNotice) {
       const message = runtimeEngineSetupMessage()
       els.runtimeSetupNotice.hidden = !message
       const messageNode = els.runtimeSetupNotice.querySelector("span")
       if (messageNode) messageNode.textContent = message
     }
-    renderLocalModels()
+  }
+
+  function renderSearchControls() {
+    if (els.hfQuery) els.hfQuery.value = state.hf.query
+    if (els.hfSearchSubmit) {
+      els.hfSearchSubmit.disabled = state.downloading || state.hf.searching || !window.anthoriExtension?.network?.fetch
+    }
+  }
+
+  function render(options = {}) {
+    const preserveModelList = options.preserveModelList === true && (options.forcePreserveModelList === true || modelListHasInteractiveFocus())
+    renderModelRootControls()
+    renderRuntimeStatusControls()
+    renderSearchControls()
+    renderDownloadStatusText()
+    if (!preserveModelList) {
+      renderLocalModels()
+    }
     renderRuntimePacks()
     renderHardware()
     renderHuggingFaceResults()
@@ -1928,14 +2522,14 @@
       state.backendAvailable = true
       state.backendModels = Array.isArray(data.models) ? data.models.map(normalizeModel).filter(Boolean) : []
       state.resolvedModelRoot = normalizeString(data.modelRoot)
-      render()
+      render({ preserveModelList: options.preserveModelList === true })
       if (options.notify === true) {
         setMessage("Models refreshed.")
       }
     } catch (error) {
       state.backendAvailable = false
       state.backendModels = []
-      render()
+      render({ preserveModelList: options.preserveModelList === true })
       if (options.notify === true) {
         setMessage(error instanceof Error ? error.message : "Model refresh failed.")
       }
@@ -1973,6 +2567,7 @@
       if (downloadIsActive(merged) && !downloadIsStaleStarting(merged)) {
         if (!activeDownload || !downloadsMatch(activeDownload, merged)) {
           setActiveDownload(merged)
+          updateDownloadRateSample(merged)
           changed = true
         }
         return
@@ -2002,9 +2597,12 @@
       const result = reconcileDownloadStatuses(data.downloads)
       if (result.saveNeeded) {
         await saveSettings()
-        await refreshBackendModels()
+        await refreshBackendModels({ preserveModelList: true })
       } else if (result.changed) {
-        render()
+        const active = activeDownloadItems()
+        if (active.length === 0 || !active.every((download) => updateDownloadProgressViews(download))) {
+          render({ preserveModelList: true })
+        }
       }
     } catch (error) {
       if (options.notify === true) {
@@ -2018,7 +2616,8 @@
   async function refreshRuntimeStatus(options = {}) {
     const token = Number(options.runtimeModelActionToken)
     try {
-      const runtime = normalizeRuntime(await callLlamaAction("runtime-status", {
+      const previousRuntime = state.runtime || normalizeRuntime(null)
+      const runtime = trackRuntimeActivity(await callLlamaAction("runtime-status", {
         runtimeId: state.values.runtimeId || state.selectedRuntimeId,
       }))
       if (token > 0 && state.runtimeModelActionToken !== token) {
@@ -2029,7 +2628,13 @@
         completeRuntimeLoadAction(token, "Model loaded.")
         return
       }
-      render()
+      const preserveModelList = options.preserveModelList === true && runtimeModelListCanBePreserved(previousRuntime, state.runtime)
+      if (preserveModelList) {
+        renderRuntimeStatusControls()
+        updateRuntimeModelActivityViews()
+      } else {
+        render()
+      }
       if (options.updateRuntimeMessage !== false && shouldUpdateRuntimeLoadMessage(state.runtime, token)) {
         setMessage(runtimeLoadStatusText(state.runtime))
       }
@@ -2037,11 +2642,11 @@
       if (token > 0 && state.runtimeModelActionToken !== token) {
         return
       }
-      state.runtime = normalizeRuntime({
+      state.runtime = trackRuntimeActivity({
         binaryAvailable: false,
         lastError: error instanceof Error ? error.message : "Runtime status failed.",
       })
-      render()
+      render({ preserveModelList: options.preserveModelList === true })
     }
   }
 
@@ -2059,7 +2664,7 @@
       if (adoptedSelection) {
         await saveSettings()
       }
-      state.runtime = normalizeRuntime(data.status)
+      state.runtime = trackRuntimeActivity(data.status)
       render()
       if (options.notify === true) {
         setMessage("Runtime packs refreshed.")
@@ -2092,7 +2697,7 @@
       state.runtimePacks = Array.isArray(data.runtimes)
         ? data.runtimes.map(normalizeRuntimePack).filter(Boolean)
         : []
-      state.runtime = normalizeRuntime(data.status)
+      state.runtime = trackRuntimeActivity(data.status)
       const currentVersion = normalizeString(data.currentVersion)
       const latestVersion = normalizeString(data.latestVersion)
       if (data.updateAvailable === true && latestVersion) {
@@ -2166,6 +2771,52 @@
     }
   }
 
+  async function saveModelRoot(value, options = {}) {
+    const nextModelRoot = normalizeString(value)
+    const isReset = options?.reset === true || !nextModelRoot
+    if (els.modelRoot) {
+      els.modelRoot.value = nextModelRoot
+    }
+    if (nextModelRoot === state.values.modelRoot) return
+    const runtime = state.runtime || normalizeRuntime(null)
+    const hadRuntime = runtime.running === true
+    state.downloading = true
+    state.runtimeModelAction = hadRuntime ? "unload" : ""
+    state.runtimeModelActionPath = runtime.modelPath
+    state.runtimeModelActionStartedAt = hadRuntime ? Date.now() : 0
+    state.runtimeModelActionToken += 1
+    render()
+    setMessage(hadRuntime
+      ? "Stopping loaded model before changing directory..."
+      : isReset
+        ? "Resetting model directory..."
+        : "Saving model directory...")
+    try {
+      if (hadRuntime) {
+        state.runtime = trackRuntimeActivity(await callLlamaAction("runtime-stop", {
+          runtimeId: state.values.runtimeId || state.selectedRuntimeId || runtime.runtimeId,
+        }))
+      }
+      state.values.modelRoot = nextModelRoot
+      await saveSettings()
+      await refreshBackendModels()
+      await refreshDownloadStatuses()
+      await refreshRuntimeStatus({ updateRuntimeMessage: false })
+      const savedMessage = isReset ? "Model directory reset to default." : "Model directory saved."
+      setMessage(hadRuntime ? `${savedMessage} Loaded model was unloaded.` : savedMessage)
+    } catch (error) {
+      render()
+      setMessage(error instanceof Error ? error.message : "Model directory save failed.")
+    } finally {
+      state.downloading = false
+      state.runtimeModelAction = ""
+      state.runtimeModelActionPath = ""
+      state.runtimeModelActionStartedAt = 0
+      state.runtimeModelActionToken = 0
+      render()
+    }
+  }
+
   async function searchHuggingFaceModels() {
     const query = normalizeString(els.hfQuery.value)
     if (!query) return
@@ -2207,11 +2858,19 @@
     state.hf.error = ""
     render()
     try {
-      const detail = await fetchHuggingFaceJson(huggingFaceUrl(`/api/models/${encodePathSegments(normalizedRepository)}`, {
-        blobs: "true",
+      let detail = await fetchHuggingFaceJsonPages(huggingFaceUrl(`/api/models/${encodePathSegments(normalizedRepository)}/tree/main`, {
+        recursive: "true",
+        expand: "true",
       }))
+      let files = normalizeHuggingFaceFiles(detail)
+      if (files.length === 0) {
+        detail = await fetchHuggingFaceJson(huggingFaceUrl(`/api/models/${encodePathSegments(normalizedRepository)}`, {
+          blobs: "true",
+        }))
+        files = normalizeHuggingFaceFiles(detail)
+      }
       state.hf.filesByRepository = Object.assign({}, state.hf.filesByRepository, {
-        [normalizedRepository]: normalizeHuggingFaceFiles(detail),
+        [normalizedRepository]: files,
       })
     } catch (error) {
       state.hf.error = error instanceof Error ? error.message : "Failed to load model files."
@@ -2242,8 +2901,14 @@
       const progress = normalizeDownloadProgress(data.download)
       const activeDownload = state.activeDownloads[downloadId]
       if (progress && activeDownload) {
-        setActiveDownload(Object.assign({}, activeDownload, progress))
-        render()
+        const merged = Object.assign({}, activeDownload, progress)
+        if (!downloadsMatch(activeDownload, merged)) {
+          setActiveDownload(merged)
+          updateDownloadRateSample(merged)
+          if (!updateDownloadProgressViews(merged)) {
+            render()
+          }
+        }
       }
       if (!progress) {
         missingStatusCount += 1
@@ -2271,6 +2936,7 @@
       file: input?.file,
       projectorFile: input?.projectorFile,
       projectorBytes: input?.projectorBytes,
+      extraFiles: input?.extraFiles,
       bytes: input?.bytes,
       revision: input?.revision,
       status: "queued",
@@ -2304,17 +2970,27 @@
       render()
       return
     }
+    const downloadKey = huggingFaceModelKey(download.repository, download.file)
+    if (downloadKey) {
+      const previousLength = state.values.downloads.length
+      state.values.downloads = state.values.downloads.filter((item) => huggingFaceModelKey(item.repository, item.file) !== downloadKey)
+      if (state.values.downloads.length !== previousLength) {
+        void saveSettings().catch(() => {})
+      }
+    }
     setActiveDownload({
       id: download.id,
       repository: download.repository,
       file: download.file,
       projectorFile: download.projectorFile,
       projectorBytes: download.projectorBytes,
+      extraFiles: download.extraFiles,
       bytes: downloadTotalBytes(download) || download.bytes,
       bytesDownloaded: 0,
       revision: download.revision,
       status: "starting",
     })
+    updateDownloadRateSample(state.activeDownloads[download.id])
     render()
     try {
       await callLlamaAction("models-download", {
@@ -2323,8 +2999,8 @@
         repository: download.repository,
         file: download.file,
         extraFiles: download.projectorFile
-          ? [{ file: download.projectorFile, bytes: download.projectorBytes }]
-          : [],
+          ? download.extraFiles.concat([{ file: download.projectorFile, bytes: download.projectorBytes, role: "projector" }])
+          : download.extraFiles,
         bytes: download.bytes,
         revision: download.revision,
       })
@@ -2466,7 +3142,7 @@
       state.runtimePacks = Array.isArray(data.runtimes)
         ? data.runtimes.map(normalizeRuntimePack).filter(Boolean)
         : []
-      state.runtime = normalizeRuntime(data.status)
+      state.runtime = trackRuntimeActivity(data.status)
       state.values.runtimeId = runtime.id
       await saveSettings()
       setMessage("Runtime pack installed.")
@@ -2491,7 +3167,7 @@
       state.runtimePacks = Array.isArray(data.runtimes)
         ? data.runtimes.map(normalizeRuntimePack).filter(Boolean)
         : []
-      state.runtime = normalizeRuntime(data.status)
+      state.runtime = trackRuntimeActivity(data.status)
       if (state.values.runtimeId === id) {
         state.values.runtimeId = ""
         await saveSettings()
@@ -2530,7 +3206,7 @@
         state.runtimeModelActionStartedAt = Date.now()
         state.runtimeModelActionToken += 1
         render()
-        state.runtime = normalizeRuntime(await callLlamaAction("runtime-stop", {
+        state.runtime = trackRuntimeActivity(await callLlamaAction("runtime-stop", {
           runtimeId: currentRuntimeId || runtime.runtimeId,
         }))
         stoppedRuntime = true
@@ -2560,7 +3236,7 @@
         stopRuntimeLoadStatusPolling()
         return
       }
-      void refreshRuntimeStatus({ runtimeModelActionToken: token })
+      void refreshRuntimeStatus({ runtimeModelActionToken: token, preserveModelList: true })
     }, RUNTIME_LOAD_STATUS_POLL_MS)
   }
 
@@ -2575,7 +3251,7 @@
     if (state.runtimeStatusPollInFlight || state.runtimeModelAction) return
     state.runtimeStatusPollInFlight = true
     try {
-      await refreshRuntimeStatus({ updateRuntimeMessage: false })
+      await refreshRuntimeStatus({ updateRuntimeMessage: false, preserveModelList: true })
     } finally {
       state.runtimeStatusPollInFlight = false
     }
@@ -2628,7 +3304,7 @@
     setMessage(runtimeLoadStatusText(state.runtime || normalizeRuntime(null)))
     startRuntimeLoadStatusPolling(actionToken)
     try {
-      state.runtime = normalizeRuntime(await callLlamaAction("runtime-start", body))
+      state.runtime = trackRuntimeActivity(await callLlamaAction("runtime-start", body))
       if (state.runtimeModelActionToken === actionToken) {
         completeRuntimeLoadAction(actionToken, "Model loaded.")
       }
@@ -2666,7 +3342,7 @@
     render()
     setMessage("Stopping runtime...")
     try {
-      state.runtime = normalizeRuntime(await callLlamaAction("runtime-stop", {
+      state.runtime = trackRuntimeActivity(await callLlamaAction("runtime-stop", {
         runtimeId: state.values.runtimeId || state.selectedRuntimeId,
       }))
       render()
@@ -2745,9 +3421,16 @@
       void openAppExtensionsSettings()
     })
 
+    on(els.modelRootBrowse, "click", () => {
+      void selectModelRootDirectory()
+    })
+
+    on(els.modelRootReset, "click", () => {
+      void saveModelRoot("", { reset: true })
+    })
+
     on(els.modelRoot, "change", () => {
-      state.values.modelRoot = normalizeString(els.modelRoot.value)
-      void saveAndRender("Model directory saved.").then(() => refreshBackendModels())
+      void saveModelRoot(els.modelRoot.value)
     })
 
     on(els.hfQuery, "input", () => {
@@ -2785,6 +3468,8 @@
     els.runtimeSetupNotice = $("llama-runtime-setup-notice")
     els.openExtensionSettings = $("llama-open-extension-settings")
     els.modelRoot = $("llama-model-root")
+    els.modelRootBrowse = $("llama-model-root-browse")
+    els.modelRootReset = $("llama-model-root-reset")
     els.modelList = $("llama-model-list")
     els.downloadView = $("llama-download-view")
     els.downloadsSection = $("llama-downloads-section")

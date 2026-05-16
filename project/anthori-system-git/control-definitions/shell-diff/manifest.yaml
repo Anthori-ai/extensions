@@ -11,7 +11,7 @@ contracts:
         description: Runs `git diff`.
         input:
           type: string
-          description: Args or full `git diff` command string, such as `--stat`, `-- client/src/app.js`, or `git diff --stat`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
+          description: Args or full `git diff` command string, such as `--stat`, `-- client/src/app.js`, or `git diff --stat`. For a current working tree stat summary, use `--stat`; do not prefix it with `workspace`. Optional output pipe to `head` or `tail` is supported; other shell operators and redirection are not supported.
         output:
           type: string
           description: Command output text. Invalid args or a nonzero Git exit fail the call.

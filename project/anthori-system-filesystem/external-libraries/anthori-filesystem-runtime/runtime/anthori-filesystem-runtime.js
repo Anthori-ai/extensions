@@ -376,10 +376,14 @@ function shellFailure(message, exitCode) {
   throw new Error(text);
 }
 
+function normalizeShellInputArgs(value) {
+  return stringValue(value).trim();
+}
+
 function shellInputArgs(payload) {
   const input = payload && Object.prototype.hasOwnProperty.call(payload, "input") ? payload.input : null;
-  if (typeof input === "string") return input;
-  if (input && typeof input === "object" && !Array.isArray(input)) return stringValue(input.args);
+  if (typeof input === "string") return normalizeShellInputArgs(input);
+  if (input && typeof input === "object" && !Array.isArray(input)) return normalizeShellInputArgs(input.args);
   return "";
 }
 

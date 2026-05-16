@@ -45,7 +45,7 @@ control:
               timeoutSeconds:
                 type: number
                 fieldRef: timeoutSeconds
-                description: Optional timeout override in seconds.
+                description: Optional timeout override in seconds. This can shorten, but not exceed, the project execution timeout.
               speaker:
                 type: string
                 description: Optional visible speaker label for emitted agent output.
@@ -96,7 +96,7 @@ control:
               timeoutSeconds:
                 type: number
                 fieldRef: timeoutSeconds
-                description: Optional timeout override in seconds.
+                description: Optional timeout override in seconds. This can shorten, but not exceed, the project execution timeout.
               speaker:
                 type: string
                 description: Optional visible speaker label for emitted agent output.
@@ -291,7 +291,7 @@ control:
     timeoutSeconds:
       type: number
       required: false
-      description: Optional timeout override for this provider control.
+      description: Optional timeout override for this provider control. This can shorten, but not exceed, the project execution timeout.
     reasoningEffort:
       type: string
       required: false

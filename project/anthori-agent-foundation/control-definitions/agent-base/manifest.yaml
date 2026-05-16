@@ -524,6 +524,7 @@ control:
     timeoutSeconds:
       type: number
       required: false
+      description: Optional timeout override for this agent. This can shorten, but not exceed, the project execution timeout.
     signals:
       type: controlTarget[]
       runtimeOverride: false

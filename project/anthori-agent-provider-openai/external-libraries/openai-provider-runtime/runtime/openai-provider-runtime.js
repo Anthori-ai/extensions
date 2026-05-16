@@ -2614,6 +2614,9 @@ function streamSSEFromFetch(request, onPayload) {
       onPayload(eventName, payloadText);
     }
   });
+  if (request && typeof request === "object") {
+    request.disableHTTP2 = true;
+  }
   // Parse fetch chunks while the request is in flight so emitted stream chunks
   // reach chat immediately instead of replaying after the provider finishes.
   var response = hostFetch(request, function(event) {
