@@ -1683,6 +1683,39 @@
     }
   }
 
+  function errorMessage(error, fallback) {
+    return normalizeString(error instanceof Error ? error.message : "") || fallback
+  }
+
+  function addSetupError(options, label, error, fallback) {
+    if (!Array.isArray(options?.setupErrors)) return
+    const message = errorMessage(error, fallback)
+    if (!message) return
+    options.setupErrors.push({
+      label: normalizeString(label),
+      message,
+    })
+  }
+
+  function setupErrorSummary(errors) {
+    const seen = new Set()
+    const items = []
+    const sourceErrors = Array.isArray(errors) ? errors : []
+    sourceErrors.forEach((entry) => {
+      const message = normalizeString(entry?.message)
+      if (!message || seen.has(message)) return
+      seen.add(message)
+      items.push({
+        label: normalizeString(entry?.label),
+        message,
+      })
+    })
+    if (items.length === 0) return ""
+    if (items.length === 1) return `Llama setup failed: ${items[0].message}`
+    const first = items[0]
+    return `Llama setup failed: ${first.label ? `${first.label}: ` : ""}${first.message}`
+  }
+
   function renderEmpty(container, text) {
     if (!(container instanceof HTMLElement)) return
     const empty = document.createElement("div")
@@ -2529,9 +2562,10 @@
     } catch (error) {
       state.backendAvailable = false
       state.backendModels = []
+      addSetupError(options, "Models", error, "Model refresh failed.")
       render({ preserveModelList: options.preserveModelList === true })
       if (options.notify === true) {
-        setMessage(error instanceof Error ? error.message : "Model refresh failed.")
+        setMessage(errorMessage(error, "Model refresh failed."))
       }
     }
   }
@@ -2605,8 +2639,9 @@
         }
       }
     } catch (error) {
+      addSetupError(options, "Downloads", error, "Download status refresh failed.")
       if (options.notify === true) {
-        setMessage(error instanceof Error ? error.message : "Download status refresh failed.")
+        setMessage(errorMessage(error, "Download status refresh failed."))
       }
     } finally {
       updateDownloadStatusPolling()
@@ -2644,8 +2679,9 @@
       }
       state.runtime = trackRuntimeActivity({
         binaryAvailable: false,
-        lastError: error instanceof Error ? error.message : "Runtime status failed.",
+        lastError: errorMessage(error, "Runtime status failed."),
       })
+      addSetupError(options, "Runtime status", error, "Runtime status failed.")
       render({ preserveModelList: options.preserveModelList === true })
     }
   }
@@ -2671,9 +2707,10 @@
       }
     } catch (error) {
       state.runtimePacks = []
+      addSetupError(options, "Runtime packs", error, "Runtime pack refresh failed.")
       render()
       if (options.notify === true) {
-        setMessage(error instanceof Error ? error.message : "Runtime pack refresh failed.")
+        setMessage(errorMessage(error, "Runtime pack refresh failed."))
       }
     }
   }
@@ -2715,11 +2752,12 @@
     }
   }
 
-  async function refreshHardware() {
+  async function refreshHardware(options = {}) {
     try {
       state.hardware = normalizeHardware(await callLlamaAction("hardware-info"))
-    } catch (_error) {
+    } catch (error) {
       state.hardware = normalizeHardware(null)
+      addSetupError(options, "Hardware", error, "Hardware info failed.")
     }
     render()
   }
@@ -2739,11 +2777,17 @@
       setMessage(error instanceof Error ? error.message : "Extension settings are unavailable.")
     }
     render()
-    await refreshBackendModels()
-    await refreshRuntimePacks()
-    await refreshHardware()
-    await refreshRuntimeStatus()
-    await refreshDownloadStatuses()
+    const setupErrors = []
+    const setupOptions = { setupErrors }
+    await refreshBackendModels(setupOptions)
+    await refreshRuntimePacks(setupOptions)
+    await refreshHardware(setupOptions)
+    await refreshRuntimeStatus(setupOptions)
+    await refreshDownloadStatuses(setupOptions)
+    const summary = setupErrorSummary(setupErrors)
+    if (summary) {
+      setMessage(summary)
+    }
   }
 
   async function saveSettings() {
