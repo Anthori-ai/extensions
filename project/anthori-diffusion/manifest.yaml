@@ -1,0 +1,30 @@
+format: 1
+id: anthori.diffusion
+name: Diffusion
+scope: project
+version: 0.1.0
+description: Adds a local diffusion image provider backed by the Diffusion app runtime.
+catalogPath:
+  - Anthori
+  - Providers
+  - Image
+  - Diffusion
+extensionDependencies:
+  - id: anthori.media.standard
+    version: ^1.0.0
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-diffusion-control-runtime
+  - external-libraries/anthori-diffusion-provider-runtime
+providers:
+  - providers/diffusion
+controlDefinitions:
+  - control-definitions/image-provider-base
+  - control-definitions/text-to-image
+  - control-definitions/image-to-image
+  - control-definitions/text-to-video
+  - control-definitions/image-to-video
+  - control-definitions/diffusion

@@ -1,0 +1,460 @@
+html,
+body {
+  height: 100%;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.diffusion-root {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  grid-auto-rows: max-content;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: auto;
+  padding: 14px;
+}
+
+.diffusion-panel {
+  gap: 10px;
+  padding: 10px;
+}
+
+.diffusion-root label {
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.diffusion-section-header,
+.diffusion-panel-toolbar,
+.diffusion-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diffusion-section h2,
+.diffusion-section h3 {
+  margin: 0;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.diffusion-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-medium);
+}
+
+.diffusion-section h2,
+.diffusion-section h3 {
+  font-size: 13px;
+}
+
+.diffusion-subsection-header {
+  margin-top: 2px;
+}
+
+.diffusion-subsection-header h3 {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.diffusion-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.diffusion-field span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.diffusion-field input,
+.diffusion-field select {
+  min-width: 0;
+}
+
+.diffusion-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.diffusion-path-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  min-width: 0;
+}
+
+.diffusion-button {
+  border: 1px solid var(--button-border, var(--border-medium));
+  border-radius: 7px;
+  background: var(--button-bg, var(--bg-highlight));
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 10px;
+}
+
+.diffusion-button.secondary {
+  background: transparent;
+}
+
+.diffusion-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.diffusion-icon-button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-disabled);
+  cursor: pointer;
+  padding: 0;
+}
+
+.diffusion-icon-button:hover {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.diffusion-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diffusion-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.diffusion-downloads-section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.diffusion-downloads-section[hidden] {
+  display: none;
+}
+
+.diffusion-download-history-header h3 {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.diffusion-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-low);
+}
+
+.diffusion-runtime-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.diffusion-runtime-card-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.diffusion-item-title {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffusion-bundle-card {
+  gap: 9px;
+}
+
+.diffusion-bundle-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.diffusion-bundle-field select,
+.diffusion-bundle-fixed-value {
+  width: 100%;
+}
+
+.diffusion-bundle-fixed-value {
+  min-height: 28px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-light);
+  border-radius: 7px;
+  background: var(--bg-medium);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.diffusion-bundle-file-list {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.diffusion-bundle-file {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.diffusion-model-row {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-low);
+}
+
+.diffusion-model-row-header {
+  display: grid;
+  min-width: 0;
+}
+
+.diffusion-model-row-main {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 9px;
+  text-align: left;
+}
+
+.diffusion-model-row-main:hover {
+  background: var(--bg-highlight);
+}
+
+.diffusion-model-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+}
+
+.diffusion-model-chevron svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 120ms ease;
+}
+
+.diffusion-model-row.is-expanded .diffusion-model-chevron svg {
+  transform: rotate(90deg);
+}
+
+.diffusion-file-list {
+  display: grid;
+  min-width: 0;
+  border-top: 1px solid var(--border-light);
+}
+
+.diffusion-file-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 9px;
+}
+
+.diffusion-file-row + .diffusion-file-row {
+  border-top: 1px solid var(--border-light);
+}
+
+.diffusion-file-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.diffusion-file-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffusion-file-meta {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.diffusion-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
+.diffusion-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 16px;
+  padding: 1px 6px;
+  border: 1px solid var(--border-medium);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.diffusion-badge.ok {
+  border-color: color-mix(in srgb, var(--success) 70%, transparent);
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
+}
+
+.diffusion-progress {
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--border-light);
+}
+
+.diffusion-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent, var(--text-primary));
+}
+
+.diffusion-inline-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.diffusion-detail,
+.diffusion-item-meta,
+.diffusion-status,
+.diffusion-message {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.diffusion-detail,
+.diffusion-item-meta {
+  overflow-wrap: anywhere;
+}
+
+.diffusion-detail {
+  white-space: pre-wrap;
+}
+
+.diffusion-status.muted,
+.diffusion-empty {
+  color: var(--text-muted);
+}
+
+.diffusion-setup-notice {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-medium);
+}
+
+.diffusion-setup-notice[hidden] {
+  display: none;
+}
+
+.diffusion-setup-notice strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+@media (max-width: 420px) {
+  .diffusion-search-form,
+  .diffusion-path-row,
+  .diffusion-bundle-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diffusion-runtime-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .diffusion-inline-actions {
+    justify-content: stretch;
+  }
+
+  .diffusion-inline-actions > .diffusion-button {
+    width: 100%;
+  }
+
+  .diffusion-file-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,0 +1,16 @@
+format: 1
+id: anthori-diffusion-provider-runtime
+name: Diffusion Provider Runtime
+version: 0.1.0
+description: Provider runtime that delegates image rendering to the active Diffusion app extension.
+entry: runtime/anthori-diffusion-provider-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 900
+actions:
+  - id: list-models
+    name: List Models
+  - id: render-image
+    name: Render Image

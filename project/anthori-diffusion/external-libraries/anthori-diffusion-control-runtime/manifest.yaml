@@ -1,0 +1,22 @@
+format: 1
+id: anthori-diffusion-control-runtime
+name: Diffusion Control Runtime
+version: 0.1.0
+description: Project control runtime that delegates diffusion generation to the active Diffusion app extension.
+entry: runtime/anthori-diffusion-control-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 900
+actions:
+  - id: text-to-image-control
+    name: Text To Image Control
+  - id: image-to-image-control
+    name: Image To Image Control
+  - id: text-to-video-control
+    name: Text To Video Control
+  - id: image-to-video-control
+    name: Image To Video Control
+  - id: image-provider-control
+    name: Legacy Image Provider Control

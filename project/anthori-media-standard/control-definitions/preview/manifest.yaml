@@ -1,0 +1,58 @@
+format: 1
+id: preview
+name: Preview
+description: Displays media output on the graph.
+baseControlRef: controls/1/executable
+control:
+  libraryPath: media
+  capabilities:
+    - media-preview
+    - image-preview
+    - video-preview
+  contracts:
+    caller:
+      contracts:
+        - id: default
+          name: Preview
+          description: Display media metadata and pass it through unchanged.
+          input:
+            type: object
+            properties:
+              imageBase64:
+                type: string
+              imagePath:
+                type: string
+              videoBase64:
+                type: string
+              videoPath:
+                type: string
+              mediaType:
+                type: string
+              mimeType:
+                type: string
+              width:
+                type: number
+              height:
+                type: number
+              imageBytes:
+                type: number
+              videoBytes:
+                type: number
+              videoFrames:
+                type: number
+              fps:
+                type: number
+              elapsedMs:
+                type: number
+            additionalProperties: true
+          output:
+            type: object
+            description: The media metadata passed through unchanged.
+            additionalProperties: true
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-media-standard-runtime
+    runtimeActionForward:
+      type: string
+      default: preview-control

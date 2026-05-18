@@ -1,0 +1,13 @@
+format: 1
+id: anthori-media-standard-runtime
+name: Media Standard Runtime
+version: 1.0.0
+entry: runtime/anthori-media-standard-runtime.js
+supportedOs:
+  - windows
+  - mac
+  - linux
+timeoutSeconds: 30
+actions:
+  - id: preview-control
+    name: Preview Control

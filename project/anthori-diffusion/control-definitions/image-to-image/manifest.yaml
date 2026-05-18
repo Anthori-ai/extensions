@@ -1,0 +1,263 @@
+format: 1
+id: image-to-image
+name: ImageToImage
+description: Generate an image from a prompt and an input image through a configured Diffusion provider.
+baseControlRef: controls/1/extensions/anthori.diffusion/definitions/image-provider-base
+control:
+  libraryPath: providers/image
+  contracts:
+    caller:
+      contracts:
+        - id: default
+          name: ImageToImage
+          description: Generate an image from an input image and text prompt.
+          input:
+            type: object
+            required:
+              - imagePath
+              - prompt
+            propertyOrder:
+              - imagePath
+              - prompt
+              - config
+              - negativePrompt
+              - strength
+              - bundleId
+              - modelPath
+              - loraPaths
+              - generationConfig
+              - width
+              - height
+              - steps
+              - seed
+              - timeoutSeconds
+            properties:
+              imagePath:
+                type: string
+                fieldRef: imagePath
+                description: Local path to the input image.
+              prompt:
+                type: string
+                description: Positive prompt to guide the transformation.
+              config:
+                type: string
+                fieldRef: providerRef
+                description: Provider id from the Providers panel.
+              negativePrompt:
+                type: string
+                description: Optional negative prompt.
+              strength:
+                type: number
+                fieldRef: strength
+                description: Denoising strength from 0.0 to 1.0.
+              bundleId:
+                type: string
+                fieldRef: bundleId
+                description: Optional model bundle override.
+              modelPath:
+                type: string
+                fieldRef: modelPath
+                description: Optional model override.
+              loraPaths:
+                type: array
+                items:
+                  type: string
+                fieldRef: loraPaths
+                description: Optional LoRA model selections.
+              generationConfig:
+                type: object
+                description: Optional advanced generation config merged into the runtime request.
+              width:
+                type: number
+                fieldRef: width
+                description: Optional output image width in pixels.
+              height:
+                type: number
+                fieldRef: height
+                description: Optional output image height in pixels.
+              steps:
+                type: number
+                fieldRef: steps
+                description: Optional denoising step count.
+              seed:
+                type: number
+                fieldRef: seed
+                description: Optional random seed.
+              timeoutSeconds:
+                type: number
+                fieldRef: timeoutSeconds
+                description: Optional generation timeout in seconds.
+            additionalProperties: false
+          output:
+            type: object
+            description: Generated image metadata.
+            additionalProperties: true
+    bindings:
+      field:
+        preview:
+          contracts:
+            - id: default
+              name: Preview
+              description: Optional preview control invoked with generated image metadata.
+              input:
+                type: object
+                additionalProperties: true
+              output:
+                type: any
+  configSchema:
+    runtimeActionForward:
+      type: string
+      default: image-to-image-control
+    providerDefinitionId:
+      type: string
+      default: diffusion
+    providerInterfaces:
+      type: array
+      default:
+        - anthori.agent-image.v1
+    imagePath:
+      type: string
+      required: false
+    strength:
+      type: number
+      required: false
+      default: 0.75
+    preview:
+      type: controlTarget
+      required: false
+      targetCapability: media-preview
+      description: Optional preview control invoked with the generated image output.
+    bundleId:
+      type: string
+      required: false
+    loraPaths:
+      type: array
+      items:
+        type: string
+      required: false
+    loraApplyMode:
+      type: string
+      required: false
+    generationConfig:
+      type: string
+      required: false
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        type: select
+        supportsPin: true
+        helpText: Provider id from the Providers panel.
+        dataSource:
+          kind: resource
+          resource: providers
+          filters:
+            interface: anthori.agent-image.v1
+            definitionId: diffusion
+      - key: imagePath
+        label: Image
+        type: text
+        supportsPin: true
+        placeholder: Input image path
+      - key: modelPath
+        label: Model
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider model
+        helpText: Optional model override. Leave blank to inherit the provider model.
+        dataSource:
+          kind: providerModels
+          role: checkpoint
+          emptyLabel: Inherit provider model
+      - key: bundleId
+        label: Bundle
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider bundle
+        helpText: Optional bundle override. Use this for multi-file variants.
+        options:
+          - label: Wan 2.2 T2V A14B - Q3_K_M
+            value: wan2.2-t2v-a14b:q3_k_m
+          - label: Wan 2.2 T2V A14B - Q4_K_M
+            value: wan2.2-t2v-a14b:q4_k_m
+          - label: Wan 2.2 T2V A14B - Q5_K_M
+            value: wan2.2-t2v-a14b:q5_k_m
+          - label: Wan 2.2 T2V A14B - Q6_K
+            value: wan2.2-t2v-a14b:q6
+          - label: Wan 2.2 T2V A14B - Q8_0
+            value: wan2.2-t2v-a14b:q8
+      - key: loraPaths
+        label: LoRAs
+        type: multiselect
+        placeholder: Inherit provider LoRAs
+        helpText: Optional LoRA overrides selected from the Diffusion model directory.
+        dataSource:
+          kind: providerModels
+          role: lora
+          emptyLabel: Inherit provider LoRAs
+      - key: loraApplyMode
+        label: LoRA Apply
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider mode
+        options:
+          - label: Auto
+            value: auto
+          - label: Immediately
+            value: immediately
+          - label: At Runtime
+            value: at_runtime
+      - key: generationConfig
+        label: Generation Config
+        type: textarea
+        supportsPin: true
+        placeholder: '{"guidance":3.5}'
+        helpText: Optional JSON object merged into the runtime request.
+      - key: width
+        label: Width
+        type: number
+        minimum: 64
+        maximum: 2048
+        step: 64
+        supportsPin: true
+        placeholder: Inherit provider width
+      - key: height
+        label: Height
+        type: number
+        minimum: 64
+        maximum: 2048
+        step: 64
+        supportsPin: true
+        placeholder: Inherit provider height
+      - key: strength
+        label: Strength
+        type: number
+        minimum: 0
+        maximum: 1
+        step: 0.05
+        supportsPin: true
+      - key: steps
+        label: Steps
+        type: number
+        minimum: 1
+        maximum: 150
+        step: 1
+        supportsPin: true
+        placeholder: Inherit provider steps
+      - key: seed
+        label: Seed
+        type: number
+        supportsPin: true
+      - key: timeoutSeconds
+        label: Timeout
+        type: number
+        minimum: 30
+        maximum: 1800
+        step: 1
+        supportsPin: true
+        placeholder: Inherit provider timeout
+      - key: preview
+        label: Preview
+        type: controlTarget
+        targetCapability: media-preview
+        helpText: Optional Preview control to display generated images on the graph.

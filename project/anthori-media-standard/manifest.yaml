@@ -1,0 +1,18 @@
+format: 1
+id: anthori.media.standard
+name: Media Standard
+scope: project
+version: 1.0.0
+description: First-party generic media controls.
+catalogPath:
+  - Anthori
+  - Media
+  - Standard
+supportedOs:
+  - windows
+  - mac
+  - linux
+externalLibraries:
+  - external-libraries/anthori-media-standard-runtime
+controlDefinitions:
+  - control-definitions/preview
