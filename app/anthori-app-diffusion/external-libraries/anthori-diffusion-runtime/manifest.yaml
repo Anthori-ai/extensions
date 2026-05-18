@@ -1,0 +1,35 @@
+format: 1
+id: anthori-diffusion-runtime
+name: Diffusion Runtime
+description: Manages local diffusion runtimes and model files for the Diffusion app extension.
+supportedOs:
+  - windows
+  - mac
+  - linux
+entry: runtime/anthori-diffusion-runtime.js
+timeoutSeconds: 900
+native:
+  command: native/diffusion-helper.sh
+  commandWindows: native/diffusion-helper.cmd
+  timeoutSeconds: 900
+actions:
+  - id: models-list
+    name: List Models
+  - id: models-download
+    name: Download Model
+  - id: models-download-status
+    name: Download Status
+  - id: runtimes-list
+    name: List Runtimes
+  - id: hardware-info
+    name: Hardware Info
+  - id: runtime-status
+    name: Runtime Status
+  - id: text-to-image
+    name: Text To Image
+  - id: image-to-image
+    name: Image To Image
+  - id: text-to-video
+    name: Text To Video
+  - id: image-to-video
+    name: Image To Video

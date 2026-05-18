@@ -32,7 +32,6 @@ body {
   letter-spacing: 0;
 }
 
-.llama-toolbar,
 .llama-section-header,
 .llama-row {
   display: flex;
@@ -45,22 +44,10 @@ body {
   gap: 8px;
 }
 
-.llama-toolbar h1,
 .llama-section h2 {
   margin: 0;
   font-weight: 650;
   letter-spacing: 0;
-}
-
-.llama-toolbar h1 {
-  font-size: 18px;
-}
-
-.llama-toolbar p {
-  margin: 3px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .llama-panel-toolbar {

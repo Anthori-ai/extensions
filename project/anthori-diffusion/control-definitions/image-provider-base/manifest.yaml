@@ -1,0 +1,192 @@
+format: 1
+id: image-provider-base
+name: Image Provider Base
+description: Hidden shared base for image provider controls.
+baseControlRef: controls/1/executable
+control:
+  visible: false
+  libraryPath: providers/image
+  contracts:
+    bindings:
+      field:
+        preview:
+          contracts:
+            - id: default
+              name: Preview
+              description: Optional preview control invoked with generated image metadata.
+              input:
+                type: object
+                additionalProperties: true
+              output:
+                type: any
+  configSchema:
+    runtimeLibraryId:
+      type: string
+      default: anthori-diffusion-control-runtime
+    runtimeActionForward:
+      type: string
+      default: image-provider-control
+    providerRef:
+      type: string
+      required: true
+      description: Provider id from the Providers panel.
+    providerDefinitionId:
+      type: string
+      required: false
+    providerInterfaces:
+      type: array
+      required: false
+    bundleId:
+      type: string
+      required: false
+      description: Optional model bundle override.
+    modelPath:
+      type: string
+      required: false
+      description: Optional model override for this provider control.
+    loraPaths:
+      type: array
+      items:
+        type: string
+      required: false
+      description: Optional LoRA model selections.
+    loraApplyMode:
+      type: string
+      required: false
+      description: Optional LoRA apply mode.
+    generationConfig:
+      type: string
+      required: false
+      description: Optional JSON object merged into the runtime request.
+    width:
+      type: number
+      required: false
+      description: Optional output width override.
+    height:
+      type: number
+      required: false
+      description: Optional output height override.
+    steps:
+      type: number
+      required: false
+      description: Optional denoising step override.
+    seed:
+      type: number
+      required: false
+      description: Optional random seed.
+    timeoutSeconds:
+      type: number
+      required: false
+      description: Optional timeout override in seconds.
+    preview:
+      type: controlTarget
+      required: false
+      targetCapability: media-preview
+      description: Optional preview control invoked with the generated image output.
+  ui:
+    fields:
+      - key: providerRef
+        label: Config
+        type: select
+        supportsPin: true
+        helpText: Provider id from the Providers panel.
+        dataSource:
+          kind: resource
+          resource: providers
+          filters:
+            interface: anthori.agent-image.v1
+      - key: modelPath
+        label: Model
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider model
+        helpText: Optional model override. Leave blank to inherit the provider model.
+        dataSource:
+          kind: providerModels
+          role: checkpoint
+          emptyLabel: Inherit provider model
+      - key: bundleId
+        label: Bundle
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider bundle
+        helpText: Optional bundle override. Use this for Wan 2.2 variants; leave blank to inherit provider config.
+        options:
+          - label: Wan 2.2 T2V A14B - Q3_K_M
+            value: wan2.2-t2v-a14b:q3_k_m
+          - label: Wan 2.2 T2V A14B - Q4_K_M
+            value: wan2.2-t2v-a14b:q4_k_m
+          - label: Wan 2.2 T2V A14B - Q5_K_M
+            value: wan2.2-t2v-a14b:q5_k_m
+          - label: Wan 2.2 T2V A14B - Q6_K
+            value: wan2.2-t2v-a14b:q6
+          - label: Wan 2.2 T2V A14B - Q8_0
+            value: wan2.2-t2v-a14b:q8
+      - key: loraPaths
+        label: LoRAs
+        type: multiselect
+        placeholder: Inherit provider LoRAs
+        helpText: Optional LoRA overrides selected from the Diffusion model directory.
+        dataSource:
+          kind: providerModels
+          role: lora
+          emptyLabel: Inherit provider LoRAs
+      - key: loraApplyMode
+        label: LoRA Apply
+        type: select
+        supportsPin: true
+        placeholder: Inherit provider mode
+        options:
+          - label: Auto
+            value: auto
+          - label: Immediately
+            value: immediately
+          - label: At Runtime
+            value: at_runtime
+      - key: generationConfig
+        label: Generation Config
+        type: textarea
+        supportsPin: true
+        placeholder: '{"guidance":3.5}'
+        helpText: Optional JSON object merged into the runtime request.
+      - key: width
+        label: Width
+        type: number
+        minimum: 64
+        maximum: 2048
+        step: 64
+        supportsPin: true
+        placeholder: Inherit provider width
+      - key: height
+        label: Height
+        type: number
+        minimum: 64
+        maximum: 2048
+        step: 64
+        supportsPin: true
+        placeholder: Inherit provider height
+      - key: steps
+        label: Steps
+        type: number
+        minimum: 1
+        maximum: 150
+        step: 1
+        supportsPin: true
+        placeholder: Inherit provider steps
+      - key: seed
+        label: Seed
+        type: number
+        supportsPin: true
+      - key: timeoutSeconds
+        label: Timeout
+        type: number
+        minimum: 30
+        maximum: 1800
+        step: 1
+        supportsPin: true
+        placeholder: Inherit provider timeout
+      - key: preview
+        label: Preview
+        type: controlTarget
+        targetCapability: media-preview
+        helpText: Optional Preview control to display generated images on the graph.

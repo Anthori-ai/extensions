@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Diffusion Settings</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/vendor/js-yaml.min.js"></script>
+    <script src="/extension-frame-bootstrap.js" defer></script>
+    <script>
+      (function () {
+        function getFrameContext() {
+          const params = new URLSearchParams(window.location.search || "")
+          const scope = String(params.get("scope") || "global").trim().toLowerCase() === "project" ? "project" : "global"
+          return {
+            scope,
+            extensionId: String(params.get("extensionId") || "").trim(),
+            projectId: String(params.get("projectId") || "").trim(),
+            token: String(params.get("token") || "").trim(),
+          }
+        }
+
+        function buildAssetPath(assetPath) {
+          const context = getFrameContext()
+          const cleanAssetPath = String(assetPath || "").replace(/^\/+/, "")
+          if (!context.extensionId || !cleanAssetPath) return ""
+          const segments = ["/api/extensions/asset"]
+          if (context.token) segments.push("token", encodeURIComponent(context.token))
+          if (context.scope === "project") {
+            if (!context.projectId) return ""
+            segments.push("project", encodeURIComponent(context.projectId), encodeURIComponent(context.extensionId))
+          } else {
+            segments.push("global", encodeURIComponent(context.extensionId))
+          }
+          cleanAssetPath.split("/").filter(Boolean).forEach((part) => segments.push(encodeURIComponent(part)))
+          return segments.join("/")
+        }
+
+        const cssHref = buildAssetPath("ui/diffusion.css")
+        if (cssHref) {
+          const link = document.createElement("link")
+          link.rel = "stylesheet"
+          link.href = cssHref
+          document.head.appendChild(link)
+        }
+
+        const scriptSrc = buildAssetPath("ui/diffusion.js")
+        if (scriptSrc) {
+          const script = document.createElement("script")
+          script.src = scriptSrc
+          script.async = false
+          document.head.appendChild(script)
+        }
+      })()
+    </script>
+  </head>
+  <body data-diffusion-surface="settings">
+    <main class="diffusion-root">
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Engines &amp; Frameworks</h2>
+          <span id="diffusion-runtime-platform" class="diffusion-status muted"></span>
+        </div>
+        <div id="diffusion-runtime-pack-list" class="diffusion-list"></div>
+      </section>
+
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Runtime</h2>
+          <span id="diffusion-runtime-status" class="diffusion-status muted">Checking</span>
+        </div>
+        <div id="diffusion-runtime-detail" class="diffusion-detail"></div>
+      </section>
+
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Models</h2>
+          <span id="diffusion-model-count" class="diffusion-status muted"></span>
+        </div>
+        <label class="diffusion-field">
+          <span>Model Directory</span>
+          <div class="diffusion-path-row">
+            <input id="diffusion-model-root" type="text" autocomplete="off" spellcheck="false" />
+            <button id="diffusion-model-root-browse" class="diffusion-button secondary" type="button">Browse</button>
+          </div>
+        </label>
+        <div id="diffusion-model-detail" class="diffusion-detail"></div>
+      </section>
+
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Hardware</h2>
+        </div>
+        <div id="diffusion-hardware" class="diffusion-detail"></div>
+      </section>
+
+      <p id="diffusion-message" class="diffusion-message" role="status"></p>
+    </main>
+  </body>
+</html>

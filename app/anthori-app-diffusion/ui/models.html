@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Diffusion</title>
+    <link rel="stylesheet" href="/extension-ui.css" />
+    <script src="/vendor/js-yaml.min.js"></script>
+    <script src="/extension-frame-bootstrap.js" defer></script>
+    <script>
+      (function () {
+        function getFrameContext() {
+          const params = new URLSearchParams(window.location.search || "")
+          const scope = String(params.get("scope") || "global").trim().toLowerCase() === "project" ? "project" : "global"
+          return {
+            scope,
+            extensionId: String(params.get("extensionId") || "").trim(),
+            projectId: String(params.get("projectId") || "").trim(),
+            token: String(params.get("token") || "").trim(),
+          }
+        }
+
+        function buildAssetPath(assetPath) {
+          const context = getFrameContext()
+          const cleanAssetPath = String(assetPath || "").replace(/^\/+/, "")
+          if (!context.extensionId || !cleanAssetPath) return ""
+          const segments = ["/api/extensions/asset"]
+          if (context.token) segments.push("token", encodeURIComponent(context.token))
+          if (context.scope === "project") {
+            if (!context.projectId) return ""
+            segments.push("project", encodeURIComponent(context.projectId), encodeURIComponent(context.extensionId))
+          } else {
+            segments.push("global", encodeURIComponent(context.extensionId))
+          }
+          cleanAssetPath.split("/").filter(Boolean).forEach((part) => segments.push(encodeURIComponent(part)))
+          return segments.join("/")
+        }
+
+        const cssHref = buildAssetPath("ui/diffusion.css")
+        if (cssHref) {
+          const link = document.createElement("link")
+          link.rel = "stylesheet"
+          link.href = cssHref
+          document.head.appendChild(link)
+        }
+
+        const scriptSrc = buildAssetPath("ui/diffusion.js")
+        if (scriptSrc) {
+          const script = document.createElement("script")
+          script.src = scriptSrc
+          script.async = false
+          document.head.appendChild(script)
+        }
+      })()
+    </script>
+  </head>
+  <body data-diffusion-surface="models">
+    <main class="diffusion-root diffusion-panel">
+      <div class="diffusion-panel-toolbar">
+        <span id="diffusion-panel-status" class="diffusion-status muted">Checking</span>
+        <button id="diffusion-open-settings" class="diffusion-icon-button" type="button" aria-label="Open app extension settings" title="Open app extension settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+            <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2 2 0 1 1-4 0v-.09a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H2.86a2 2 0 1 1 0-4h.09A1.8 1.8 0 0 0 4.6 8a1.8 1.8 0 0 0-.36-1.98l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.8 1.8 0 0 0 9.05 3.6a1.8 1.8 0 0 0 1.1-1.65V1.86a2 2 0 1 1 4 0v.09a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.8 1.8 0 0 0 19.4 8c.28.68.93 1.12 1.65 1.12h.09a2 2 0 1 1 0 4h-.09A1.8 1.8 0 0 0 19.4 15Z" />
+          </svg>
+        </button>
+      </div>
+
+      <section id="diffusion-setup-notice" class="diffusion-setup-notice" hidden>
+        <strong>Diffusion runtime required</strong>
+        <span>Select an engine from Settings &gt; Extensions &gt; Diffusion.</span>
+      </section>
+
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Download Models</h2>
+        </div>
+        <div class="diffusion-section-header diffusion-subsection-header">
+          <h3>Curated Bundles</h3>
+        </div>
+        <div id="diffusion-bundle-list" class="diffusion-list"></div>
+        <div class="diffusion-section-header diffusion-subsection-header">
+          <h3>Search</h3>
+        </div>
+        <form id="diffusion-hf-search-form" class="diffusion-search-form">
+          <label class="diffusion-field">
+            <span>Search Hugging Face</span>
+            <input id="diffusion-hf-query" type="search" autocomplete="off" spellcheck="false" placeholder="sdxl lightning" />
+          </label>
+          <button id="diffusion-hf-search-submit" class="diffusion-button" type="submit">Search</button>
+        </form>
+        <p id="diffusion-hf-status" class="diffusion-detail"></p>
+        <div id="diffusion-hf-results-list" class="diffusion-list"></div>
+        <div id="diffusion-downloads-section" class="diffusion-downloads-section" hidden>
+          <div class="diffusion-section-header diffusion-download-history-header">
+            <h3>Downloads</h3>
+          </div>
+          <div id="diffusion-downloads-list" class="diffusion-list"></div>
+        </div>
+      </section>
+
+      <section class="diffusion-section">
+        <div class="diffusion-section-header">
+          <h2>Local Models</h2>
+          <button id="diffusion-refresh-models" class="diffusion-button secondary" type="button">Refresh</button>
+        </div>
+        <div id="diffusion-model-list" class="diffusion-list"></div>
+      </section>
+
+      <p id="diffusion-message" class="diffusion-message" role="status"></p>
+    </main>
+  </body>
+</html>

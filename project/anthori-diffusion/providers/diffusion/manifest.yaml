@@ -1,0 +1,143 @@
+format: 1
+id: diffusion
+name: Diffusion
+version: 0.1.0
+description: Local diffusion media provider backed by the Diffusion app runtime.
+supportedOs:
+  - windows
+  - mac
+  - linux
+capabilities:
+  - agent/image
+  - agent/video
+interfaces:
+  - anthori.agent-image.v1
+  - anthori.agent-video.v1
+configSchema:
+  fields:
+    bundleId:
+      type: select
+      label: Bundle
+      placeholder: Select downloaded bundle
+      helpText: Optional multi-file model bundle. Use this for Wan 2.2 variants; leave blank when using a single checkpoint model.
+      options:
+        - label: Wan 2.2 T2V A14B - Q3_K_M
+          value: wan2.2-t2v-a14b:q3_k_m
+        - label: Wan 2.2 T2V A14B - Q4_K_M
+          value: wan2.2-t2v-a14b:q4_k_m
+        - label: Wan 2.2 T2V A14B - Q5_K_M
+          value: wan2.2-t2v-a14b:q5_k_m
+        - label: Wan 2.2 T2V A14B - Q6_K
+          value: wan2.2-t2v-a14b:q6
+        - label: Wan 2.2 T2V A14B - Q8_0
+          value: wan2.2-t2v-a14b:q8
+    modelPath:
+      type: select
+      label: Model
+      placeholder: Select downloaded model
+      helpText: Optional single-file checkpoint model. Leave blank when using a bundle.
+      dataSource:
+        kind: providerModels
+        role: checkpoint
+        emptyLabel: Select downloaded model
+    loraPath1:
+      type: select
+      label: LoRA 1
+      placeholder: No LoRA
+      helpText: Optional LoRA model selected from the Diffusion model directory.
+      dataSource:
+        kind: providerModels
+        role: lora
+        emptyLabel: No LoRA
+    loraWeight1:
+      type: number
+      label: LoRA 1 Weight
+      minimum: -10
+      maximum: 10
+      step: 0.05
+      placeholder: "1"
+    loraPath2:
+      type: select
+      label: LoRA 2
+      placeholder: No LoRA
+      helpText: Optional LoRA model selected from the Diffusion model directory.
+      dataSource:
+        kind: providerModels
+        role: lora
+        emptyLabel: No LoRA
+    loraWeight2:
+      type: number
+      label: LoRA 2 Weight
+      minimum: -10
+      maximum: 10
+      step: 0.05
+      placeholder: "1"
+    loraPath3:
+      type: select
+      label: LoRA 3
+      placeholder: No LoRA
+      helpText: Optional LoRA model selected from the Diffusion model directory.
+      dataSource:
+        kind: providerModels
+        role: lora
+        emptyLabel: No LoRA
+    loraWeight3:
+      type: number
+      label: LoRA 3 Weight
+      minimum: -10
+      maximum: 10
+      step: 0.05
+      placeholder: "1"
+    loraApplyMode:
+      type: select
+      label: LoRA Apply Mode
+      placeholder: auto
+      options:
+        - label: Auto
+          value: auto
+        - label: Immediately
+          value: immediately
+        - label: At Runtime
+          value: at_runtime
+    generationConfig:
+      type: string
+      label: Generation Config
+      placeholder: '{"guidance":3.5}'
+      helpText: Optional JSON object merged into each generation request.
+    width:
+      type: number
+      label: Width
+      minimum: 64
+      maximum: 2048
+      step: 64
+      placeholder: "512"
+    height:
+      type: number
+      label: Height
+      minimum: 64
+      maximum: 2048
+      step: 64
+      placeholder: "512"
+    steps:
+      type: number
+      label: Steps
+      minimum: 1
+      maximum: 150
+      step: 1
+      placeholder: "20"
+    timeoutSeconds:
+      type: number
+      label: Timeout
+      minimum: 30
+      maximum: 1800
+      step: 1
+      placeholder: "600"
+runtime:
+  kind: library
+  libraryId: anthori-diffusion-provider-runtime
+  actions:
+    listModels: list-models
+    renderImage: render-image
+    renderVideo: render-video
+control:
+  visible: false

@@ -1,9 +1,9 @@
 format: 1
-id: anthori.app.llama
-name: Llama
+id: anthori.app.diffusion
+name: Diffusion
 scope: app
 version: 0.1.0
-description: Adds local llama.cpp model management surfaces for GGUF models and Hugging Face downloads.
+description: Adds local diffusion model runtime integration surfaces for image and video generation.
 trusted: true
 supportedOs:
   - windows
@@ -13,11 +13,10 @@ permissions:
   network:
     - https://github.com
     - https://release-assets.githubusercontent.com
-    - https://*.githubusercontent.com
     - https://huggingface.co
     - https://*.hf.co
 externalLibraries:
-  - external-libraries/anthori-llama-runtime
+  - external-libraries/anthori-diffusion-runtime
 lifecycle:
   install:
     default: scripts/install.sh
@@ -26,15 +25,15 @@ lifecycle:
     default: scripts/uninstall.sh
     windows: scripts/uninstall.ps1
 settingsSections:
-  - id: llama
-    label: Llama
+  - id: diffusion
+    label: Diffusion
     assetPath: ui/settings.html
-    height: 780
+    height: 620
 dockPanels:
-  - id: models
-    label: Llama
-    title: Llama
+  - id: diffusion-models
+    label: Diffusion
+    title: Diffusion
     assetPath: ui/models.html
     dock: free
-    width: 420
+    width: 460
     height: 620
