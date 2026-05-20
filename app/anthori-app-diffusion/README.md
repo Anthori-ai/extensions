@@ -7,9 +7,11 @@ owns runtime/model discovery and exposes runtime actions that project controls
 can call later, starting with text-to-image generation.
 
 The app settings panel owns runtime engine selection and model directory
-discovery. The app panel can download Hugging Face model files into the managed
-model directory, including curated multi-file bundles such as Wan 2.2 T2V A14B,
-and project providers select from the discovered model list.
+discovery. The app panel is organized by generation operation, so users can
+start with a curated Text to Image checkpoint or a Text to Video package before
+searching Hugging Face directly. Project providers show a single Model selector;
+internally that selection resolves to a model package, which may be one
+checkpoint file or a mapped set of component files.
 Generation parameters such as size, steps, and sampler belong on graph controls
 or provider-level actions. Graph controls should copy or record generated files
 into session-owned storage or execution artifacts so session deletion removes

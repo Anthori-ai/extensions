@@ -138,7 +138,4 @@ module.exports = {
   "image-to-video-control": function (payload, host) {
     return callProvider(payload, host, "image-to-video", "renderVideo");
   },
-  "image-provider-control": function (payload, host) {
-    return callProvider(payload, host, "text-to-image", "renderImage");
-  },
 };

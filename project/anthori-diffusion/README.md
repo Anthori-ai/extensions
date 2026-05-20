@@ -6,10 +6,16 @@ The provider delegates image rendering to the active `anthori.app.diffusion` app
 extension, which owns runtime discovery, model directories, and engine
 selection.
 
-Download and scan models from the Diffusion app panel. Provider config can
-select either a discovered single-file model or a curated multi-file bundle,
-such as a Wan 2.2 quant variant. Graph nodes can override that selection for a
-single call.
+Download and scan models from the Diffusion app panel. The panel groups curated
+packages and Hugging Face search by generation operation, such as Text to Image
+or Text to Video. Provider config exposes one Model selector. Internally the
+selected value is a model package: it may be a discovered single-file checkpoint
+or a curated multi-file package such as a Wan 2.2 quant variant. Graph nodes can
+override that selection for a single call.
+
+Model packages declare the runtime recipe and supported operations, so image
+and video controls filter the same model list without exposing separate
+file-vs-package fields in the inspector.
 
 Static generation options such as LoRAs, sampler parameters, and Wan component
 choices belong in provider/node configuration. Advanced callers can pass a
@@ -25,7 +31,6 @@ request before calling the app extension.
 - `ImageToVideo`: generates a video from an input image and prompt when the
   selected runtime and model support video generation.
 
-`Diffusion` remains as a hidden legacy alias for existing graphs.
 
 The optional `Preview` target accepts both image and video metadata. Video
 outputs use `videoPath` or `videoBase64` with a `video/*` media type.

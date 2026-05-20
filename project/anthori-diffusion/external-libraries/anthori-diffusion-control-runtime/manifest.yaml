@@ -18,5 +18,3 @@ actions:
     name: Text To Video Control
   - id: image-to-video-control
     name: Image To Video Control
-  - id: image-provider-control
-    name: Legacy Image Provider Control

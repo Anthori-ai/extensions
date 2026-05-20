@@ -27,4 +27,3 @@ controlDefinitions:
   - control-definitions/image-to-image
   - control-definitions/text-to-video
   - control-definitions/image-to-video
-  - control-definitions/diffusion

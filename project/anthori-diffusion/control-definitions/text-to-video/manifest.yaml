@@ -19,8 +19,7 @@ control:
               - prompt
               - config
               - negativePrompt
-              - bundleId
-              - modelPath
+              - modelPackageId
               - loraPaths
               - generationConfig
               - width
@@ -41,13 +40,9 @@ control:
               negativePrompt:
                 type: string
                 description: Optional negative prompt.
-              bundleId:
+              modelPackageId:
                 type: string
-                fieldRef: bundleId
-                description: Optional model bundle override.
-              modelPath:
-                type: string
-                fieldRef: modelPath
+                fieldRef: modelPackageId
                 description: Optional model override.
               loraPaths:
                 type: array
@@ -115,15 +110,19 @@ control:
               fps:
                 type: number
                 description: Requested frames per second.
-              modelPath:
+              modelPackageId:
                 type: string
-                description: Checkpoint path used for generation.
-              bundleId:
+                description: Model package id used for generation.
+              modelPackageName:
                 type: string
-                description: Model bundle id used for generation.
-              bundleName:
+                description: Model package label used for generation.
+              modelPackageRecipe:
                 type: string
-                description: Model bundle label used for generation.
+                description: Model package recipe used by the runtime adapter.
+              componentPaths:
+                type: object
+                description: Resolved runtime component paths used for generation.
+                additionalProperties: true
               loras:
                 type: array
                 description: LoRA entries used for generation.
@@ -170,9 +169,10 @@ control:
       required: false
       targetCapability: media-preview
       description: Optional preview control invoked with the generated video output.
-    bundleId:
+    modelPackageId:
       type: string
       required: false
+      description: Optional model override.
     loraPaths:
       type: array
       items:
@@ -197,7 +197,7 @@ control:
           filters:
             interface: anthori.agent-video.v1
             definitionId: diffusion
-      - key: modelPath
+      - key: modelPackageId
         label: Model
         type: select
         supportsPin: true
@@ -205,25 +205,9 @@ control:
         helpText: Optional model override. Leave blank to inherit the provider model.
         dataSource:
           kind: providerModels
-          role: checkpoint
+          role: model-package
+          operation: text-to-video
           emptyLabel: Inherit provider model
-      - key: bundleId
-        label: Bundle
-        type: select
-        supportsPin: true
-        placeholder: Inherit provider bundle
-        helpText: Optional bundle override. Use this for Wan 2.2 variants.
-        options:
-          - label: Wan 2.2 T2V A14B - Q3_K_M
-            value: wan2.2-t2v-a14b:q3_k_m
-          - label: Wan 2.2 T2V A14B - Q4_K_M
-            value: wan2.2-t2v-a14b:q4_k_m
-          - label: Wan 2.2 T2V A14B - Q5_K_M
-            value: wan2.2-t2v-a14b:q5_k_m
-          - label: Wan 2.2 T2V A14B - Q6_K
-            value: wan2.2-t2v-a14b:q6
-          - label: Wan 2.2 T2V A14B - Q8_0
-            value: wan2.2-t2v-a14b:q8
       - key: loraPaths
         label: LoRAs
         type: multiselect

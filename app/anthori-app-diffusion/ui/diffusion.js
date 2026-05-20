@@ -5,15 +5,73 @@
   const DOWNLOAD_STATUS_POLL_MS = 1000
   const SUPPORTED_MODEL_EXTENSIONS = [".safetensors", ".gguf", ".ckpt"]
   const HUGGING_FACE_SEARCH_LIMIT = "20"
+  const OPERATION_FILTERS = [
+    {
+      id: "text-to-image",
+      label: "Text to Image",
+      controls: ["TextToImage"],
+      search: "stable diffusion checkpoint",
+    },
+    {
+      id: "image-to-image",
+      label: "Image to Image",
+      controls: ["ImageToImage"],
+      search: "stable diffusion image to image checkpoint",
+    },
+    {
+      id: "text-to-video",
+      label: "Text to Video",
+      controls: ["TextToVideo"],
+      search: "text to video gguf",
+    },
+    {
+      id: "image-to-video",
+      label: "Image to Video",
+      controls: ["ImageToVideo"],
+      search: "image to video gguf",
+    },
+    {
+      id: "all",
+      label: "All",
+      controls: [],
+      search: "stable diffusion gguf safetensors",
+    },
+  ]
   const DEFAULTS = {
     modelRoot: "",
     runtimeId: "",
   }
   const CURATED_MODEL_BUNDLES = [
     {
+      id: "sd15-fp16-starter",
+      name: "Stable Diffusion 1.5 FP16",
+      description: "Starter single-file checkpoint for image generation.",
+      operations: ["text-to-image", "image-to-image"],
+      tags: ["Starter", "Stable Diffusion", "2.13 GB"],
+      slots: [
+        {
+          id: "checkpoint",
+          label: "Checkpoint",
+          role: "Checkpoint",
+          fixed: true,
+          variants: [
+            {
+              id: "v1-5-pruned-emaonly-fp16",
+              label: "FP16",
+              repository: "Comfy-Org/stable-diffusion-v1-5-archive",
+              file: "v1-5-pruned-emaonly-fp16.safetensors",
+              bytes: 2130000000,
+            },
+          ],
+        },
+      ],
+    },
+    {
       id: "wan2.2-t2v-a14b",
       name: "Wan 2.2 T2V A14B",
-      description: "Text-to-video Wan 2.2 MoE bundle for stable-diffusion.cpp.",
+      description: "Text-to-video Wan 2.2 MoE package for stable-diffusion.cpp.",
+      operations: ["text-to-video"],
+      tags: ["Advanced", "Video", "Multi-file"],
       slots: [
         {
           id: "highNoise",
@@ -181,6 +239,7 @@
     activeDownloads: {},
     bundleBusyId: "",
     bundleSelections: {},
+    selectedOperation: "text-to-image",
     expandedHuggingFaceRepositories: new Set(),
     selectedRuntimeId: "",
     runtimeBusyId: "",
@@ -259,6 +318,58 @@
     return 0
   }
 
+  function operationInfo(value) {
+    const id = normalizeString(value) || "text-to-image"
+    return OPERATION_FILTERS.find((entry) => entry.id === id) || OPERATION_FILTERS[0]
+  }
+
+  function selectedOperationInfo() {
+    return operationInfo(state.selectedOperation)
+  }
+
+  function selectedOperationId() {
+    const info = selectedOperationInfo()
+    return info ? info.id : "text-to-image"
+  }
+
+  function operationLabel(value) {
+    const info = operationInfo(value)
+    return info ? info.label : normalizeString(value)
+  }
+
+  function packageOperationIds(modelPackage) {
+    const operations = Array.isArray(modelPackage && modelPackage.operations)
+      ? modelPackage.operations.map(normalizeString).filter(Boolean)
+      : []
+    return operations.length ? operations : ["text-to-image", "image-to-image"]
+  }
+
+  function packageMatchesSelectedOperation(modelPackage) {
+    const operation = selectedOperationId()
+    if (operation === "all") return true
+    return packageOperationIds(modelPackage).includes(operation)
+  }
+
+  function packageControlLabels(modelPackage) {
+    const controls = []
+    packageOperationIds(modelPackage).forEach((operation) => {
+      const info = operationInfo(operation)
+      if (!info || !Array.isArray(info.controls)) return
+      info.controls.forEach((control) => {
+        if (control && !controls.includes(control)) controls.push(control)
+      })
+    })
+    return controls
+  }
+
+  function packageTotalBytes(entries) {
+    return entries.reduce((total, entry) => total + normalizeByteCount(entry && entry.bytes), 0)
+  }
+
+  function operationSearchPlaceholder() {
+    const info = selectedOperationInfo()
+    return info && info.search ? info.search : "stable diffusion gguf safetensors"
+  }
   function createId(prefix) {
     const random = window.crypto && typeof window.crypto.randomUUID === "function"
       ? window.crypto.randomUUID()
@@ -422,7 +533,10 @@
       installed: value.installed === true || value.available === true,
       available: value.available === true || value.installed === true,
       compatible: value.compatible !== false,
+      configured: value.configured === true || value.selected === true,
       selected: value.selected === true,
+      installable: value.installable === true,
+      reason: normalizeString(value.reason),
       binaryPath: normalizeString(value.binaryPath || value.path),
       candidates: Array.isArray(value.candidates) ? value.candidates.map(normalizeString).filter(Boolean) : [],
     }
@@ -655,12 +769,6 @@
     try {
       const rawValues = await api.get(DEFAULTS)
       state.values = normalizeValues(rawValues)
-      const hasLegacySettings = rawValues &&
-        typeof rawValues === "object" &&
-        Object.keys(rawValues).some((key) => !(key in DEFAULTS))
-      if (state.surface === "settings" && hasLegacySettings) {
-        state.values = await persistSettingsValues(state.values)
-      }
     } catch (error) {
       state.values = normalizeValues(DEFAULTS)
       setMessage(error instanceof Error ? error.message : "Extension settings are unavailable.")
@@ -819,7 +927,11 @@
           version,
         ].filter(Boolean).join("\n")
       } else if (state.runtime && Array.isArray(state.runtime.candidates)) {
-        els.runtimeDetail.textContent = `Checked ${state.runtime.candidates.length} runtime paths.`
+        const reason = normalizeString(state.runtime.reason)
+        els.runtimeDetail.textContent = [
+          reason,
+          `Checked ${state.runtime.candidates.length} runtime paths.`,
+        ].filter(Boolean).join("\n")
       } else {
         els.runtimeDetail.textContent = ""
       }
@@ -854,18 +966,24 @@
         pack.description,
         pack.backend ? `Backend ${pack.backend}` : "",
         pack.binaryPath,
+        !pack.available && pack.reason ? pack.reason : "",
       ].filter(Boolean).join(" - ")
       const badges = document.createElement("div")
       badges.className = "diffusion-chip-row"
       const statusBadge = document.createElement("span")
       statusBadge.className = `diffusion-badge${pack.available ? " ok" : ""}`
-      statusBadge.textContent = pack.available ? "Installed" : "Unavailable"
+      statusBadge.textContent = pack.available ? "Installed" : "Runtime missing"
       badges.appendChild(statusBadge)
       if (pack.selected) {
         const selected = document.createElement("span")
         selected.className = "diffusion-badge ok"
         selected.textContent = "Selected"
         badges.appendChild(selected)
+      } else if (pack.configured) {
+        const configured = document.createElement("span")
+        configured.className = "diffusion-badge"
+        configured.textContent = "Configured"
+        badges.appendChild(configured)
       }
       main.append(title, meta, badges)
 
@@ -881,7 +999,7 @@
           void selectRuntimePack(pack.id)
         })
       } else {
-        primary.textContent = pack.selected ? "Selected" : "Unavailable"
+        primary.textContent = pack.selected ? "In use" : pack.configured ? "Missing" : pack.installable ? "Install" : "Install manually"
         primary.disabled = true
       }
       primary.disabled = primary.disabled || state.busy || Boolean(state.runtimeBusyId)
@@ -909,6 +1027,32 @@
     empty.className = "diffusion-empty"
     empty.textContent = text
     container.appendChild(empty)
+  }
+
+
+  function renderOperationTabs() {
+    if (!els.operationTabs) return
+    els.operationTabs.replaceChildren()
+    const selected = selectedOperationId()
+    OPERATION_FILTERS.forEach((operation) => {
+      const button = document.createElement("button")
+      button.type = "button"
+      button.className = `diffusion-operation-button${operation.id === selected ? " is-active" : ""}`
+      button.textContent = operation.label
+      button.setAttribute("aria-pressed", operation.id === selected ? "true" : "false")
+      button.addEventListener("click", () => {
+        if (state.selectedOperation === operation.id) return
+        state.selectedOperation = operation.id
+        state.expandedHuggingFaceRepositories.clear()
+        state.hf.query = ""
+        state.hf.results = []
+        state.hf.filesByRepository = {}
+        state.hf.error = ""
+        if (els.hfQuery) els.hfQuery.value = ""
+        render()
+      })
+      els.operationTabs.appendChild(button)
+    })
   }
 
   function renderModels() {
@@ -969,7 +1113,7 @@
         const variant = selectedBundleVariant(bundle, slot)
         if (!variant) return null
         return {
-          bundleId: bundle.id,
+          packageId: bundle.id,
           slotId: slot.id,
           slotLabel: slot.label,
           role: slot.role,
@@ -1010,13 +1154,16 @@
   function renderBundles() {
     if (!els.bundleList) return
     els.bundleList.replaceChildren()
-    if (CURATED_MODEL_BUNDLES.length === 0) {
-      renderEmpty(els.bundleList, "No curated bundles are available.")
+    const packages = CURATED_MODEL_BUNDLES.filter(packageMatchesSelectedOperation)
+    if (packages.length === 0) {
+      renderEmpty(els.bundleList, `No curated ${operationLabel(selectedOperationId()).toLowerCase()} packages are available.`)
       return
     }
-    CURATED_MODEL_BUNDLES.forEach((bundle) => {
+    packages.forEach((bundle) => {
       const entries = bundleDownloadEntries(bundle)
       const summary = bundleInstallSummary(entries)
+      const totalBytes = packageTotalBytes(entries)
+      const fileLabel = entries.length === 1 ? "1 file" : `${entries.length} files`
       const card = document.createElement("article")
       card.className = "diffusion-item diffusion-bundle-card"
 
@@ -1029,8 +1176,27 @@
       title.textContent = bundle.name
       const meta = document.createElement("div")
       meta.className = "diffusion-item-meta"
-      meta.textContent = bundle.description
+      meta.textContent = [bundle.description, fileLabel, formatBytes(totalBytes)].filter(Boolean).join(" - ")
       titleGroup.append(title, meta)
+      const controlLabels = packageControlLabels(bundle)
+      if (controlLabels.length > 0) {
+        const use = document.createElement("div")
+        use.className = "diffusion-item-meta"
+        use.textContent = `Controls: ${controlLabels.join(", ")}`
+        titleGroup.appendChild(use)
+      }
+      const tags = [...(Array.isArray(bundle.tags) ? bundle.tags : []), ...packageOperationIds(bundle).map(operationLabel)]
+      if (tags.length > 0) {
+        const chips = document.createElement("div")
+        chips.className = "diffusion-chip-row"
+        tags.forEach((tag) => {
+          const chip = document.createElement("span")
+          chip.className = "diffusion-badge"
+          chip.textContent = tag
+          chips.appendChild(chip)
+        })
+        titleGroup.appendChild(chips)
+      }
 
       const badge = document.createElement("span")
       badge.className = `diffusion-badge${summary.downloaded === entries.length && entries.length > 0 ? " ok" : ""}`
@@ -1313,6 +1479,7 @@
     renderRuntimePacks()
     renderRuntime()
     renderHardware()
+    renderOperationTabs()
     renderBundles()
     renderHuggingFaceResults()
     renderDownloads()
@@ -1320,7 +1487,10 @@
     renderModelRoots()
     if (els.message) els.message.textContent = state.message
     if (els.refreshModels) els.refreshModels.disabled = state.busy
-    if (els.hfQuery) els.hfQuery.value = state.hf.query
+    if (els.hfQuery) {
+      els.hfQuery.value = state.hf.query
+      els.hfQuery.placeholder = operationSearchPlaceholder()
+    }
     if (els.hfSearchSubmit) {
       els.hfSearchSubmit.disabled = state.busy || state.hf.searching || !(window.anthoriExtension && window.anthoriExtension.network && window.anthoriExtension.network.fetch)
     }
@@ -1345,12 +1515,15 @@
     setMessage("")
     render()
     try {
-      const data = await fetchHuggingFaceJson(huggingFaceUrl("/api/models", {
+      const searchParams = {
         search: query,
         sort: "downloads",
         direction: "-1",
         limit: HUGGING_FACE_SEARCH_LIMIT,
-      }))
+      }
+      const operation = selectedOperationId()
+      if (operation !== "all") searchParams.pipeline_tag = operation
+      const data = await fetchHuggingFaceJson(huggingFaceUrl("/api/models", searchParams))
       const items = Array.isArray(data) ? data : (Array.isArray(data && data.models) ? data.models : [])
       state.hf.results = items.map(normalizeHuggingFaceModel).filter(Boolean)
       state.hf.filesByRepository = {}
@@ -1451,8 +1624,8 @@
     }
   }
 
-  async function startBundleDownload(bundleId) {
-    const id = normalizeString(bundleId)
+  async function startBundleDownload(packageId) {
+    const id = normalizeString(packageId)
     const bundle = CURATED_MODEL_BUNDLES.find((entry) => entry.id === id)
     if (!bundle) return
     state.bundleBusyId = id
@@ -1475,7 +1648,7 @@
       }
       setMessage(started > 0 ? `Started ${started} downloads for ${bundle.name}.` : `No new downloads started for ${bundle.name}.`)
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Bundle download failed.")
+      setMessage(error instanceof Error ? error.message : "Model package download failed.")
     } finally {
       state.bundleBusyId = ""
       render()
@@ -1536,6 +1709,7 @@
     els.modelRootBrowse = $("diffusion-model-root-browse")
     els.refreshModels = $("diffusion-refresh-models")
     els.openSettings = $("diffusion-open-settings")
+    els.operationTabs = $("diffusion-operation-tabs")
     els.bundleList = $("diffusion-bundle-list")
     els.hfSearchForm = $("diffusion-hf-search-form")
     els.hfQuery = $("diffusion-hf-query")

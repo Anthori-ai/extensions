@@ -16,6 +16,8 @@ from pathlib import Path
 MODEL_EXTENSIONS = {".safetensors", ".gguf", ".ckpt"}
 DEFAULT_TIMEOUT_SECONDS = 600
 WINDOWS_FILE_RETRY_ATTEMPTS = 80
+CHECKPOINT_PACKAGE_OPERATIONS = ("text-to-image", "image-to-image")
+WAN22_T2V_PACKAGE_OPERATIONS = ("text-to-video",)
 WAN22_T2V_A14B_VARIANTS = {
     "q3_k_m": {
         "label": "Q3_K_M",
@@ -415,6 +417,17 @@ def installed_runtime_binary(state_dir, definition):
     return (candidates[0] if candidates else Path(executable_name("sd-cli"))), False, candidates
 
 
+def missing_runtime_reason(definition):
+    backend = normalize_string(definition.get("backend") if definition else "") or "cpu"
+    if backend == "cuda":
+        return "CUDA hardware may be present, but Anthori did not find a CUDA-built stable-diffusion.cpp sd-cli.exe."
+    if backend == "vulkan":
+        return "Anthori did not find a Vulkan-built stable-diffusion.cpp sd-cli.exe."
+    if backend == "metal":
+        return "Anthori did not find a Metal-built stable-diffusion.cpp sd-cli executable."
+    return "Anthori did not find a stable-diffusion.cpp sd-cli executable for this runtime."
+
+
 def model_roots(state_dir, request):
     roots = []
     for value in (
@@ -473,6 +486,70 @@ def model_role(path):
     if "controlnet" in parts or "control" in parts:
         return "controlnet"
     return "checkpoint"
+
+def checkpoint_package_id(reference):
+    return "checkpoint:{}".format(normalize_string(reference).replace("\\", "/").strip("/"))
+
+
+def bundle_package_id(bundle_id):
+    return "package:{}".format(normalize_string(bundle_id))
+
+
+def model_package_for_checkpoint(model):
+    relative = normalize_string(model.get("relativePath") or model.get("id") or model.get("name")).replace("\\", "/")
+    if not relative:
+        return None
+    return {
+        "id": checkpoint_package_id(relative),
+        "name": normalize_string(model.get("name") or relative),
+        "label": normalize_string(model.get("name") or relative),
+        "kind": "single-file",
+        "role": "model-package",
+        "recipe": "stable-diffusion.cpp/checkpoint",
+        "engine": "stable-diffusion.cpp",
+        "operations": list(CHECKPOINT_PACKAGE_OPERATIONS),
+        "installed": True,
+        "components": {
+            "checkpoint": relative,
+        },
+        "sizeBytes": model.get("sizeBytes", 0),
+    }
+
+
+def model_package_for_bundle(bundle):
+    bundle_id = normalize_string(bundle.get("id"))
+    if not bundle_id:
+        return None
+    operation = normalize_string(bundle.get("operation"))
+    operations = [operation] if operation else list(WAN22_T2V_PACKAGE_OPERATIONS)
+    return {
+        "id": bundle_package_id(bundle_id),
+        "name": normalize_string(bundle.get("name") or bundle_id),
+        "label": normalize_string(bundle.get("name") or bundle_id),
+        "kind": "package",
+        "role": "model-package",
+        "recipe": "stable-diffusion.cpp/wan2.2-t2v-a14b",
+        "engine": "stable-diffusion.cpp",
+        "operations": operations,
+        "installed": bundle.get("installed") is True,
+        "missing": list(bundle.get("missing") or []),
+        "components": dict(bundle.get("components") or {}),
+    }
+
+
+def build_model_packages(models, bundles):
+    packages = []
+    for model in models:
+        if model.get("role") != "checkpoint":
+            continue
+        package = model_package_for_checkpoint(model)
+        if package:
+            packages.append(package)
+    for bundle in bundles:
+        package = model_package_for_bundle(bundle)
+        if package:
+            packages.append(package)
+    return packages
 
 
 def list_models(state_dir, request):
@@ -537,6 +614,7 @@ def list_models(state_dir, request):
         "modelRoots": [str(root) for root in roots],
         "models": models,
         "bundles": bundles,
+        "modelPackages": build_model_packages(models, bundles),
     }
 
 
@@ -586,10 +664,6 @@ def runtime_status(state_dir, request):
                 selected_definition = definition
                 selected = path
                 break
-        if not selected_definition and definitions:
-            selected_definition = definitions[0]
-            selected, _available, candidates = installed_runtime_binary(state_dir, selected_definition)
-            selected = None
     if selected_definition and not candidates:
         candidates = runtime_definition_candidates(state_dir, selected_definition)
     runtime_id = normalize_runtime_id(selected_definition.get("id")) if selected_definition else requested_id
@@ -604,6 +678,7 @@ def runtime_status(state_dir, request):
         "paramsBackend": params_backend or backend or "cpu",
         "runtimePath": str(selected) if selected else "",
         "candidates": [str(path) for path in candidates],
+        "reason": "" if selected is not None else (missing_runtime_reason(selected_definition) if selected_definition else "No stable-diffusion.cpp sd-cli runtime was found."),
     }
     if selected:
         info.update(run_version(selected))
@@ -637,7 +712,9 @@ def list_runtimes(state_dir, request):
             "binaryPath": str(binary_path),
             "candidates": [str(path) for path in candidates],
             "sizeBytes": file_size(binary_path) if installed else 0,
-            "selected": runtime_id == selected_id,
+            "configured": runtime_id == selected_id,
+            "selected": installed and runtime_id == selected_id,
+            "reason": "" if installed else missing_runtime_reason(definition),
             "assets": [],
         })
     runtimes.sort(key=lambda item: (not item.get("selected"), not item.get("installed"), item.get("name", "")))
@@ -732,20 +809,23 @@ def parse_bundle_id(value):
     text = normalize_string(value).lower()
     if not text:
         return "", ""
-    if ":" in text:
-        bundle_id, variant_id = text.split(":", 1)
-    else:
-        bundle_id, variant_id = text, "q4_k_m"
+    prefix = "package:"
+    if not text.startswith(prefix):
+        return "", ""
+    text = text[len(prefix):]
+    if ":" not in text:
+        return "", ""
+    bundle_id, variant_id = text.split(":", 1)
     return bundle_id.strip(), variant_id.strip()
 
 
 def bundle_definition(value):
     bundle_id, variant_id = parse_bundle_id(value)
-    if bundle_id not in ("wan2.2-t2v-a14b", "wan22-t2v-a14b"):
+    if bundle_id != "wan2.2-t2v-a14b":
         return None
     variant = WAN22_T2V_A14B_VARIANTS.get(variant_id)
     if not variant:
-        raise ValueError("unknown Wan 2.2 bundle variant: {}".format(variant_id))
+        raise ValueError("unknown Wan 2.2 model package variant: {}".format(variant_id))
     return {
         "id": "wan2.2-t2v-a14b:{}".format(variant_id),
         "name": "Wan 2.2 T2V A14B - {}".format(variant.get("label") or variant_id),
@@ -754,8 +834,8 @@ def bundle_definition(value):
     }
 
 
-def resolve_bundle_components(state_dir, request, models):
-    definition = bundle_definition(request.get("bundleId") or request.get("modelBundle") or request.get("bundle"))
+def resolve_bundle_components(state_dir, request, models, bundle_value):
+    definition = bundle_definition(bundle_value)
     if not definition:
         return {}
     components = {}
@@ -775,11 +855,69 @@ def resolve_bundle_components(state_dir, request, models):
             missing.append(reference)
     if missing:
         raise ValueError("{} is not fully downloaded. Missing: {}".format(definition["name"], ", ".join(missing)))
-    components["bundleId"] = definition["id"]
-    components["bundleName"] = definition["name"]
-    components["bundleVariant"] = definition["variant"]
     return components
 
+
+def package_operation_allowed(package, operation):
+    operations = package.get("operations")
+    if not isinstance(operations, list) or len(operations) == 0:
+        return True
+    return operation in [normalize_string(entry) for entry in operations]
+
+
+def first_installed_model_package_id(packages, operation):
+    if not isinstance(packages, list):
+        return ""
+    for package in packages:
+        if not isinstance(package, dict):
+            continue
+        if package.get("installed") is False:
+            continue
+        if not package_operation_allowed(package, operation):
+            continue
+        package_id = normalize_string(package.get("id"))
+        if package_id:
+            return package_id
+    return ""
+
+
+def resolve_model_package_reference(state_dir, request, models, operation, packages=None):
+    package_id = normalize_string(request.get("modelPackageId"))
+    if not package_id:
+        package_id = first_installed_model_package_id(packages, operation)
+    if not package_id:
+        return {}
+    lowered = package_id.lower()
+    if lowered.startswith("package:"):
+        definition = bundle_definition(package_id)
+        if not definition:
+            raise ValueError("unknown model package: {}".format(package_id))
+        package = {
+            "modelPackageId": bundle_package_id(definition["id"]),
+            "modelPackageName": definition["name"],
+            "modelPackageRecipe": "stable-diffusion.cpp/wan2.2-t2v-a14b",
+            "operations": list(WAN22_T2V_PACKAGE_OPERATIONS),
+            "packageDefinitionId": definition["id"],
+        }
+        if not package_operation_allowed(package, operation):
+            raise ValueError("{} does not support {}".format(definition["name"], operation))
+        return package
+    if not lowered.startswith("checkpoint:"):
+        raise ValueError("unknown model package id: {}".format(package_id))
+    reference = package_id[len("checkpoint:"):]
+    if operation not in CHECKPOINT_PACKAGE_OPERATIONS:
+        raise ValueError("checkpoint model package does not support {}".format(operation))
+    model_path = resolve_model_path_value(state_dir, request, models, reference, "checkpoint")
+    if not model_path:
+        raise ValueError("model package is unavailable: {}".format(package_id))
+    package_name = Path(model_path).name
+    return {
+        "modelPackageId": checkpoint_package_id(reference),
+        "modelPackageName": package_name,
+        "modelPackageRecipe": "stable-diffusion.cpp/checkpoint",
+        "operations": list(CHECKPOINT_PACKAGE_OPERATIONS),
+        "checkpointPath": model_path,
+    }
 
 def split_text_list(value):
     if isinstance(value, list):
@@ -851,7 +989,7 @@ def normalize_lora_entries(request):
             entry = parse_lora_text_item(entry)
         if not isinstance(entry, dict):
             continue
-        path = normalize_string(entry.get("path") or entry.get("modelPath") or entry.get("id") or entry.get("file"))
+        path = normalize_string(entry.get("path") or entry.get("id") or entry.get("file"))
         if not path:
             continue
         raw_weight = entry.get("weight") if "weight" in entry else entry.get("multiplier")
@@ -985,13 +1123,18 @@ def generate_diffusion_media(state_dir, request, operation):
     media_kind = "video" if operation in ("text-to-video", "image-to-video") else "image"
     requires_input_image = operation in ("image-to-image", "image-to-video")
 
-    models = list_models(state_dir, request).get("models", [])
-    bundle_components = resolve_bundle_components(state_dir, request, models)
+    model_listing = list_models(state_dir, request)
+    models = model_listing.get("models", [])
+    model_packages = model_listing.get("modelPackages", [])
+    model_package = resolve_model_package_reference(state_dir, request, models, operation, model_packages)
+    if media_kind == "video" and not model_package:
+        raise ValueError("text-to-video model package is unavailable")
+    bundle_components = resolve_bundle_components(state_dir, request, models, model_package.get("modelPackageId"))
     low_noise_path = resolve_model_path_value(
         state_dir,
         request,
         models,
-        request.get("lowNoiseModelPath") or request.get("diffusionModelPath") or bundle_components.get("lowNoiseModelPath"),
+        request.get("lowNoiseModelPath") or bundle_components.get("lowNoiseModelPath"),
         "low_noise",
     )
     high_noise_path = resolve_model_path_value(
@@ -1001,7 +1144,7 @@ def generate_diffusion_media(state_dir, request, operation):
         request.get("highNoiseModelPath") or bundle_components.get("highNoiseModelPath"),
         "high_noise",
     )
-    model_path = resolve_model_path_value(state_dir, request, models, request.get("modelPath"), "checkpoint")
+    model_path = model_package.get("checkpointPath") or resolve_model_path_value(state_dir, request, models, "", "checkpoint")
     if not model_path and low_noise_path:
         model_path = low_noise_path
     if not model_path:
@@ -1013,7 +1156,7 @@ def generate_diffusion_media(state_dir, request, operation):
         state_dir,
         request,
         models,
-        request.get("t5xxlPath") or request.get("textEncoderPath") or bundle_components.get("t5xxlPath"),
+        request.get("t5xxlPath") or bundle_components.get("t5xxlPath"),
         "t5xxl",
     )
     clip_vision_path = resolve_model_path_value(state_dir, request, models, request.get("clipVisionPath"), "clip_vision")
@@ -1125,16 +1268,18 @@ def generate_diffusion_media(state_dir, request, operation):
     output_payload = {
         "width": width,
         "height": height,
-        "modelPath": model_path,
-        "bundleId": bundle_components.get("bundleId", ""),
-        "bundleName": bundle_components.get("bundleName", ""),
-        "bundleVariant": bundle_components.get("bundleVariant", ""),
-        "lowNoiseModelPath": low_noise_path,
-        "highNoiseModelPath": high_noise_path,
-        "vaePath": vae_path,
-        "taesdPath": taesd_path,
-        "t5xxlPath": t5xxl_path,
-        "clipVisionPath": clip_vision_path,
+        "modelPackageId": model_package.get("modelPackageId", ""),
+        "modelPackageName": model_package.get("modelPackageName", ""),
+        "modelPackageRecipe": model_package.get("modelPackageRecipe", ""),
+        "componentPaths": {
+            "checkpoint": model_path,
+            "lowNoise": low_noise_path,
+            "highNoise": high_noise_path,
+            "vae": vae_path,
+            "taesd": taesd_path,
+            "t5xxl": t5xxl_path,
+            "clipVision": clip_vision_path,
+        },
         "loras": loras,
         "runtimePath": runtime_path,
         "runtimeId": normalize_string(status.get("runtimeId")),

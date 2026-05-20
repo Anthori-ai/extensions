@@ -22,8 +22,7 @@ control:
               - config
               - negativePrompt
               - strength
-              - bundleId
-              - modelPath
+              - modelPackageId
               - loraPaths
               - generationConfig
               - width
@@ -50,13 +49,9 @@ control:
                 type: number
                 fieldRef: strength
                 description: Denoising strength from 0.0 to 1.0.
-              bundleId:
+              modelPackageId:
                 type: string
-                fieldRef: bundleId
-                description: Optional model bundle override.
-              modelPath:
-                type: string
-                fieldRef: modelPath
+                fieldRef: modelPackageId
                 description: Optional model override.
               loraPaths:
                 type: array
@@ -127,9 +122,10 @@ control:
       required: false
       targetCapability: media-preview
       description: Optional preview control invoked with the generated image output.
-    bundleId:
+    modelPackageId:
       type: string
       required: false
+      description: Optional model override.
     loraPaths:
       type: array
       items:
@@ -159,7 +155,7 @@ control:
         type: text
         supportsPin: true
         placeholder: Input image path
-      - key: modelPath
+      - key: modelPackageId
         label: Model
         type: select
         supportsPin: true
@@ -167,25 +163,9 @@ control:
         helpText: Optional model override. Leave blank to inherit the provider model.
         dataSource:
           kind: providerModels
-          role: checkpoint
+          role: model-package
+          operation: image-to-image
           emptyLabel: Inherit provider model
-      - key: bundleId
-        label: Bundle
-        type: select
-        supportsPin: true
-        placeholder: Inherit provider bundle
-        helpText: Optional bundle override. Use this for multi-file variants.
-        options:
-          - label: Wan 2.2 T2V A14B - Q3_K_M
-            value: wan2.2-t2v-a14b:q3_k_m
-          - label: Wan 2.2 T2V A14B - Q4_K_M
-            value: wan2.2-t2v-a14b:q4_k_m
-          - label: Wan 2.2 T2V A14B - Q5_K_M
-            value: wan2.2-t2v-a14b:q5_k_m
-          - label: Wan 2.2 T2V A14B - Q6_K
-            value: wan2.2-t2v-a14b:q6
-          - label: Wan 2.2 T2V A14B - Q8_0
-            value: wan2.2-t2v-a14b:q8
       - key: loraPaths
         label: LoRAs
         type: multiselect

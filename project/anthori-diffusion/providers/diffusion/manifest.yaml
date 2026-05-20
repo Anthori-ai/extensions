@@ -15,30 +15,14 @@ interfaces:
   - anthori.agent-video.v1
 configSchema:
   fields:
-    bundleId:
-      type: select
-      label: Bundle
-      placeholder: Select downloaded bundle
-      helpText: Optional multi-file model bundle. Use this for Wan 2.2 variants; leave blank when using a single checkpoint model.
-      options:
-        - label: Wan 2.2 T2V A14B - Q3_K_M
-          value: wan2.2-t2v-a14b:q3_k_m
-        - label: Wan 2.2 T2V A14B - Q4_K_M
-          value: wan2.2-t2v-a14b:q4_k_m
-        - label: Wan 2.2 T2V A14B - Q5_K_M
-          value: wan2.2-t2v-a14b:q5_k_m
-        - label: Wan 2.2 T2V A14B - Q6_K
-          value: wan2.2-t2v-a14b:q6
-        - label: Wan 2.2 T2V A14B - Q8_0
-          value: wan2.2-t2v-a14b:q8
-    modelPath:
+    modelPackageId:
       type: select
       label: Model
       placeholder: Select downloaded model
-      helpText: Optional single-file checkpoint model. Leave blank when using a bundle.
+      helpText: Select a downloaded diffusion model. Multi-file model packages are shown as models here.
       dataSource:
         kind: providerModels
-        role: checkpoint
+        role: model-package
         emptyLabel: Select downloaded model
     loraPath1:
       type: select

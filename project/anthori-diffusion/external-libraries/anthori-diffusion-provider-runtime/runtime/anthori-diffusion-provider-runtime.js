@@ -56,7 +56,7 @@ function mergeGenerationConfig(merged, value, label) {
 function hasLoraValue(value) {
   if (Array.isArray(value)) return value.some((entry) => hasLoraValue(entry));
   if (value && typeof value === "object") {
-    return Boolean(trim(value.path || value.modelPath || value.id || value.file));
+    return Boolean(trim(value.path || value.id || value.file));
   }
   return trim(value) !== "";
 }
@@ -133,24 +133,38 @@ function listModels(input, host) {
   const output = unwrapOutput(response);
   const seen = {};
   const items = [];
+  const packages = Array.isArray(output.modelPackages) ? output.modelPackages : [];
+  for (const modelPackage of packages) {
+    if (!modelPackage || typeof modelPackage !== "object") continue;
+    if (modelPackage.installed === false) continue;
+    const id = trim(modelPackage.id);
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    items.push({
+      id,
+      label: trim(modelPackage.label || modelPackage.name || id) || id,
+      role: "model-package",
+      operations: Array.isArray(modelPackage.operations) ? modelPackage.operations : [],
+    });
+  }
   const models = Array.isArray(output.models) ? output.models : [];
   for (const model of models) {
     if (!model || typeof model !== "object") continue;
     const role = trim(model.role);
-    if (role && role !== "checkpoint" && role !== "lora") continue;
+    if (role !== "lora") continue;
     const id = trim(model.id || model.relativePath || model.path);
     if (!id || seen[id]) continue;
     seen[id] = true;
     items.push({
       id,
       label: trim(model.name || model.relativePath || id) || id,
-      role: role || "checkpoint",
+      role,
     });
   }
   return {
     output: {
       items,
-      defaultModel: trim(config.modelPath),
+      defaultModel: trim(config.modelPackageId),
       reachable: true,
       reason: items.length > 0 ? "" : "No diffusion models found.",
     },
@@ -182,16 +196,10 @@ function renderImage(input, host) {
       imageBytes: output.imageBytes,
       width: output.width,
       height: output.height,
-      modelPath: trim(output.modelPath),
-      bundleId: trim(output.bundleId),
-      bundleName: trim(output.bundleName),
-      bundleVariant: trim(output.bundleVariant),
-      lowNoiseModelPath: trim(output.lowNoiseModelPath),
-      highNoiseModelPath: trim(output.highNoiseModelPath),
-      vaePath: trim(output.vaePath),
-      taesdPath: trim(output.taesdPath),
-      t5xxlPath: trim(output.t5xxlPath),
-      clipVisionPath: trim(output.clipVisionPath),
+      modelPackageId: trim(output.modelPackageId),
+      modelPackageName: trim(output.modelPackageName),
+      modelPackageRecipe: trim(output.modelPackageRecipe),
+      componentPaths: objectValue(output.componentPaths),
       loras: Array.isArray(output.loras) ? output.loras : [],
       runtimePath: trim(output.runtimePath),
       runtimeId: trim(output.runtimeId),
@@ -232,16 +240,10 @@ function renderVideo(input, host) {
       height: output.height,
       videoFrames: output.videoFrames,
       fps: output.fps,
-      modelPath: trim(output.modelPath),
-      bundleId: trim(output.bundleId),
-      bundleName: trim(output.bundleName),
-      bundleVariant: trim(output.bundleVariant),
-      lowNoiseModelPath: trim(output.lowNoiseModelPath),
-      highNoiseModelPath: trim(output.highNoiseModelPath),
-      vaePath: trim(output.vaePath),
-      taesdPath: trim(output.taesdPath),
-      t5xxlPath: trim(output.t5xxlPath),
-      clipVisionPath: trim(output.clipVisionPath),
+      modelPackageId: trim(output.modelPackageId),
+      modelPackageName: trim(output.modelPackageName),
+      modelPackageRecipe: trim(output.modelPackageRecipe),
+      componentPaths: objectValue(output.componentPaths),
       loras: Array.isArray(output.loras) ? output.loras : [],
       runtimePath: trim(output.runtimePath),
       runtimeId: trim(output.runtimeId),
